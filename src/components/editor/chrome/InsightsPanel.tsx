@@ -1,30 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
-import { analyzeArchitecture, type Finding, type Severity } from '@/lib/engine';
+import {
+  FINDING_HEADLINE,
+  SEVERITY_LABEL,
+  SEVERITY_ORDER,
+  analyzeArchitecture,
+  type Finding,
+} from '@/lib/engine';
 import { centerOn } from '@/lib/editor/viewport';
-import type { MessageKey } from '@/lib/i18n/messages';
 import { useEditor } from '../EditorProvider';
 import { CloseIcon } from '@/components/icons/ToolIcons';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
-
-/** The wording for each finding lives here, not in the engine. */
-const HEADLINE: Record<Finding['kind'], MessageKey> = {
-  cycle: 'insight.cycle',
-  singlePointOfFailure: 'insight.spof',
-  orphan: 'insight.orphan',
-  highCoupling: 'insight.coupling',
-  unowned: 'insight.unowned',
-  unauthenticatedData: 'insight.data',
-};
-
-const SEVERITY_LABEL: Record<Severity, MessageKey> = {
-  high: 'insight.high',
-  medium: 'insight.medium',
-  low: 'insight.low',
-};
-
-const ORDER: Severity[] = ['high', 'medium', 'low'];
 
 /**
  * What the diagram says about itself.
@@ -41,7 +28,7 @@ export function InsightsPanel({ size }: { size: { width: number; height: number 
 
   const groups = useMemo(
     () =>
-      ORDER.map((severity) => ({
+      SEVERITY_ORDER.map((severity) => ({
         severity,
         items: analysis.findings.filter((finding) => finding.severity === severity),
       })).filter((group) => group.items.length > 0),
@@ -107,7 +94,9 @@ export function InsightsPanel({ size }: { size: { width: number; height: number 
                 onClick={() => reveal(finding)}
               >
                 <span className={`insight-dot is-${finding.severity}`} aria-hidden="true" />
-                <span className="insight-text">{t(HEADLINE[finding.kind], finding.detail)}</span>
+                <span className="insight-text">
+                  {t(FINDING_HEADLINE[finding.kind], finding.detail)}
+                </span>
               </button>
             ))}
           </section>

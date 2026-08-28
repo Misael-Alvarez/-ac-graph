@@ -47,13 +47,16 @@ export interface ImportResult {
 }
 
 export class ImportError extends Error {
-  constructor(
-    message: string,
-    /** A message key, so the interface says this in the reader's language. */
-    readonly code: 'unreadable' | 'empty' | 'unrecognised',
-  ) {
+  /** A message key, so the interface says this in the reader's language. */
+  readonly code: 'unreadable' | 'empty' | 'unrecognised';
+
+  /* Assigned in the body rather than declared as a constructor parameter: a
+     parameter property is TypeScript-only sugar that Node's type stripping
+     refuses, and the CLI runs this very file under it. */
+  constructor(message: string, code: 'unreadable' | 'empty' | 'unrecognised') {
     super(message);
     this.name = 'ImportError';
+    this.code = code;
   }
 }
 

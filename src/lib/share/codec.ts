@@ -16,9 +16,12 @@ import { DiagramModelSchema, type DiagramModel } from '@/lib/domain';
 export const MAX_PAYLOAD_LENGTH = 6000;
 
 export class PayloadTooLargeError extends Error {
-  constructor(readonly length: number) {
+  readonly length: number;
+
+  constructor(length: number) {
     super(`The diagram is too large to fit in a link (${length} characters).`);
     this.name = 'PayloadTooLargeError';
+    this.length = length;
   }
 }
 

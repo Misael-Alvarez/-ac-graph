@@ -17,13 +17,17 @@ export interface GenerateResult {
 }
 
 export class AiError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly retryAfter?: number,
-  ) {
+  readonly code: string;
+  readonly retryAfter?: number;
+
+  /* Fields, not constructor parameter properties: those are TypeScript-only
+     sugar and Node's type stripping refuses them, which would keep this module
+     out of anything running the library outside a bundler. */
+  constructor(code: string, message: string, retryAfter?: number) {
     super(message);
     this.name = 'AiError';
+    this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 

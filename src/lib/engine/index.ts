@@ -11,4 +11,5 @@ export * from './cloud';
 export * from './markdown';
 export * from './align';
 export * from './analysis';
+export * from './wording';
 export * from './diff';
