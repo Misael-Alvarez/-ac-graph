@@ -138,7 +138,10 @@ export function addBoundary(
     variant,
     title: variant === 'outer' ? 'Cloud Environment' : 'Sub-boundary',
     note: '',
-    icon: { kind: 'symbol', key: 'gcp-cloudrun' },
+    /* No icon. A boundary is a place, not a service, and this defaulted to
+       `gcp-cloudrun` — so every zone anybody drew, and every namespace an import
+       produced, claimed to be Google Cloud Run and took its blue. The inspector
+       and the DSL's `service:` both set one where the reader means it. */
   };
   model.shapes.push(s);
   return s;

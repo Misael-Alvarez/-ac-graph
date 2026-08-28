@@ -32,10 +32,14 @@ export function StatusBar({ status }: { status: SaveStatus }) {
         <span className="statusbar-hint-text">{hint}</span>
       </span>
       <span className="statusbar-meta">
-        {t('status.shapes', { count: doc.model.shapes.length })}
+        {t(doc.model.shapes.length === 1 ? 'status.shapeOne' : 'status.shapes', {
+          count: doc.model.shapes.length,
+        })}
       </span>
       <span className="statusbar-meta is-secondary">
-        {t('status.connectors', { count: doc.model.connectors.length })}
+        {t(doc.model.connectors.length === 1 ? 'status.connectorOne' : 'status.connectors', {
+          count: doc.model.connectors.length,
+        })}
       </span>
       <span className={`statusbar-meta save-status is-${status}`}>
         <span className="save-dot" aria-hidden="true" />

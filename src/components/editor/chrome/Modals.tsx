@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { safeParseDiagramModel } from '@/lib/domain';
 import { TEMPLATES } from '@/lib/editor/templates';
 import { markdownToDiagram } from '@/lib/editor/markdownImport';
+import { ImportError, detectFormat, importArchitecture } from '@/lib/import';
+import { compile } from '@/lib/dsl';
+import type { MessageKey } from '@/lib/i18n/messages';
 import { CLOUD_TARGETS } from '@/data/cloudEquivalents';
 import { CATEGORY_SHORT_LABELS } from '@/data/serviceIcons';
 import { providerColors } from '@/lib/design/tokens';
@@ -160,23 +163,84 @@ CloudFront -> API Gateway : HTTPS
 API Gateway -> Lambda : invoke
 Lambda -> DynamoDB : R/W`;
 
+  /**
+   * What this is, worked out as it is typed.
+   *
+   * One box rather than four tabs: nobody arrives here unsure what they are
+   * holding, so asking them to classify it first is asking them to do the
+   * computer's job. Markdown is the fallback because it is the only one of the
+   * four with nothing to announce itself by — an outline is just prose.
+   */
+  const read = useMemo(() => {
+    if (!text.trim()) return null;
+    const format = detectFormat(text);
+    if (!format) {
+      return { format: 'markdown' as const, model: markdownToDiagram(text, ui.locale) };
+    }
+    try {
+      const result = importArchitecture(text, format, ui.locale);
+      const compiled = compile(result.document, ui.locale);
+      return { format, model: compiled.model, warnings: result.warnings };
+    } catch (caught) {
+      const code = caught instanceof ImportError ? caught.code : 'unrecognised';
+      return { format, error: `import.${code}` as MessageKey };
+    }
+  }, [text, ui.locale]);
+
+  const nodes = read?.model?.shapes.filter((s) => s.type === 'group').length ?? 0;
+
   return (
-    <Dialog title={t('modal.markdown.title')} onClose={onClose} closeLabel={t('modal.close')} wide>
-      <p className="dialog-subtitle">{t('modal.markdown.subtitle')}</p>
-      <pre className="dialog-example">{example}</pre>
+    <Dialog title={t('import.title')} onClose={onClose} closeLabel={t('modal.close')} wide>
+      <p className="dialog-subtitle">{t('import.subtitle')}</p>
       <textarea
         className="dialog-textarea"
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={example}
-        rows={10}
+        rows={12}
       />
+
+      {/* What it made of the paste, before the reader commits to replacing their
+          diagram with it. */}
+      <div className="import-read">
+        {!read && <span className="import-hint">{t('import.detecting')}</span>}
+        {read && (
+          <>
+            <span className="chip is-active">
+              {t(`import.detected.${read.format}` as MessageKey)}
+            </span>
+            {read.error ? (
+              <span className="import-error">{t(read.error)}</span>
+            ) : (
+              <span className="import-hint">
+                {t('import.found', { nodes, edges: read.model?.connectors.length ?? 0 })}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+      {read?.warnings?.length ? (
+        <details className="import-warnings">
+          <summary>
+            {t('import.warnings')} ({read.warnings.length})
+          </summary>
+          <ul>
+            {read.warnings.map((warning, i) => (
+              <li key={`${warning.kind}-${i}`}>
+                {t(`import.warn.${warning.kind}` as MessageKey, warning.values)}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
       <div className="dialog-actions">
         <label className="button">
           {t('modal.markdown.chooseFile')}
           <input
             type="file"
-            accept=".md,.txt"
+            accept=".md,.txt,.tf,.tfplan,.json,.yaml,.yml"
             hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -195,10 +259,9 @@ Lambda -> DynamoDB : R/W`;
         <button
           type="button"
           className="button is-primary"
-          disabled={!text.trim()}
+          disabled={!read?.model || nodes === 0}
           onClick={() => {
-            const model = markdownToDiagram(text, ui.locale);
-            const parsed = safeParseDiagramModel(model);
+            const parsed = safeParseDiagramModel(read?.model);
             if (!parsed.success) {
               dispatchUi({ type: 'toast', message: t('toast.invalidFile') });
               return;
@@ -208,7 +271,7 @@ Lambda -> DynamoDB : R/W`;
             onClose();
           }}
         >
-          {t('modal.markdown.import')}
+          {t('import.action')}
         </button>
       </div>
     </Dialog>

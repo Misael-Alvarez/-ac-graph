@@ -238,3 +238,14 @@ describe('addItemToContainer', () => {
     expect(addItemToContainer(m, g.id)).toBeNull();
   });
 });
+
+describe('a new boundary', () => {
+  it('claims no service, being a place rather than a thing', () => {
+    // It defaulted to `gcp-cloudrun`, so every zone drawn on the canvas and
+    // every namespace an import produced announced itself as Google Cloud Run
+    // and took its blue.
+    const model = createEmptyModel();
+    expect(addBoundary(model, 0, 0, 'outer').icon).toBeUndefined();
+    expect(addBoundary(model, 0, 0, 'sub').icon).toBeUndefined();
+  });
+});

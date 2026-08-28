@@ -139,6 +139,35 @@ const en = {
   'inspector.type.container': 'Frame',
   'inspector.type.item': 'Service',
 
+  'import.clients': 'Clients',
+  'import.operationOne': '{count} operation',
+  'import.operationMany': '{count} operations',
+  'import.warn.noResources': 'The plan declares no resources.',
+  'import.warn.readFromHcl':
+    'Read from HCL, so counts, conditionals and for_each are not reflected.',
+  'import.warn.unknownResourceTypes':
+    'Drawn as plain servers, being resource types this does not know: {types}.',
+  'import.warn.unnamed': 'A {what} has no name and was skipped.',
+  'import.warn.unknownKind': 'Kind "{what}" is not one this knows; drawn as a plain server.',
+  'import.warn.serviceSelectsNothing': 'Service "{name}" selects no workload in this file.',
+  'import.warn.ingressMissingService': 'An Ingress points at a Service "{name}" this file lacks.',
+  'import.warn.noOperations':
+    'The description declares no operations, so only the API itself is drawn.',
+  'import.title': 'Import an architecture',
+  'import.subtitle':
+    'Paste a Terraform plan, Kubernetes manifests, an OpenAPI description or a Markdown outline. It works out which.',
+  'import.detected.terraform': 'Terraform',
+  'import.detected.kubernetes': 'Kubernetes',
+  'import.detected.openapi': 'OpenAPI',
+  'import.detected.markdown': 'Markdown outline',
+  'import.detecting': 'Waiting for something to read',
+  'import.unrecognised': 'Not something this can read yet.',
+  'import.unreadable': 'That will not parse.',
+  'import.empty': 'Nothing to import.',
+  'import.found': '{nodes} services and {edges} connections',
+  'import.warnings': 'Worth knowing',
+  'import.action': 'Import',
+
   'canvas.services': '{count} services',
   'breadcrumb.label': 'Where you are',
   'breadcrumb.root': 'Everything',
@@ -182,7 +211,9 @@ const en = {
   'status.pending': 'Unsaved changes',
   'status.saving': 'Saving…',
   'status.error': 'Could not save',
+  'status.shapeOne': '{count} shape',
   'status.shapes': '{count} shapes',
+  'status.connectorOne': '{count} connection',
   'status.connectors': '{count} connections',
 
   'hint.select': 'Click to select, drag to move, Shift+click to add to the selection',
@@ -440,6 +471,38 @@ const es: Record<MessageKey, string> = {
   'inspector.type.container': 'Marco',
   'inspector.type.item': 'Servicio',
 
+  'import.clients': 'Clientes',
+  'import.operationOne': '{count} operación',
+  'import.operationMany': '{count} operaciones',
+  'import.warn.noResources': 'El plan no declara ningún recurso.',
+  'import.warn.readFromHcl':
+    'Leído del HCL, así que count, los condicionales y for_each no se reflejan.',
+  'import.warn.unknownResourceTypes':
+    'Dibujados como servidores genéricos, por ser tipos de recurso que no conoce: {types}.',
+  'import.warn.unnamed': 'Un {what} no tiene nombre y se omitió.',
+  'import.warn.unknownKind':
+    'El kind "{what}" no es uno que conozca; dibujado como servidor genérico.',
+  'import.warn.serviceSelectsNothing':
+    'El Service "{name}" no selecciona ninguna carga de trabajo en este archivo.',
+  'import.warn.ingressMissingService':
+    'Un Ingress apunta a un Service "{name}" que este archivo no tiene.',
+  'import.warn.noOperations':
+    'La descripción no declara operaciones, así que sólo se dibuja la API.',
+  'import.title': 'Importar una arquitectura',
+  'import.subtitle':
+    'Pega un plan de Terraform, manifests de Kubernetes, una descripción OpenAPI o un esquema en Markdown. Él deduce cuál es.',
+  'import.detected.terraform': 'Terraform',
+  'import.detected.kubernetes': 'Kubernetes',
+  'import.detected.openapi': 'OpenAPI',
+  'import.detected.markdown': 'Esquema en Markdown',
+  'import.detecting': 'Esperando algo que leer',
+  'import.unrecognised': 'Esto todavía no lo sabe leer.',
+  'import.unreadable': 'Esto no se puede parsear.',
+  'import.empty': 'No hay nada que importar.',
+  'import.found': '{nodes} servicios y {edges} conexiones',
+  'import.warnings': 'Conviene saberlo',
+  'import.action': 'Importar',
+
   'canvas.services': '{count} servicios',
   'breadcrumb.label': 'Dónde estás',
   'breadcrumb.root': 'Todo',
@@ -484,7 +547,9 @@ const es: Record<MessageKey, string> = {
   'status.pending': 'Sin guardar',
   'status.saving': 'Guardando…',
   'status.error': 'No se pudo guardar',
+  'status.shapeOne': '{count} forma',
   'status.shapes': '{count} formas',
+  'status.connectorOne': '{count} conexión',
   'status.connectors': '{count} conexiones',
 
   'hint.select':
