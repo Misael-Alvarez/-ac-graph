@@ -3,6 +3,8 @@ import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { PROVIDER_COLORS, providerOf } from '@/lib/editor/providers';
 import { matchServiceLabel } from './services';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
+import type { Locale } from '@/lib/i18n/messages';
 
 /**
  * Mermaid interoperability.
@@ -124,7 +126,7 @@ export interface MermaidImport {
 }
 
 /** Reads a Mermaid flowchart into a diagram, matching labels against the catalogue. */
-export function fromMermaid(source: string): MermaidImport {
+export function fromMermaid(source: string, locale: Locale = 'en'): MermaidImport {
   const labels = new Map<string, string>();
   const annotatedServices = new Map<string, string>();
   const order: string[] = [];
@@ -206,7 +208,7 @@ export function fromMermaid(source: string): MermaidImport {
     if (!item) return;
     const service = SERVICE_ICONS.find((s) => s.key === serviceKey);
     item.title = text;
-    item.subtitle = service?.description ?? '';
+    item.subtitle = serviceDescription(service, locale);
     item.icon = { kind: 'symbol', key: serviceKey };
     itemIdByNode.set(id, item.id);
   });

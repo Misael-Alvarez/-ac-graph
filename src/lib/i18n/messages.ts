@@ -131,6 +131,24 @@ const en = {
   'inspector.noEquivalents': 'No equivalent in another cloud',
   'inspector.moveUp': 'Move up',
   'inspector.moveDown': 'Move down',
+  // The shape kind shown beside the panel title. The domain's own words
+  // ('group', 'item') are identifiers, not copy, and must not reach the screen.
+  'inspector.type.boundary': 'Cloud boundary',
+  'inspector.type.subboundary': 'Sub-boundary',
+  'inspector.type.group': 'Service group',
+  'inspector.type.container': 'Frame',
+  'inspector.type.item': 'Service',
+
+  'template.serverless.name': 'Serverless API',
+  'template.serverless.description': 'CloudFront → API Gateway → Lambda → DynamoDB/S3',
+  'template.microservices.name': 'Microservices',
+  'template.microservices.description': 'Load balancer → services → database, cache and queue',
+  'template.data-pipeline.name': 'Data Pipeline',
+  'template.data-pipeline.description': 'S3 → Glue → Redshift/Athena → QuickSight',
+  'template.ml-pipeline.name': 'ML Pipeline',
+  'template.ml-pipeline.description': 'Data lake → SageMaker/Bedrock → API',
+  'template.three-tier.name': '3-Tier App',
+  'template.three-tier.description': 'CDN → web and app tiers → database, cache and storage',
 
   'canvas.empty.title': 'Start your architecture',
   'canvas.empty.subtitle':
@@ -398,6 +416,23 @@ const es: Record<MessageKey, string> = {
   'inspector.noEquivalents': 'Sin equivalente en otra nube',
   'inspector.moveUp': 'Subir',
   'inspector.moveDown': 'Bajar',
+  'inspector.type.boundary': 'Frontera de nube',
+  'inspector.type.subboundary': 'Subfrontera',
+  'inspector.type.group': 'Grupo de servicios',
+  'inspector.type.container': 'Marco',
+  'inspector.type.item': 'Servicio',
+
+  'template.serverless.name': 'API serverless',
+  'template.serverless.description': 'CloudFront → API Gateway → Lambda → DynamoDB/S3',
+  'template.microservices.name': 'Microservicios',
+  'template.microservices.description': 'Balanceador → servicios → base de datos, caché y cola',
+  'template.data-pipeline.name': 'Pipeline de datos',
+  'template.data-pipeline.description': 'S3 → Glue → Redshift/Athena → QuickSight',
+  'template.ml-pipeline.name': 'Pipeline de ML',
+  'template.ml-pipeline.description': 'Lago de datos → SageMaker/Bedrock → API',
+  'template.three-tier.name': 'App de 3 capas',
+  'template.three-tier.description':
+    'CDN → capas web y de aplicación → base de datos, caché y almacenamiento',
 
   'canvas.empty.title': 'Empieza tu arquitectura',
   'canvas.empty.subtitle':

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_SHORT_LABELS } from '@/data/serviceIcons';
 import { ServiceSprite } from '@/components/icons/ServiceSprite';
 import { SERVICES_PER_CLOUD, queryCatalog } from '@/lib/editor/catalog';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
 import { useEditor } from '../EditorProvider';
 import { useCommands } from '../hooks/useCommands';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
@@ -21,7 +22,7 @@ const CLOUD_ORDER = ['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion', 'generic'] as 
  * inside it, which is the shape the catalogue actually has.
  */
 export function ServiceBrowser() {
-  const { dispatchUi, t } = useEditor();
+  const { ui, dispatchUi, t } = useEditor();
   const commands = useCommands();
   useReturnFocusToCanvas();
 
@@ -29,7 +30,10 @@ export function ServiceBrowser() {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const catalog = useMemo(() => queryCatalog({ cloud, query }), [cloud, query]);
+  const catalog = useMemo(
+    () => queryCatalog({ cloud, query, locale: ui.locale }),
+    [cloud, query, ui.locale],
+  );
 
   const toggleSection = (id: string) =>
     setCollapsed((current) => {
@@ -131,7 +135,7 @@ export function ServiceBrowser() {
                       <button
                         type="button"
                         className="browser-tile"
-                        title={service.description || service.label}
+                        title={serviceDescription(service, ui.locale) || service.label}
                         draggable
                         onDragStart={(e) => {
                           e.dataTransfer.setData('text/plain', service.key);

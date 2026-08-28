@@ -77,6 +77,7 @@ export function AiDialog() {
           hasDiagram ? 'modify' : 'generate',
           text,
           hasDiagram ? doc.model : undefined,
+          ui.locale,
           controller.signal,
         );
         dispatch({ type: 'replaceModel', model: result.model });
@@ -94,7 +95,7 @@ export function AiDialog() {
     } finally {
       if (!controller.signal.aborted) setBusy(false);
     }
-  }, [prompt, busy, mode, doc.model, hasDiagram, dispatch, dispatchUi, t]);
+  }, [prompt, busy, mode, doc.model, hasDiagram, ui.locale, dispatch, dispatchUi, t]);
 
   if (ui.modal !== 'ai') return null;
 

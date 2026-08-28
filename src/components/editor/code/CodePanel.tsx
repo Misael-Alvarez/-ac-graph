@@ -33,7 +33,7 @@ type Format = 'dsl' | 'mermaid';
  */
 export function CodePanel() {
   useReturnFocusToCanvas();
-  const { doc, dispatch, dispatchUi, t } = useEditor();
+  const { doc, ui, dispatch, dispatchUi, t } = useEditor();
   const [source, setSource] = useState(() => serializeDsl(doc.model));
   const [focused, setFocused] = useState(false);
   const [format, setFormat] = useState<Format>('dsl');
@@ -70,11 +70,11 @@ export function CodePanel() {
   /* Text to diagram, debounced, only while the editor holds focus. */
   const compile = useCallback(
     (text: string) => {
-      const result = parseDsl(text);
+      const result = parseDsl(text, ui.locale);
       setDiagnostics(result.diagnostics);
       if (result.model) dispatch({ type: 'replaceModel', model: result.model });
     },
-    [dispatch],
+    [dispatch, ui.locale],
   );
 
   const onChange = useCallback(
@@ -161,6 +161,7 @@ export function CodePanel() {
           onFocusChange={setFocused}
           diagnostics={diagnosticsForView}
           cloud={cloud}
+          locale={ui.locale}
         />
       </div>
 

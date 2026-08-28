@@ -1,6 +1,7 @@
 import type { Connector, DiagramModel, Shape } from '@/lib/domain';
 import type { AlignEdge, ClipboardPayload, DistributeAxis } from '@/lib/engine';
 import type { CloudTarget } from '@/data/cloudEquivalents';
+import type { Locale } from '@/lib/i18n/messages';
 
 /**
  * Domain-level editor actions.
@@ -39,8 +40,11 @@ export type EditorAction =
   | { type: 'paste'; payload: ClipboardPayload; offsetX: number; offsetY: number }
   | { type: 'duplicateShapes'; ids: string[] }
   | { type: 'autoLayout' }
-  | { type: 'switchCloud'; target: CloudTarget }
-  | { type: 'switchShapeCloud'; id: string; target: CloudTarget }
+  /* `locale` because retargeting rewrites each shape's subtitle from the
+     catalogue, and a subtitle is content: it must arrive in the author's
+     language, not in whatever the library defaults to. */
+  | { type: 'switchCloud'; target: CloudTarget; locale: Locale }
+  | { type: 'switchShapeCloud'; id: string; target: CloudTarget; locale: Locale }
   | { type: 'undo' }
   | { type: 'redo' };
 

@@ -64,7 +64,12 @@ describe('undo / redo', () => {
     const before = getShape(state.model, groupId)!;
     const origin = { x: before.x, y: before.y };
 
-    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 250, dy: -60 });
+    const moved = run(state, {
+      type: 'moveShapes',
+      ids: [groupId],
+      dx: 250,
+      dy: -60,
+    });
     expect(getShape(moved.model, groupId)).toMatchObject({ x: origin.x + 250, y: origin.y - 60 });
 
     const undone = run(moved, { type: 'undo' });
@@ -74,7 +79,12 @@ describe('undo / redo', () => {
 
   it('redoes what it just undid', () => {
     const { state, groupId } = withOneGroup();
-    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 100, dy: 100 });
+    const moved = run(state, {
+      type: 'moveShapes',
+      ids: [groupId],
+      dx: 100,
+      dy: 100,
+    });
     const redone = run(moved, { type: 'undo' }, { type: 'redo' });
     expect(getShape(redone.model, groupId)).toMatchObject(getShape(moved.model, groupId)!);
   });
@@ -108,7 +118,12 @@ describe('undo / redo', () => {
     const undone = run(moved, { type: 'undo' });
     expect(canRedo(undone)).toBe(true);
 
-    const diverged = run(undone, { type: 'moveShapes', ids: [groupId], dx: -50, dy: 0 });
+    const diverged = run(undone, {
+      type: 'moveShapes',
+      ids: [groupId],
+      dx: -50,
+      dy: 0,
+    });
     expect(canRedo(diverged)).toBe(false);
   });
 
@@ -194,7 +209,12 @@ describe('moveShapes', () => {
     );
     const untouchedBefore = structuredClone(state.model.connectors[1].waypoints);
 
-    const moved = run(state, { type: 'moveShapes', ids: [items[0].parentId!], dx: 0, dy: 120 });
+    const moved = run(state, {
+      type: 'moveShapes',
+      ids: [items[0].parentId!],
+      dx: 0,
+      dy: 120,
+    });
 
     expect(moved.model.connectors[0].waypoints).not.toEqual(state.model.connectors[0].waypoints);
     expect(moved.model.connectors[1].waypoints).toEqual(untouchedBefore);
@@ -302,7 +322,7 @@ describe('cloud switching', () => {
       service: { key: 'aws-lambda', label: 'Lambda', category: 'aws' },
     });
 
-    const switched = run(state, { type: 'switchCloud', target: 'gcp' });
+    const switched = run(state, { type: 'switchCloud', target: 'gcp', locale: 'en' });
     expect(switched.model.shapes.find((s) => s.type === 'item')!.icon!.key).toBe(
       'gcp-cloudfunctions',
     );
@@ -317,7 +337,7 @@ describe('cloud switching', () => {
       y: 0,
       service: { key: 'aws-neptune', label: 'Neptune', category: 'aws' },
     });
-    const switched = run(state, { type: 'switchCloud', target: 'gcp' });
+    const switched = run(state, { type: 'switchCloud', target: 'gcp', locale: 'en' });
     expect(switched.lastCloudSwitch).toMatchObject({ switched: 0, skipped: ['Neptune'] });
   });
 
@@ -331,7 +351,12 @@ describe('cloud switching', () => {
     });
     const item = state.model.shapes.find((s) => s.type === 'item')!;
 
-    const switched = run(state, { type: 'switchShapeCloud', id: item.id, target: 'azure' });
+    const switched = run(state, {
+      type: 'switchShapeCloud',
+      id: item.id,
+      target: 'azure',
+      locale: 'en',
+    });
     expect(getShape(switched.model, item.id)!.icon!.key).toBe('az-blob');
   });
 
@@ -343,7 +368,7 @@ describe('cloud switching', () => {
       y: 0,
       service: { key: 'aws-lambda', label: 'Lambda', category: 'aws' },
     });
-    state = run(state, { type: 'switchCloud', target: 'gcp' });
+    state = run(state, { type: 'switchCloud', target: 'gcp', locale: 'en' });
     expect(state.lastCloudSwitch).not.toBeNull();
 
     state = run(state, { type: 'addGroup', x: 500, y: 0 });
@@ -365,7 +390,12 @@ describe('immutability', () => {
     const untouched = state.model.shapes.find((s) => s.type === 'boundary' || s.type === 'group')!;
     const otherGroupId = state.model.shapes.filter((s) => s.type === 'group')[1].id;
 
-    const moved = run(state, { type: 'moveShapes', ids: [otherGroupId], dx: 10, dy: 0 });
+    const moved = run(state, {
+      type: 'moveShapes',
+      ids: [otherGroupId],
+      dx: 10,
+      dy: 0,
+    });
     // Structural sharing is what keeps large diagrams cheap to update.
     expect(moved.model.shapes.find((s) => s.id === untouched.id)).toBe(untouched);
   });

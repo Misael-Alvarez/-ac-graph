@@ -1,4 +1,6 @@
 import { SERVICE_ICONS } from '@/data/serviceIcons';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
+import type { Locale } from '@/lib/i18n/messages';
 
 /**
  * The clouds a document can default to.
@@ -137,11 +139,11 @@ export function matchServiceLabel(text: string, cloud?: CloudPrefix): string | n
 }
 
 /** Completion candidates for the code editor. */
-export function serviceCompletions(cloud?: CloudPrefix) {
+export function serviceCompletions(cloud?: CloudPrefix, locale: Locale = 'en') {
   return SERVICE_ICONS.map((service) => ({
     label: shortenService(service.key, cloud),
     detail: service.label,
-    info: service.description,
+    info: serviceDescription(service, locale) || undefined,
     category: service.category,
   }));
 }

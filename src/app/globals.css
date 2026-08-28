@@ -842,10 +842,11 @@ kbd {
   z-index: 1;
 }
 
+/* No `text-transform`: the badge holds translated copy now, and capitalising
+   it would title-case a Spanish phrase into "Frontera De Nube". */
 .inspector-type {
   font-size: var(--text-xs);
   font-weight: 500;
-  text-transform: capitalize;
   color: var(--text-tertiary);
 }
 

@@ -71,7 +71,7 @@ export function Modals() {
               className="template-card"
               style={{ '--i': index } as React.CSSProperties}
               onClick={() => {
-                dispatch({ type: 'load', model: template.build() });
+                dispatch({ type: 'load', model: template.build(ui.locale) });
                 dispatchUi({ type: 'clearSelection' });
                 close();
               }}
@@ -80,8 +80,8 @@ export function Modals() {
                 <Glyph name={template.icon} size={20} />
               </span>
               <span>
-                <b>{template.name}</b>
-                <small>{template.description}</small>
+                <b>{t(template.nameKey)}</b>
+                <small>{t(template.descriptionKey)}</small>
               </span>
             </button>
           ))}
@@ -106,7 +106,7 @@ export function Modals() {
               className="cloud-card"
               style={{ '--chip-color': providerColors[target] } as React.CSSProperties}
               onClick={() => {
-                dispatch({ type: 'switchCloud', target });
+                dispatch({ type: 'switchCloud', target, locale: ui.locale });
                 close();
               }}
             >
@@ -146,7 +146,7 @@ export function Modals() {
 }
 
 function MarkdownDialog({ onClose }: { onClose: () => void }) {
-  const { dispatch, dispatchUi, t } = useEditor();
+  const { ui, dispatch, dispatchUi, t } = useEditor();
   const [text, setText] = useState('');
 
   const example = `# Architecture
@@ -197,7 +197,7 @@ Lambda -> DynamoDB : R/W`;
           className="button is-primary"
           disabled={!text.trim()}
           onClick={() => {
-            const model = markdownToDiagram(text);
+            const model = markdownToDiagram(text, ui.locale);
             const parsed = safeParseDiagramModel(model);
             if (!parsed.success) {
               dispatchUi({ type: 'toast', message: t('toast.invalidFile') });

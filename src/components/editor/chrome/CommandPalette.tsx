@@ -6,6 +6,7 @@ import { ServiceSprite } from '@/components/icons/ServiceSprite';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { scoreMatch } from '@/lib/editor/search';
 import { useEditor } from '../EditorProvider';
+import { serviceDescription, serviceDescriptions } from '@/lib/i18n/serviceCopy';
 import { useCommands, type Command } from '../hooks/useCommands';
 import { SearchIcon } from '@/components/icons/ToolIcons';
 import { Glyph } from '@/components/icons/Glyph';
@@ -30,7 +31,7 @@ export function CommandPalette() {
 }
 
 function PaletteContents() {
-  const { dispatchUi, t } = useEditor();
+  const { ui, dispatchUi, t } = useEditor();
   const commands = useCommands();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -58,7 +59,9 @@ function PaletteContents() {
       rank: Math.max(
         scoreMatch(s.label, needle),
         scoreMatch(s.key, needle),
-        scoreMatch(s.description ?? '', needle) * 0.5,
+        // Both languages, so the palette answers to whichever the reader
+        // happens to type — see serviceCopy's note on ranking.
+        ...serviceDescriptions(s).map((text) => scoreMatch(text, needle) * 0.5),
       ),
     }))
       .filter((r) => r.rank > 0)
@@ -68,12 +71,12 @@ function PaletteContents() {
         kind: 'service',
         key: r.service.key,
         label: r.service.label,
-        description: r.service.description,
+        description: serviceDescription(r.service, ui.locale),
         category: r.service.category,
       }));
 
     return [...matchedCommands, ...matchedServices];
-  }, [commands, query]);
+  }, [commands, query, ui.locale]);
 
   // Clamped during render: a shrinking result list must never point past the end.
   const active = Math.min(activeIndex, Math.max(rows.length - 1, 0));

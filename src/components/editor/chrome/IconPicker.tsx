@@ -10,7 +10,8 @@ import {
 import { ServiceSprite } from '@/components/icons/ServiceSprite';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { SERVICES_PER_CLOUD, queryCatalog } from '@/lib/editor/catalog';
-import type { MessageKey } from '@/lib/i18n/messages';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
+import type { Locale, MessageKey } from '@/lib/i18n/messages';
 import { ChevronDownIcon, CloseIcon, SearchIcon } from '@/components/icons/ToolIcons';
 
 /** Clouds in the order they are offered, matching the service browser. */
@@ -78,6 +79,8 @@ interface IconPickerProps {
   value?: string;
   onChange: (key: string) => void;
   t: Translate;
+  /** Names the sections and the per-tile tooltips. */
+  locale: Locale;
 }
 
 /**
@@ -91,7 +94,7 @@ interface IconPickerProps {
  * wants a readable list of names, while picking an icon wants to see the
  * icons, so this one is a grid.
  */
-export function IconPicker({ value, onChange, t }: IconPickerProps) {
+export function IconPicker({ value, onChange, t, locale }: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -134,6 +137,7 @@ export function IconPicker({ value, onChange, t }: IconPickerProps) {
           startCloud={current?.category ?? 'aws'}
           triggerRef={triggerRef}
           t={t}
+          locale={locale}
           onPick={(key) => {
             onChange(key);
             setOpen(false);
@@ -154,6 +158,7 @@ function Popover({
   startCloud,
   triggerRef,
   t,
+  locale,
   onPick,
   onClose,
 }: {
@@ -161,6 +166,7 @@ function Popover({
   startCloud: string;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   t: Translate;
+  locale: Locale;
   onPick: (key: string) => void;
   onClose: () => void;
 }) {
@@ -220,7 +226,7 @@ function Popover({
     };
   }, [onClose, triggerRef]);
 
-  const catalog = useMemo(() => queryCatalog({ cloud, query }), [cloud, query]);
+  const catalog = useMemo(() => queryCatalog({ cloud, query, locale }), [cloud, query, locale]);
 
   const toggleSection = (id: string) =>
     setCollapsed((current) => {
@@ -323,7 +329,7 @@ function Popover({
                         title={
                           catalog.searching
                             ? `${service.label} · ${CATEGORY_LABELS[service.category]}`
-                            : service.description || service.label
+                            : serviceDescription(service, locale) || service.label
                         }
                         onClick={() => onPick(service.key)}
                       >

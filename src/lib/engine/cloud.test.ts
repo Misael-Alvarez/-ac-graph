@@ -100,3 +100,25 @@ describe('switchShapeCloud', () => {
     expect(switchShapeCloud(m, 'ghost', 'aws')).toBe(false);
   });
 });
+
+describe("retargeting writes the new subtitle in the author's language", () => {
+  const lambda = () => modelWith([{ id: 'a', icon: { kind: 'symbol', key: 'aws-lambda' } }]);
+
+  it('rewrites into Spanish when asked', () => {
+    const m = lambda();
+    switchCloud(m, 'gcp', 'es');
+    expect(m.shapes[0].subtitle).toBe('Funciones serverless');
+  });
+
+  it('still defaults to English', () => {
+    const m = lambda();
+    switchCloud(m, 'gcp');
+    expect(m.shapes[0].subtitle).toBe('Serverless functions');
+  });
+
+  it('does the same for a single shape', () => {
+    const m = lambda();
+    switchShapeCloud(m, 'a', 'gcp', 'es');
+    expect(m.shapes[0].subtitle).toBe('Funciones serverless');
+  });
+});

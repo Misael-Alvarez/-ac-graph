@@ -35,7 +35,7 @@ test('groups a cloud into functional sections rather than one long list', async 
   await page.keyboard.press('ControlOrMeta+b');
   const sections = page.locator('.browser-section-header');
   await expect(await sections.count()).toBeGreaterThan(5);
-  await expect(sections.first()).toContainText('Compute');
+  await expect(sections.first()).toContainText('Cómputo');
 });
 
 test('switching cloud changes the services shown', async ({ page }) => {

@@ -47,8 +47,8 @@ describe('encodeDiagram / decodeDiagram', () => {
 
   it('compresses well enough for every built-in template to fit', async () => {
     for (const template of TEMPLATES) {
-      const payload = await encodeDiagram(template.build());
-      expect(payload.length, template.name).toBeLessThan(MAX_PAYLOAD_LENGTH);
+      const payload = await encodeDiagram(template.build('en'));
+      expect(payload.length, template.id).toBeLessThan(MAX_PAYLOAD_LENGTH);
     }
   });
 
@@ -57,7 +57,7 @@ describe('encodeDiagram / decodeDiagram', () => {
       (await encodeDiagram(m)).length / JSON.stringify(m).length;
 
     const small = await ratio(sample);
-    const large = await ratio(TEMPLATES[1].build());
+    const large = await ratio(TEMPLATES[1].build('en'));
     expect(small).toBeLessThan(0.5);
     expect(large).toBeLessThan(small);
   });

@@ -9,6 +9,7 @@ import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { toCanvas, viewportTransform, visibleBox, zoomAt } from '@/lib/editor/viewport';
 import { isTextEntryTarget } from '@/lib/editor/domFocus';
 import { useEditor } from '../EditorProvider';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
 import { usePointerTools } from '../hooks/usePointerTools';
 import { Defs } from './Defs';
 import { DiagramScene } from './DiagramScene';
@@ -218,12 +219,12 @@ export function Canvas() {
         service: {
           key: service.key,
           label: service.label,
-          description: service.description,
+          description: serviceDescription(service, ui.locale),
           category: service.category,
         },
       });
     },
-    [ui.viewport, dispatch, snap, toLocal],
+    [ui.viewport, ui.locale, dispatch, snap, toLocal],
   );
 
   const interactionFor = useCallback(

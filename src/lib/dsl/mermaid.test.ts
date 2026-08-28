@@ -151,14 +151,14 @@ describe('mermaid round trip', () => {
 
   it('preserves the services of every template', () => {
     for (const template of TEMPLATES) {
-      const original = template.build();
+      const original = template.build('en');
       const back = fromMermaid(toMermaid(original)).model;
       const keys = (m: typeof original) =>
         m.shapes
           .filter((s) => s.type === 'item')
           .map((s) => s.icon?.key)
           .sort();
-      expect(keys(back), template.name).toEqual(keys(original));
+      expect(keys(back), template.id).toEqual(keys(original));
     }
   });
 });

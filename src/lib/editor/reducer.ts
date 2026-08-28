@@ -222,12 +222,12 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     }
 
     case 'switchShapeCloud': {
-      E.switchShapeCloud(draft, action.id, action.target);
+      E.switchShapeCloud(draft, action.id, action.target, action.locale);
       return NOTHING;
     }
 
     case 'switchCloud': {
-      return { created: [], cloudSwitch: E.switchCloud(draft, action.target) };
+      return { created: [], cloudSwitch: E.switchCloud(draft, action.target, action.locale) };
     }
 
     default:

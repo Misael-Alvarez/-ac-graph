@@ -45,8 +45,8 @@ describe('renderThumbnail', () => {
   it('stays small enough to store next to every diagram', () => {
     // The real renderer inlines a 107KB icon sprite; that is why this exists.
     for (const template of TEMPLATES) {
-      const svg = renderThumbnail(template.build());
-      expect(svg.length, template.name).toBeLessThan(4000);
+      const svg = renderThumbnail(template.build('en'));
+      expect(svg.length, template.id).toBeLessThan(4000);
     }
   });
 

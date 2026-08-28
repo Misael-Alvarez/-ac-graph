@@ -8,6 +8,7 @@ import { linter, type Diagnostic as CmDiagnostic } from '@codemirror/lint';
 import { EditorView } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { serviceCompletions, type CloudPrefix, type Diagnostic } from '@/lib/dsl';
+import type { Locale } from '@/lib/i18n/messages';
 
 /**
  * Autocomplete over the service catalogue.
@@ -16,7 +17,10 @@ import { serviceCompletions, type CloudPrefix, type Diagnostic } from '@/lib/dsl
  * value of a node shorthand — so typing a label does not pop a list of 189
  * services in the user's face.
  */
-export function serviceCompletion(getCloud: () => CloudPrefix | undefined) {
+export function serviceCompletion(
+  getCloud: () => CloudPrefix | undefined,
+  getLocale: () => Locale,
+) {
   return (context: CompletionContext): CompletionResult | null => {
     const line = context.state.doc.lineAt(context.pos);
     const before = line.text.slice(0, context.pos - line.from);
@@ -29,7 +33,7 @@ export function serviceCompletion(getCloud: () => CloudPrefix | undefined) {
 
     return {
       from: context.pos - typed.length,
-      options: serviceCompletions(getCloud()).map((service) => ({
+      options: serviceCompletions(getCloud(), getLocale()).map((service) => ({
         label: service.label,
         detail: service.detail,
         info: service.info,

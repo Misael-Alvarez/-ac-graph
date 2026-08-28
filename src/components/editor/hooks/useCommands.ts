@@ -8,6 +8,7 @@ import { downloadMarkdown, downloadPng, downloadProject, downloadSvg } from '@/l
 import { DEFAULT_VIEWPORT, fitToBox } from '@/lib/editor/viewport';
 import { createEmptyModel } from '@/lib/engine';
 import { useEditor } from '../EditorProvider';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
 
 export interface Command {
   id: string;
@@ -63,12 +64,12 @@ export function useCommands(): CommandSet {
         service: {
           key: service.key,
           label: service.label,
-          description: service.description,
+          description: serviceDescription(service, ui.locale),
           category: service.category,
         },
       });
     },
-    [dispatch, ui.viewport, viewportSize],
+    [dispatch, ui.viewport, ui.locale, viewportSize],
   );
 
   const exportOptions = useMemo(

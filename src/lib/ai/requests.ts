@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import type { DiagramModel } from '@/lib/domain';
 import type { Diagnostic } from '@/lib/dsl';
+import type { Locale } from '@/lib/i18n/messages';
 
 export type AiOperation = 'generate' | 'modify' | 'retarget';
 
@@ -61,13 +62,14 @@ async function failure(response: Response): Promise<AiError> {
 export async function requestDiagram(
   operation: AiOperation,
   prompt: string,
-  model?: DiagramModel,
+  model: DiagramModel | undefined,
+  locale: Locale,
   signal?: AbortSignal,
 ): Promise<GenerateResult> {
   const response = await fetch('/api/ai/generate', {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ operation, prompt, model }),
+    body: JSON.stringify({ operation, prompt, model, locale }),
     signal,
   });
   if (!response.ok) throw await failure(response);

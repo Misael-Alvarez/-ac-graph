@@ -2,6 +2,8 @@ import type { DiagramModel } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { PROVIDER_COLORS, providerOf } from './providers';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
+import type { Locale } from '@/lib/i18n/messages';
 
 const COL_W = 560;
 const ROW_H = 300;
@@ -104,7 +106,7 @@ function assignLayers(nodes: ParsedNode[], edges: ParsedEdge[]): number[] {
 }
 
 /** Turns a Markdown outline into a laid-out diagram. */
-export function markdownToDiagram(text: string): DiagramModel {
+export function markdownToDiagram(text: string, locale: Locale = 'en'): DiagramModel {
   const { nodes, edges } = parseMarkdown(text);
   const model = E.createEmptyModel();
   if (!nodes.length) return model;
@@ -137,7 +139,7 @@ export function markdownToDiagram(text: string): DiagramModel {
       if (!item) return;
       const svc = SERVICE_ICONS.find((s) => s.key === node.serviceKey);
       item.title = node.label;
-      item.subtitle = svc?.description ?? '';
+      item.subtitle = serviceDescription(svc, locale);
       item.icon = { kind: 'symbol', key: node.serviceKey };
 
       itemIdByLabel.set(normalise(node.label), item.id);

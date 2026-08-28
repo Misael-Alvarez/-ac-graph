@@ -7,16 +7,23 @@ import { AI_MODEL, MAX_TOKENS, getClient } from '@/lib/ai/client';
 import { describeError } from '@/lib/ai/errors';
 import { RateLimiter, callerKey } from '@/lib/ai/rateLimit';
 import { AiDiagramSchema, aiToDsl } from '@/lib/ai/schema';
+import { LOCALES } from '@/lib/i18n/messages';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/ai/prompt';
 
 /** Generous enough for real use, tight enough that one visitor cannot run up a bill. */
 const limiter = new RateLimiter({ capacity: 5, refillPerMinute: 3 });
+
+const LocaleSchema = z.enum(LOCALES);
 
 const RequestSchema = z.object({
   operation: z.enum(['generate', 'modify', 'retarget']).default('generate'),
   prompt: z.string().min(3).max(4000),
   /** The current diagram, for modify and retarget. */
   model: z.unknown().optional(),
+  /* The language the subtitles come back in. The catalogue reaches the model
+     in English either way — see lib/ai/prompt — so this only names what gets
+     written onto the shapes, which is the author's diagram, not the prompt. */
+  locale: LocaleSchema.default('en'),
 });
 
 export async function POST(request: Request) {
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
     }
 
     const { document, dropped } = aiToDsl(answer);
-    const compiled = compile(document);
+    const compiled = compile(document, body.data.locale);
 
     return NextResponse.json({
       title: answer.title,

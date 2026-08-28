@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { CATEGORY_SHORT_LABELS, SERVICE_ICONS } from '@/data/serviceIcons';
 import { CLOUD_TARGETS, getEquivalents } from '@/data/cloudEquivalents';
-import type { EdgeMeta, NodeMeta } from '@/lib/domain';
+import type { EdgeMeta, NodeMeta, Shape } from '@/lib/domain';
+import type { MessageKey } from '@/lib/i18n/messages';
 import { isColor, providerColors } from '@/lib/design/tokens';
 import { CLOUD_KEY_PREFIX } from '@/lib/editor/providers';
 import { useEditor } from '../EditorProvider';
@@ -195,6 +196,21 @@ function FillField({
  * It only exists while something is selected: the previous editor kept a 280px
  * column permanently on screen showing "no selection" most of the time.
  */
+/**
+ * The message key naming what a shape is.
+ *
+ * `shape.type` is a domain identifier — 'group', 'item' — and reached the panel
+ * header verbatim, so a Spanish interface announced "Group". A boundary is two
+ * different things to the reader depending on its variant, which is why this
+ * takes the shape rather than the type.
+ */
+function shapeTypeKey(shape: Shape): MessageKey {
+  if (shape.type === 'boundary') {
+    return shape.variant === 'sub' ? 'inspector.type.subboundary' : 'inspector.type.boundary';
+  }
+  return `inspector.type.${shape.type}` as MessageKey;
+}
+
 export function InspectorPanel() {
   const { ui, doc, selectedShape, dispatch, dispatchUi, t } = useEditor();
 
@@ -343,7 +359,7 @@ export function InspectorPanel() {
     <aside className="inspector" aria-label={t('inspector.title')}>
       <header className="inspector-header">
         {t('inspector.title')}
-        <span className="inspector-type">{shape.type}</span>
+        <span className="inspector-type">{t(shapeTypeKey(shape))}</span>
       </header>
 
       <Section title={t('inspector.content')}>
@@ -384,6 +400,7 @@ export function InspectorPanel() {
             <IconPicker
               value={iconKey}
               t={t}
+              locale={ui.locale}
               onChange={(key) => patch({ icon: { kind: 'symbol', key } })}
             />
           </div>
@@ -478,7 +495,12 @@ export function InspectorPanel() {
                   style={{ '--cloud-color': providerColors[option.target] } as React.CSSProperties}
                   disabled={option.current}
                   onClick={() =>
-                    dispatch({ type: 'switchShapeCloud', id: shape.id, target: option.target })
+                    dispatch({
+                      type: 'switchShapeCloud',
+                      id: shape.id,
+                      target: option.target,
+                      locale: ui.locale,
+                    })
                   }
                 >
                   <span className="chip-dot" aria-hidden="true" />

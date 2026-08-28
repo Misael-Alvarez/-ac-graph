@@ -1,6 +1,8 @@
 import type { DiagramModel } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
+import type { Locale, MessageKey } from '@/lib/i18n/messages';
 import { PROVIDER_COLORS, providerOf } from './providers';
 
 interface NodeSpec {
@@ -12,9 +14,8 @@ interface NodeSpec {
 }
 
 interface TemplateSpec {
+  /** Also the stem of its `template.<id>.name` / `.description` message keys. */
   id: string;
-  name: string;
-  description: string;
   /** Name resolved by `<Glyph>` — see components/icons/Glyph.tsx. */
   icon: string;
   nodes: NodeSpec[];
@@ -28,7 +29,7 @@ interface TemplateSpec {
  * every template function; describing templates as data removes that repetition
  * and makes a new template a five-line addition.
  */
-export function buildTemplate(spec: TemplateSpec): DiagramModel {
+export function buildTemplate(spec: TemplateSpec, locale: Locale = 'en'): DiagramModel {
   const model = E.createEmptyModel();
   const itemIdByLabel = new Map<string, string>();
 
@@ -47,7 +48,7 @@ export function buildTemplate(spec: TemplateSpec): DiagramModel {
     const item = E.children(model, container.id).find((s) => s.type === 'item');
     if (!item) continue;
     item.title = node.label;
-    item.subtitle = service?.description ?? '';
+    item.subtitle = serviceDescription(service, locale);
     item.icon = { kind: 'symbol', key: node.service };
     itemIdByLabel.set(node.label, item.id);
   }
@@ -67,8 +68,6 @@ export function buildTemplate(spec: TemplateSpec): DiagramModel {
 export const TEMPLATE_SPECS: TemplateSpec[] = [
   {
     id: 'serverless',
-    name: 'Serverless API',
-    description: 'CloudFront → API Gateway → Lambda → DynamoDB/S3',
     icon: 'bolt',
     nodes: [
       { label: 'CloudFront', service: 'aws-cloudfront', x: 80, y: 100 },
@@ -86,8 +85,6 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
   },
   {
     id: 'microservices',
-    name: 'Microservices',
-    description: 'Load balancer → services → database, cache and queue',
     icon: 'mesh',
     nodes: [
       { label: 'Load Balancer', service: 'aws-elb', x: 80, y: 260 },
@@ -109,8 +106,6 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
   },
   {
     id: 'data-pipeline',
-    name: 'Data Pipeline',
-    description: 'S3 → Glue → Redshift/Athena → QuickSight',
     icon: 'chart',
     nodes: [
       { label: 'Source (S3)', service: 'aws-s3', x: 80, y: 200 },
@@ -129,8 +124,6 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
   },
   {
     id: 'ml-pipeline',
-    name: 'ML Pipeline',
-    description: 'Data lake → SageMaker/Bedrock → API',
     icon: 'brain',
     nodes: [
       { label: 'Data Lake', service: 'aws-s3', x: 80, y: 200 },
@@ -149,8 +142,6 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
   },
   {
     id: 'three-tier',
-    name: '3-Tier App',
-    description: 'CDN → web and app tiers → database, cache and storage',
     icon: 'layers',
     nodes: [
       { label: 'CloudFront CDN', service: 'aws-cloudfront', x: 80, y: 260 },
@@ -172,17 +163,21 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
 
 export interface Template {
   id: string;
-  name: string;
-  description: string;
+  nameKey: MessageKey;
+  descriptionKey: MessageKey;
   icon: string;
-  /** Built fresh on each call so two loads never share shape identities. */
-  build: () => DiagramModel;
+  /**
+   * Built fresh on each call so two loads never share shape identities, and in
+   * the caller's language because the subtitles it writes are content, not
+   * chrome: they stay in the diagram after the reader switches language.
+   */
+  build: (locale: Locale) => DiagramModel;
 }
 
 export const TEMPLATES: Template[] = TEMPLATE_SPECS.map((spec) => ({
   id: spec.id,
-  name: spec.name,
-  description: spec.description,
+  nameKey: `template.${spec.id}.name` as MessageKey,
+  descriptionKey: `template.${spec.id}.description` as MessageKey,
   icon: spec.icon,
-  build: () => buildTemplate(spec),
+  build: (locale: Locale) => buildTemplate(spec, locale),
 }));

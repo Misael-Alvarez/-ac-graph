@@ -8,6 +8,7 @@ import type { MessageKey } from '@/lib/i18n/messages';
 import { CloseIcon, PlusIcon } from '@/components/icons/ToolIcons';
 import { Glyph } from '@/components/icons/Glyph';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
+import { useLocale } from '@/lib/i18n/useLocale';
 
 interface NewDiagramDialogProps {
   onPick: (title: string, model: DiagramModel) => void;
@@ -23,6 +24,7 @@ interface NewDiagramDialogProps {
  * template unreachable for everyone but a brand new user.
  */
 export function NewDiagramDialog({ onPick, onClose, t }: NewDiagramDialogProps) {
+  const { locale } = useLocale();
   const liquid = useLiquidPointer();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -78,14 +80,14 @@ export function NewDiagramDialog({ onPick, onClose, t }: NewDiagramDialogProps) 
                 key={template.id}
                 type="button"
                 className="template-card"
-                onClick={() => onPick(template.name, template.build())}
+                onClick={() => onPick(t(template.nameKey), template.build(locale))}
               >
                 <span className="template-icon">
                   <Glyph name={template.icon} size={20} />
                 </span>
                 <span>
-                  <b>{template.name}</b>
-                  <small>{template.description}</small>
+                  <b>{t(template.nameKey)}</b>
+                  <small>{t(template.descriptionKey)}</small>
                 </span>
               </button>
             ))}

@@ -44,7 +44,7 @@ export function Library() {
   const [folder, setFolder] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [deleting, setDeleting] = useState<DiagramMeta | null>(null);
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
 
   // `loading` starts true, so nothing needs setting before the read; a refresh
   // leaves the current list on screen rather than flashing a spinner.
@@ -227,14 +227,14 @@ export function Library() {
                   key={template.id}
                   type="button"
                   className="template-card"
-                  onClick={() => void create(template.name, template.build())}
+                  onClick={() => void create(t(template.nameKey), template.build(locale))}
                 >
                   <span className="template-icon">
                     <Glyph name={template.icon} size={20} />
                   </span>
                   <span>
-                    <b>{template.name}</b>
-                    <small>{template.description}</small>
+                    <b>{t(template.nameKey)}</b>
+                    <small>{t(template.descriptionKey)}</small>
                   </span>
                 </button>
               ))}

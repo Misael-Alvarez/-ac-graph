@@ -9,6 +9,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
 import { lintKeymap, lintGutter } from '@codemirror/lint';
 import type { CloudPrefix, Diagnostic } from '@/lib/dsl';
+import type { Locale } from '@/lib/i18n/messages';
 import {
   autocompletion,
   dslHighlight,
@@ -23,6 +24,8 @@ interface CodeEditorProps {
   onFocusChange: (focused: boolean) => void;
   diagnostics: Diagnostic[];
   cloud?: CloudPrefix;
+  /** Names the completions' descriptions. */
+  locale: Locale;
 }
 
 /**
@@ -38,14 +41,15 @@ export function CodeEditor({
   onFocusChange,
   diagnostics,
   cloud,
+  locale,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
 
   // Read through refs so the extensions never need rebuilding.
-  const latest = useRef({ onChange, onFocusChange, diagnostics, cloud });
+  const latest = useRef({ onChange, onFocusChange, diagnostics, cloud, locale });
   useEffect(() => {
-    latest.current = { onChange, onFocusChange, diagnostics, cloud };
+    latest.current = { onChange, onFocusChange, diagnostics, cloud, locale };
   });
 
   useEffect(() => {
@@ -61,7 +65,14 @@ export function CodeEditor({
       highlightActiveLine(),
       syntaxHighlighting(dslHighlight, { fallback: true }),
       yaml(),
-      autocompletion({ override: [serviceCompletion(() => latest.current.cloud)] }),
+      autocompletion({
+        override: [
+          serviceCompletion(
+            () => latest.current.cloud,
+            () => latest.current.locale,
+          ),
+        ],
+      }),
       dslLinter(() => latest.current.diagnostics),
       keymap.of([
         ...closeBracketsKeymap,

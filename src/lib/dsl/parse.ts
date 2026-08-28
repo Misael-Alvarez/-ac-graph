@@ -3,6 +3,8 @@ import type { DiagramModel, Shape } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { PROVIDER_COLORS, providerOf } from '@/lib/editor/providers';
+import { serviceDescription } from '@/lib/i18n/serviceCopy';
+import type { Locale } from '@/lib/i18n/messages';
 import {
   DslDocumentSchema,
   normaliseEdges,
@@ -153,7 +155,10 @@ function moveClear(model: DiagramModel, group: Shape, obstacle: Shape, others: S
 }
 
 /** Compiles a DSL document into a diagram. */
-export function compile(document: DslDocument): { model: DiagramModel; diagnostics: Diagnostic[] } {
+export function compile(
+  document: DslDocument,
+  locale: Locale = 'en',
+): { model: DiagramModel; diagnostics: Diagnostic[] } {
   const diagnostics: Diagnostic[] = [];
   const model = E.createEmptyModel();
   const cloud = document.cloud as CloudPrefix | undefined;
@@ -218,7 +223,7 @@ export function compile(document: DslDocument): { model: DiagramModel; diagnosti
     const item = E.children(model, container.id).find((s) => s.type === 'item');
     if (!item) continue;
     item.title = spec.label ?? service?.label ?? nodeId;
-    item.subtitle = spec.subtitle ?? service?.description ?? '';
+    item.subtitle = spec.subtitle ?? serviceDescription(service, locale);
     item.note = spec.note ?? '';
     item.icon = { kind: 'symbol', key: serviceKey };
     // What the node *is*, as opposed to where it sits, rides on the item —
@@ -304,7 +309,7 @@ export function compile(document: DslDocument): { model: DiagramModel; diagnosti
 }
 
 /** Parses DSL source into a diagram, reporting anything it could not use. */
-export function parseDsl(source: string): ParseResult {
+export function parseDsl(source: string, locale: Locale = 'en'): ParseResult {
   const diagnostics: Diagnostic[] = [];
 
   if (!source.trim()) {
@@ -336,7 +341,7 @@ export function parseDsl(source: string): ParseResult {
     return { model: null, document: null, diagnostics };
   }
 
-  const compiled = compile(parsed.data);
+  const compiled = compile(parsed.data, locale);
   // Resolve each diagnostic's document path to a range in the source.
   for (const diagnostic of compiled.diagnostics) {
     if (!diagnostic.path) continue;

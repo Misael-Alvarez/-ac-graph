@@ -2,6 +2,7 @@ import { Document, YAMLMap, YAMLSeq } from 'yaml';
 import type { DiagramModel, Shape } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
+import { serviceDescriptions } from '@/lib/i18n/serviceCopy';
 import { DSL_VERSION } from './schema';
 import { dominantCloud, shortenService, type CloudPrefix } from './services';
 
@@ -109,7 +110,7 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
     if (record.item.title && record.item.title !== catalogue?.label) {
       spec.label = record.item.title;
     }
-    if (record.item.subtitle && record.item.subtitle !== (catalogue?.description ?? '')) {
+    if (record.item.subtitle && !serviceDescriptions(catalogue).includes(record.item.subtitle)) {
       spec.subtitle = record.item.subtitle;
     }
     if (record.item.note) spec.note = record.item.note;

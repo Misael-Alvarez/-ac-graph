@@ -439,8 +439,8 @@ nodes:
 
 describe('templates round-trip through the DSL', () => {
   for (const template of TEMPLATES) {
-    it(`preserves "${template.name}"`, () => {
-      const original = template.build();
+    it(`preserves "${template.id}"`, () => {
+      const original = template.build('en');
       const round = parseDsl(serializeDsl(original)).model!;
 
       expect(nodesOf(round)).toHaveLength(nodesOf(original).length);
@@ -570,5 +570,36 @@ edges:
 `);
     expect(model!.shapes.filter((s) => s.type === 'boundary')).toHaveLength(2);
     expect(collisionTitles(model!)).toEqual([]);
+  });
+});
+
+describe('a diagram authored in Spanish', () => {
+  it('round-trips without writing a subtitle override for every node', () => {
+    const spanish = TEMPLATES[0].build('es');
+    const text = serializeDsl(spanish);
+
+    // The subtitles came from the catalogue, so they are not the author's
+    // words and have no business in the document. Before the catalogue spoke
+    // Spanish this comparison was against English only, and every node in a
+    // Spanish diagram picked up a redundant `subtitle:`.
+    expect(text).not.toContain('subtitle:');
+    expect(parseDsl(text, 'es').model).not.toBeNull();
+  });
+
+  it('keeps a subtitle the author actually wrote', () => {
+    const model = TEMPLATES[0].build('es');
+    const item = model.shapes.find((s) => s.type === 'item')!;
+    item.subtitle = 'El de producción';
+    expect(serializeDsl(model)).toContain('El de producción');
+  });
+
+  it('fills subtitles from the catalogue in the language it is compiled for', () => {
+    const source = 'version: 1\nnodes:\n  api:\n    service: lambda\n';
+    const es = parseDsl(source, 'es').model!;
+    const en = parseDsl(source, 'en').model!;
+    const subtitle = (m: typeof es) => m.shapes.find((s) => s.type === 'item')?.subtitle;
+
+    expect(subtitle(es)).toBe('Cómputo serverless');
+    expect(subtitle(en)).toBe('Serverless compute');
   });
 });

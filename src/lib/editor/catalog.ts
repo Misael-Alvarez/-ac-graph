@@ -1,4 +1,6 @@
 import { SERVICE_CATEGORIES, SERVICE_ICONS } from '@/data/serviceIcons';
+import { serviceAreaLabel, serviceDescriptions } from '@/lib/i18n/serviceCopy';
+import type { Locale } from '@/lib/i18n/messages';
 import { scoreMatch } from './search';
 import type { ServiceIcon } from './types';
 
@@ -64,17 +66,19 @@ function rankOf(service: ServiceIcon, needle: string): number {
   return Math.max(
     scoreMatch(service.label, needle),
     scoreMatch(service.key, needle),
-    // Halved so that the best description match still loses to the weakest
-    // name match: what a service is called is stronger evidence than what it
-    // is said to do.
-    scoreMatch(service.description ?? '', needle) * 0.5,
+    // Every language, not the reader's: someone who thinks in English while
+    // working in a Spanish interface should still find the cache layer by
+    // typing "cache", and the reverse. Halved so that the best description
+    // match still loses to the weakest name match — what a service is called
+    // is stronger evidence than what it is said to do.
+    ...serviceDescriptions(service).map((text) => scoreMatch(text, needle) * 0.5),
   );
 }
 
 const byLabel = (a: ServiceIcon, b: ServiceIcon) => a.label.localeCompare(b.label);
 
 /** Groups into sections, preserving the order the services arrive in. */
-function sectionsOf(services: ServiceIcon[]): CatalogSection[] {
+function sectionsOf(services: ServiceIcon[], locale: Locale): CatalogSection[] {
   const grouped = new Map<string, ServiceIcon[]>();
   for (const service of services) {
     const area = areaOf(service);
@@ -84,7 +88,7 @@ function sectionsOf(services: ServiceIcon[]): CatalogSection[] {
   }
   return [...grouped].map(([id, list]) => ({
     id,
-    label: AREA_LABELS.get(id) ?? id,
+    label: serviceAreaLabel(id, AREA_LABELS.get(id) ?? id, locale),
     services: list,
   }));
 }
@@ -95,18 +99,21 @@ export interface CatalogQuery {
   query: string;
   /** How many search results to keep. Browsing is never capped. */
   limit?: number;
+  /** Names the section headings. Ranking is language-agnostic on purpose. */
+  locale?: Locale;
 }
 
 export function queryCatalog({
   cloud,
   query,
   limit = MAX_CATALOG_RESULTS,
+  locale = 'en',
 }: CatalogQuery): CatalogResult {
   const needle = query.trim().toLowerCase();
 
   if (!needle) {
     const pool = SERVICE_ICONS.filter((service) => service.category === cloud);
-    const sections = sectionsOf(pool)
+    const sections = sectionsOf(pool, locale)
       .map((section) => ({ ...section, services: [...section.services].sort(byLabel) }))
       .sort(
         (a, b) =>
@@ -126,5 +133,10 @@ export function queryCatalog({
   const kept = ranked.slice(0, limit).map((entry) => entry.service);
   // Insertion order carries the ranking through the grouping: the sections come
   // out best-match first, and so do the services inside each one.
-  return { sections: sectionsOf(kept), shown: kept.length, total: ranked.length, searching: true };
+  return {
+    sections: sectionsOf(kept, locale),
+    shown: kept.length,
+    total: ranked.length,
+    searching: true,
+  };
 }

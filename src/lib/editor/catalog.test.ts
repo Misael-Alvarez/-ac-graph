@@ -87,3 +87,30 @@ describe('cloud counts', () => {
     expect(total).toBe(SERVICE_ICONS.length);
   });
 });
+
+describe('browsing in Spanish', () => {
+  it('names the areas in Spanish and keeps the same grouping', () => {
+    const es = queryCatalog({ cloud: 'aws', query: '', locale: 'es' });
+    const en = queryCatalog({ cloud: 'aws', query: '', locale: 'en' });
+
+    expect(es.sections.map((s) => s.id)).toEqual(en.sections.map((s) => s.id));
+    expect(es.sections.map((s) => s.label)).not.toEqual(en.sections.map((s) => s.label));
+    expect(es.sections.find((s) => s.id === 'database')?.label).toBe('Bases de datos');
+  });
+
+  it('finds a service by what it does in either language', () => {
+    // The ranking is deliberately language-blind: someone who reads Spanish
+    // still types "serverless", and someone who reads English may well have
+    // been handed a Spanish diagram.
+    const spanish = queryCatalog({ cloud: 'aws', query: 'cómputo serverless', locale: 'es' });
+    const english = queryCatalog({ cloud: 'aws', query: 'serverless compute', locale: 'en' });
+
+    expect(keysOf(spanish)).toContain('aws-lambda');
+    expect(keysOf(english)).toContain('aws-lambda');
+  });
+
+  it('answers a Spanish query even while the interface is English', () => {
+    const result = queryCatalog({ cloud: 'aws', query: 'red de entrega', locale: 'en' });
+    expect(keysOf(result)).toContain('aws-cloudfront');
+  });
+});

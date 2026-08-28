@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TEMPLATES } from '@/lib/editor/templates';
 import { LOCALES, MESSAGES, format, translate, type MessageKey } from './messages';
 
 describe('message catalogue', () => {
@@ -15,6 +16,16 @@ describe('message catalogue', () => {
     const english = Object.keys(MESSAGES.en).sort();
     for (const locale of LOCALES) {
       expect(Object.keys(MESSAGES[locale]).sort(), locale).toEqual(english);
+    }
+  });
+
+  // `TEMPLATES` builds its keys by interpolating a template id, so a renamed
+  // template would type-check happily and then print the raw key on screen.
+  it('holds a name and a description for every built-in template', () => {
+    for (const template of TEMPLATES) {
+      for (const key of [template.nameKey, template.descriptionKey]) {
+        expect(Object.keys(MESSAGES.en), key).toContain(key);
+      }
     }
   });
 

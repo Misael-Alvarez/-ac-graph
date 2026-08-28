@@ -26,7 +26,7 @@ test('creates a diagram and returns to the library', async ({ page }) => {
 test('starting from a template lands with its content', async ({ page }) => {
   await page
     .locator('.library-templates .template-card')
-    .filter({ hasText: 'Serverless API' })
+    .filter({ hasText: 'API serverless' })
     .first()
     .click();
   await page.waitForSelector('.canvas-surface');
@@ -103,7 +103,7 @@ test('cancelling the confirmation keeps the diagram', async ({ page }) => {
 test('searches by name', async ({ page }) => {
   await page
     .locator('.library-templates .template-card')
-    .filter({ hasText: 'Serverless API' })
+    .filter({ hasText: 'API serverless' })
     .first()
     .click();
   await page.waitForSelector('.canvas-surface');
@@ -123,7 +123,7 @@ test('searches by name', async ({ page }) => {
 test('exports and re-imports the whole workspace', async ({ page }) => {
   await page
     .locator('.library-templates .template-card')
-    .filter({ hasText: 'Serverless API' })
+    .filter({ hasText: 'API serverless' })
     .first()
     .click();
   await page.waitForSelector('.canvas-surface');
@@ -156,7 +156,7 @@ test('offers templates even once the library has diagrams', async ({ page }) => 
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
   await expect(page.locator('.dialog .template-card')).toHaveCount(6);
 
-  await page.locator('.dialog .template-card').filter({ hasText: 'ML Pipeline' }).click();
+  await page.locator('.dialog .template-card').filter({ hasText: 'Pipeline de ML' }).click();
   await page.waitForSelector('.canvas-surface');
   await expect(page.locator('[data-shape-id^="grp_"]')).toHaveCount(5);
 });
