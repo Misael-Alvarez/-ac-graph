@@ -180,12 +180,53 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
     document.layout = layout;
   }
 
+  if (model.views.length) {
+    const groupIdByKey = new Map(records.map((r) => [r.group.id, r.key]));
+    const views: Record<string, unknown> = {};
+    // Slugged from the name like every other key in the document. The view's own
+    // id is a nanoid, which is the right thing in the model and unreadable in a
+    // file somebody is meant to edit — and compile mints fresh ids anyway.
+    const takenViewKeys = new Set<string>();
+
+    for (const view of model.views) {
+      const spec: Record<string, unknown> = {};
+      if (view.name) spec.name = view.name;
+      if (view.kind !== 'free') spec.kind = view.kind;
+
+      if (view.include) {
+        // Only the groups: a view stores the container and item alongside them,
+        // but the document names nodes, and `resolveView` puts the rest back.
+        spec.include = view.include
+          .map((id) => groupIdByKey.get(id))
+          .filter((key): key is string => Boolean(key));
+      }
+
+      const place: Record<string, [number, number]> = {};
+      for (const [id, box] of Object.entries(view.place ?? {})) {
+        const key = groupIdByKey.get(id);
+        if (key) place[key] = [Math.round(box.x), Math.round(box.y)];
+      }
+      if (Object.keys(place).length) spec.place = place;
+
+      views[view.id === E.MAIN_VIEW_ID ? 'main' : toKey(view.name, takenViewKeys)] = spec;
+    }
+
+    document.views = views;
+  }
+
   const yaml = new Document(document);
   // Coordinates read far better inline than as a two-line block sequence.
-  const layoutNode = yaml.get('layout', true);
-  if (isYAMLMap(layoutNode)) {
-    for (const pair of layoutNode.items) {
+  const flowPairs = (node: unknown) => {
+    if (!isYAMLMap(node)) return;
+    for (const pair of node.items) {
       if (pair.value instanceof YAMLSeq) pair.value.flow = true;
+    }
+  };
+  flowPairs(yaml.get('layout', true));
+  const viewsNode = yaml.get('views', true);
+  if (isYAMLMap(viewsNode)) {
+    for (const pair of viewsNode.items) {
+      if (isYAMLMap(pair.value)) flowPairs(pair.value.get('place', true));
     }
   }
 

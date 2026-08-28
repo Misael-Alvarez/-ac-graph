@@ -603,3 +603,101 @@ describe('a diagram authored in Spanish', () => {
     expect(subtitle(en)).toBe('Serverless compute');
   });
 });
+
+describe('views round-trip', () => {
+  /** The serverless template with a second view that moved one node. */
+  function withView() {
+    const model = TEMPLATES[0].build('en');
+    const groups = model.shapes.filter((s) => s.type === 'group');
+    const moved = groups[0];
+    const place: Record<string, { x: number; y: number; w: number; h: number }> = {};
+    for (const id of E.collectDescendantIds(model, moved.id)) {
+      const shape = E.getShape(model, id)!;
+      place[id] = { x: shape.x + 500, y: shape.y + 400, w: shape.w, h: shape.h };
+    }
+    model.views = [
+      { id: E.MAIN_VIEW_ID, name: '', kind: 'free' },
+      {
+        id: 'view_security',
+        name: 'Security',
+        kind: 'security',
+        include: [groups[0].id, groups[1].id],
+        place,
+      },
+    ];
+    return { model, movedId: moved.id, keptIds: [groups[0].id, groups[1].id] };
+  }
+
+  it('survives a serialize and parse', () => {
+    const { model } = withView();
+    const back = parseDsl(serializeDsl(model)).model!;
+
+    expect(back.views).toHaveLength(2);
+    expect(back.views[0].id).toBe(E.MAIN_VIEW_ID);
+    expect(back.views[1].name).toBe('Security');
+    expect(back.views[1].kind).toBe('security');
+  });
+
+  // The trap this whole design exists to avoid: compile mints fresh ids, so a
+  // view written in ids would select nothing the moment the code panel is used.
+  it('re-anchors to the rebuilt shapes rather than to dead ids', () => {
+    const { model } = withView();
+    const back = parseDsl(serializeDsl(model)).model!;
+    const security = back.views[1];
+
+    expect(security.include).not.toEqual([]);
+    for (const id of security.include!) {
+      expect(E.getShape(back, id), id).toBeDefined();
+    }
+  });
+
+  it('keeps the view narrowed to the same two services', () => {
+    const { model } = withView();
+    const before = E.resolveView(model, 'view_security');
+    const after = parseDsl(serializeDsl(model)).model!;
+    const resolved = E.resolveView(after, after.views[1].id);
+
+    const names = (m: typeof before) =>
+      m.shapes
+        .filter((s) => s.type === 'group')
+        .map((s) => s.title)
+        .sort();
+    expect(names(resolved)).toEqual(names(before));
+  });
+
+  it('keeps the node this view moved away from where the model has it', () => {
+    const { model } = withView();
+    const after = parseDsl(serializeDsl(model)).model!;
+    const security = after.views[1];
+
+    const groupId = security.include![0];
+    const base = E.getShape(after, groupId)!;
+    const placed = security.place![groupId];
+    expect(placed).toBeDefined();
+    expect(placed.x).not.toBe(base.x);
+  });
+
+  it('writes nothing at all for a diagram nobody split', () => {
+    const text = serializeDsl(TEMPLATES[0].build('en'));
+    expect(text).not.toContain('views:');
+    expect(parseDsl(text).model!.views).toEqual([]);
+  });
+
+  it('reports a view naming a node the document does not define', () => {
+    const source = [
+      'version: 1',
+      'nodes:',
+      '  api: lambda',
+      'views:',
+      '  security:',
+      '    name: Security',
+      '    include: [api, ghost]',
+    ].join('\n');
+
+    const { model, diagnostics } = parseDsl(source);
+    expect(diagnostics.some((d) => d.severity === 'warning')).toBe(true);
+    // The view is still built from what it could resolve: dropping it entirely
+    // would lose the reading over a typo.
+    expect(model!.views[0].include).toHaveLength(1);
+  });
+});

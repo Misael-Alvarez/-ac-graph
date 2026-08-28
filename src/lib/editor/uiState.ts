@@ -37,6 +37,17 @@ export interface UiState {
   insightsOpen: boolean;
   /** Nodes the open comparison says are new or altered, for the canvas. */
   diffHighlight: { added: string[]; changed: string[] } | null;
+  /**
+   * Which view of the model is on screen. Null means the main one, which is
+   * also what a diagram that was never split has.
+   */
+  activeViewId: string | null;
+  /**
+   * The shapes drilled through to get here, outermost first. Empty is the top.
+   * Interface state, not content: where someone is looking is not part of the
+   * architecture, and two people can be looking at different depths of one.
+   */
+  drillPath: string[];
   /** Service browser drawer. */
   browserOpen: boolean;
   inspectorPinned: boolean;
@@ -62,6 +73,8 @@ export const initialUiState: UiState = {
   versionsOpen: false,
   insightsOpen: false,
   diffHighlight: null,
+  activeViewId: null,
+  drillPath: [],
   browserOpen: false,
   inspectorPinned: false,
   modal: null,
@@ -77,6 +90,9 @@ export type UiAction =
   | { type: 'selectConnector'; id: string | null }
   | { type: 'setConnectorSource'; id: string | null }
   | { type: 'setViewport'; viewport: Viewport }
+  | { type: 'setActiveView'; id: string | null }
+  | { type: 'drillInto'; id: string }
+  | { type: 'drillUpTo'; depth: number }
   | { type: 'toggleGridSnap' }
   | { type: 'toggleDark' }
   | { type: 'setBrand'; brand: BrandMode }
@@ -125,6 +141,38 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
 
     case 'setViewport':
       return { ...state, viewport: action.viewport };
+
+    case 'setActiveView':
+      // The selection is dropped: the ids are still valid, but a shape the new
+      // view does not show would stay selected and invisible, and the inspector
+      // would keep editing something nobody can see.
+      return {
+        ...state,
+        activeViewId: action.id,
+        drillPath: [],
+        selectedIds: new Set(),
+        selectedConnectorId: null,
+      };
+
+    case 'drillInto':
+      // Re-entering a shape already on the trail goes back to it rather than
+      // stacking a second copy, so the breadcrumb can never repeat itself.
+      return {
+        ...state,
+        drillPath: state.drillPath.includes(action.id)
+          ? state.drillPath.slice(0, state.drillPath.indexOf(action.id) + 1)
+          : [...state.drillPath, action.id],
+        selectedIds: new Set(),
+        selectedConnectorId: null,
+      };
+
+    case 'drillUpTo':
+      return {
+        ...state,
+        drillPath: state.drillPath.slice(0, action.depth),
+        selectedIds: new Set(),
+        selectedConnectorId: null,
+      };
 
     case 'toggleGridSnap':
       return { ...state, gridSnap: !state.gridSnap };

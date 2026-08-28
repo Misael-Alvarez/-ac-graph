@@ -1,4 +1,12 @@
 /** Layout constants shared by the auto-layout and the SVG renderer. */
+/**
+ * Below this zoom a group stops listing its services and states how many it
+ * has. Chosen where the item subtitles stop being legible: drawing text nobody
+ * can read is the "two thousand nodes saying everything at once" failure, and
+ * paying to render it is the reason a large diagram feels slow.
+ */
+export const COLLAPSE_ZOOM = 0.5;
+
 export const G = {
   GROUP_TITLE_DX: 18,
   GROUP_TITLE_DY: 38,

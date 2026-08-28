@@ -351,6 +351,11 @@ kbd {
   height: 100%;
   display: block;
   touch-action: none;
+  /* A double click on the canvas means something — rename, or descend a level —
+     and neither of them is "select this word". Without this the gesture leaves a
+     highlight painted across a node's title. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* ── Top bar ─────────────────────────────────────────────── */
@@ -525,6 +530,7 @@ kbd {
    what is underneath it. */
 .tool-dock,
 .zoom-controls,
+.view-bar,
 .minimap {
   background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
@@ -533,6 +539,7 @@ kbd {
 @supports (backdrop-filter: blur(1px)) {
   .tool-dock,
   .zoom-controls,
+  .view-bar,
   .minimap {
     background: var(--glass);
     backdrop-filter: var(--glass-blur);
@@ -1123,6 +1130,124 @@ kbd {
   gap: 2px;
   padding: var(--space-1);
   border-radius: var(--radius-lg);
+}
+
+/* Switching between readings of one architecture. Top-centre, the one edge of
+   the stage nothing else claims: the dock owns the left, zoom the bottom-left,
+   the minimap the bottom-right and the inspector the right. */
+/* The trail down into the architecture. Top-left of the stage, clear of the
+   dock below it and of the view bar centred beside it. */
+.breadcrumb {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 40%;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--elevation-2);
+  font-size: var(--text-xs);
+  overflow: hidden;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .breadcrumb {
+    background: var(--glass);
+    backdrop-filter: var(--glass-blur);
+  }
+}
+
+.breadcrumb-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.breadcrumb-sep {
+  flex-shrink: 0;
+  /* One chevron in the icon set, turned to point along the trail. */
+  transform: rotate(-90deg);
+  color: var(--text-tertiary);
+}
+
+.breadcrumb-step {
+  max-width: 180px;
+  padding: 3px var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.breadcrumb-step:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+/* Where you are is not somewhere to click through to. */
+.breadcrumb-step[aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: default;
+}
+
+.view-bar {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: min(720px, calc(100% - var(--space-8)));
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-lg);
+}
+
+.view-bar .chip-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.view-bar .chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.view-bar-add {
+  padding: 5px;
+}
+
+.view-bar-input {
+  width: 180px;
+  height: 28px;
+  font-size: var(--text-xs);
+}
+
+/* Dismissing the view is a target inside the chip, so it needs its own hit area
+   without growing the chip that holds it. */
+.chip-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: -3px;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.chip-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .zoom-value {

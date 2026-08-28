@@ -47,11 +47,11 @@ const DISTRIBUTIONS: {
  * is what makes an editor feel like a chore.
  */
 export function SelectionToolbar() {
-  const { doc, ui, dispatch, dispatchUi, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, t } = useEditor();
 
   const targets = useMemo(
-    () => (ui.selectedIds.size >= 2 ? outermost(doc.model, ui.selectedIds) : []),
-    [doc.model, ui.selectedIds],
+    () => (ui.selectedIds.size >= 2 ? outermost(view, ui.selectedIds) : []),
+    [view, ui.selectedIds],
   );
 
   const anchor = useMemo(() => {

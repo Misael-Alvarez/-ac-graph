@@ -3,7 +3,7 @@ import { fontSize, fontWeight, isColor, readableTextOn } from '@/lib/design/toke
 import { handlersFor, type ShapeRenderProps } from './shapeProps';
 
 /** A service group: a titled card that holds a stack of items. */
-export function GroupShape({ shape, theme, interaction }: ShapeRenderProps) {
+export function GroupShape({ shape, theme, summary, interaction }: ShapeRenderProps) {
   const titleY = shape.y + G.GROUP_TITLE_DY - 8;
   const dividerY = shape.y + G.GROUP_TITLE_DY + 2;
   const background = isColor(shape.fill) ? shape.fill : theme.groupFill;
@@ -43,6 +43,20 @@ export function GroupShape({ shape, theme, interaction }: ShapeRenderProps) {
           stroke={theme.divider}
           strokeWidth={1}
         />
+        {summary !== undefined && (
+          /* Zoomed too far out to read the services, so the card says how many
+             there are instead of drawing text nobody can make out. */
+          <text
+            x={shape.x + G.GROUP_TITLE_DX}
+            y={shape.y + shape.h / 2 + 20}
+            fontSize={fontSize.lg}
+            fontWeight={fontWeight.medium}
+            fill={titleColor}
+            opacity={0.65}
+          >
+            {summary}
+          </text>
+        )}
       </g>
     </g>
   );

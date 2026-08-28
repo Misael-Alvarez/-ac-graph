@@ -6,7 +6,7 @@ import * as E from '@/lib/engine';
 import { iconKeysIn } from '@/lib/engine';
 import { canvasTheme } from '@/lib/design/tokens';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
-import { toCanvas, viewportTransform, visibleBox, zoomAt } from '@/lib/editor/viewport';
+import { fitToBox, toCanvas, viewportTransform, visibleBox, zoomAt } from '@/lib/editor/viewport';
 import { isTextEntryTarget } from '@/lib/editor/domFocus';
 import { useEditor } from '../EditorProvider';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
@@ -21,7 +21,7 @@ import { SelectionToolbar } from './SelectionToolbar';
 const HANDLE = 9;
 
 export function Canvas() {
-  const { doc, ui, dispatch, dispatchUi, collisions, t } = useEditor();
+  const { doc, ui, view, dispatch, dispatchUi, collisions, t } = useEditor();
   const svgRef = useRef<SVGSVGElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -35,16 +35,30 @@ export function Canvas() {
   }, []);
 
   const tools = usePointerTools({
-    model: doc.model,
+    model: view,
     viewport: ui.viewport,
     gridSnap: ui.gridSnap,
     selectedIds: ui.selectedIds,
     toLocal,
-    onMoveShapes: (ids, dx, dy) => dispatch({ type: 'moveShapes', ids, dx, dy }),
-    onResizeShape: (id, w, h) => dispatch({ type: 'resizeShape', id, w, h }),
+    onMoveShapes: (ids, dx, dy) =>
+      dispatch({ type: 'moveShapes', ids, dx, dy, viewId: ui.activeViewId }),
+    onResizeShape: (id, w, h) =>
+      dispatch({ type: 'resizeShape', id, w, h, viewId: ui.activeViewId }),
     onLassoSelect: (ids) => dispatchUi({ type: 'select', ids }),
     onViewportChange: (viewport) => dispatchUi({ type: 'setViewport', viewport }),
   });
+
+  // Drilling re-frames on what it descended into; narrowing the canvas without
+  // moving the camera leaves the reader looking at empty paper. Seeded with the
+  // depth it mounts at, so opening a diagram does not move the camera at all —
+  // only crossing a level does.
+  const depth = ui.drillPath.length;
+  const lastFitted = useRef(depth);
+  useEffect(() => {
+    if (depth === lastFitted.current || !size.width || !view.shapes.length) return;
+    lastFitted.current = depth;
+    dispatchUi({ type: 'setViewport', viewport: fitToBox(E.contentBBox(view), size) });
+  }, [depth, size, view, dispatchUi]);
 
   /* Track the element size so fit-to-view and culling know the viewport. */
   useEffect(() => {
@@ -180,7 +194,7 @@ export function Canvas() {
   const onShapeClick = useCallback(
     (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
-      const shape = E.getShape(doc.model, id);
+      const shape = E.getShape(view, id);
 
       if (ui.tool === 'connector') {
         if (!ui.connectorSourceId) dispatchUi({ type: 'setConnectorSource', id });
@@ -194,7 +208,7 @@ export function Canvas() {
       if (ui.tool === 'item') {
         if (shape?.type === 'container') dispatch({ type: 'addItem', containerId: id });
         else if (shape?.type === 'group') {
-          const container = E.children(doc.model, id).find((s) => s.type === 'container');
+          const container = E.children(view, id).find((s) => s.type === 'container');
           if (container) dispatch({ type: 'addItem', containerId: container.id });
         }
         return;
@@ -202,7 +216,7 @@ export function Canvas() {
 
       if (ui.tool === 'select' && !e.shiftKey) dispatchUi({ type: 'select', ids: [id] });
     },
-    [ui.tool, ui.connectorSourceId, doc.model, dispatch, dispatchUi],
+    [ui.tool, ui.connectorSourceId, view, dispatch, dispatchUi],
   );
 
   const onDrop = useCallback(
@@ -235,10 +249,20 @@ export function Canvas() {
       onPointerDown: onShapePointerDown,
       onClick: onShapeClick,
       onDoubleClick: (e, id) => {
+        e.stopPropagation();
+
+        // Descending into something that holds a diagram's worth of detail is
+        // what the double click means there; a group holding one service holds
+        // no level below it, so `canDrillInto` is false and the old meaning —
+        // rename — is what happens, which is the common case on these diagrams.
+        if (E.canDrillInto(view, id)) {
+          dispatchUi({ type: 'drillInto', id });
+          return;
+        }
+
         // The old editor floated an <input> over the canvas. Selecting the shape
         // and focusing the inspector's first field does the same job with one
         // text input in the app instead of two.
-        e.stopPropagation();
         dispatchUi({ type: 'select', ids: [id] });
         requestAnimationFrame(() => {
           document.querySelector<HTMLInputElement>('.inspector .input')?.select();
@@ -261,6 +285,7 @@ export function Canvas() {
       ui.selectedIds,
       ui.connectorSourceId,
       ui.viewport,
+      view,
       collisions,
       onShapePointerDown,
       onShapeClick,
@@ -328,6 +353,8 @@ export function Canvas() {
           <DiagramScene
             model={culledModel}
             theme={theme}
+            collapsed={ui.viewport.zoom < E.COLLAPSE_ZOOM}
+            summaryLabel={(count) => t('canvas.services', { count })}
             interactionFor={interactionFor}
             connectorInteraction={{
               selectedId: ui.selectedConnectorId,

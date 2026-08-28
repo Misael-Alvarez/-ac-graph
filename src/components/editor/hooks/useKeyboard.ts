@@ -171,7 +171,13 @@ export function useKeyboard() {
         e.preventDefault();
         const step = e.shiftKey ? 18 : 1;
         const [dx, dy] = nudge[e.key];
-        dispatch({ type: 'moveShapes', ids: [...ui.selectedIds], dx: dx * step, dy: dy * step });
+        dispatch({
+          type: 'moveShapes',
+          ids: [...ui.selectedIds],
+          dx: dx * step,
+          dy: dy * step,
+          viewId: ui.activeViewId,
+        });
         return;
       }
 
@@ -187,6 +193,7 @@ export function useKeyboard() {
     ui.modal,
     ui.selectedIds,
     ui.selectedConnectorId,
+    ui.activeViewId,
     doc.model,
     dispatch,
     dispatchUi,

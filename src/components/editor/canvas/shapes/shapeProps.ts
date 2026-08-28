@@ -13,6 +13,13 @@ export interface ShapeRenderProps {
   theme: CanvasTheme;
   /** Resolves a shape id, needed to colour items by their zone. */
   lookup: (id: string) => Shape | undefined;
+  /**
+   * What the group holds, said in words, when the canvas is too far out to draw
+   * it. Already translated: a shape renderer is also used by the exporter and
+   * the embed, neither of which has a `t`. Absent means draw everything, which
+   * is every case but a zoomed-out group of several services.
+   */
+  summary?: string;
   interaction?: ShapeInteraction;
 }
 

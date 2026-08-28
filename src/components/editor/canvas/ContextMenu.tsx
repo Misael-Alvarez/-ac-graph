@@ -49,7 +49,7 @@ function useClampedPosition(x: number, y: number) {
  * which is the one place a menu can act on a position the user chose.
  */
 export function ContextMenu() {
-  const { doc, ui, dispatch, dispatchUi, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, t } = useEditor();
   const liquid = useLiquidPointer();
   const target = ui.contextMenu;
   const { ref, position } = useClampedPosition(target?.x ?? 0, target?.y ?? 0);
@@ -73,9 +73,9 @@ export function ContextMenu() {
   if (!target) return null;
 
   const close = () => dispatchUi({ type: 'closeContextMenu' });
-  const shape = target.shapeId ? E.getShape(doc.model, target.shapeId) : undefined;
+  const shape = target.shapeId ? E.getShape(view, target.shapeId) : undefined;
   const connector = target.connectorId
-    ? doc.model.connectors.find((c) => c.id === target.connectorId)
+    ? view.connectors.find((c) => c.id === target.connectorId)
     : undefined;
 
   const selection = ui.selectedIds.size > 1 ? [...ui.selectedIds] : shape ? [shape.id] : [];
@@ -114,7 +114,7 @@ export function ContextMenu() {
   } else if (shape) {
     const container =
       shape.type === 'group'
-        ? E.children(doc.model, shape.id).find((s) => s.type === 'container')
+        ? E.children(view, shape.id).find((s) => s.type === 'container')
         : shape.type === 'container'
           ? shape
           : undefined;
@@ -200,7 +200,7 @@ export function ContextMenu() {
         run: () =>
           dispatchUi({
             type: 'select',
-            ids: doc.model.shapes.filter((s) => s.type !== 'container').map((s) => s.id),
+            ids: view.shapes.filter((s) => s.type !== 'container').map((s) => s.id),
           }),
       },
       {

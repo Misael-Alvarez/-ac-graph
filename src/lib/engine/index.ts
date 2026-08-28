@@ -2,6 +2,7 @@ export * from './constants';
 export * from './ids';
 export * from './geometry';
 export * from './model';
+export * from './views';
 export * from './routing';
 export * from './collision';
 export * from './layout';

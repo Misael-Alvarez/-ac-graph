@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped whenever a stored model needs a migration. */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export const ShapeTypeSchema = z.enum(['boundary', 'group', 'container', 'item']);
 export const BoundaryVariantSchema = z.enum(['outer', 'sub']);
@@ -113,6 +113,47 @@ export const EdgeMetaSchema = z.object({
   dataClass: DataClassSchema.optional(),
 });
 
+/**
+ * A named way of looking at the same architecture.
+ *
+ * The model is the truth; a view is a reading of it. One service exists once and
+ * can appear in the executive view, the payments view and the PCI-scope view
+ * without being copied — so renaming it renames it everywhere, which is the
+ * whole reason not to keep three diagram files instead.
+ *
+ * A view is deliberately *thin*. It says which shapes it includes and, only
+ * where somebody dragged something, where it puts them; everything else falls
+ * back to the shape's own geometry. That keeps an existing diagram working
+ * untouched — it is simply a model whose single view overrides nothing — and
+ * leaves the engine, the DSL, the diff and the renderer unaware that views
+ * exist at all.
+ */
+export const ViewKindSchema = z.enum([
+  /* The default. A view is a selection, not a methodology: C4's levels are
+     offered below because they help, never because the tool insists. */
+  'free',
+  'context',
+  'container',
+  'component',
+  'deployment',
+  'dataflow',
+  'security',
+]);
+
+export const ViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: ViewKindSchema.default('free'),
+  /**
+   * Shape ids this view shows. Absent means "everything" — which is what the
+   * main view of every existing diagram means, and storing it as absence keeps
+   * that view from having to be rewritten every time a shape is added.
+   */
+  include: z.array(z.string()).optional(),
+  /** Per-view geometry, written only for a shape actually moved in this view. */
+  place: z.record(z.string(), BBoxSchema).optional(),
+});
+
 export const ShapeSchema = z
   .object({
     id: z.string(),
@@ -156,6 +197,12 @@ export const DiagramModelSchema = z.object({
   shapes: z.array(ShapeSchema),
   connectors: z.array(ConnectorSchema),
   showFooter: z.boolean().default(false),
+  /**
+   * Empty for every diagram written before views existed, and for any diagram
+   * the author never split. `resolveView` reads that as one implicit view over
+   * the whole model, so there is nothing to migrate.
+   */
+  views: z.array(ViewSchema).default([]),
 });
 
 export type Environment = z.infer<typeof EnvironmentSchema>;
@@ -175,6 +222,8 @@ export type IconRef = z.infer<typeof IconRefSchema>;
 export type Point = z.infer<typeof PointSchema>;
 export type BBox = z.infer<typeof BBoxSchema>;
 export type Shape = z.infer<typeof ShapeSchema>;
+export type ViewKind = z.infer<typeof ViewKindSchema>;
+export type View = z.infer<typeof ViewSchema>;
 export type Connector = z.infer<typeof ConnectorSchema>;
 export type DiagramModel = z.infer<typeof DiagramModelSchema>;
 

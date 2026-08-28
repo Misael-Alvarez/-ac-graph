@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { EdgeMeta, NodeMeta } from '@/lib/domain';
 import {
+  ViewKindSchema,
   CriticalitySchema,
   DataClassSchema,
   EdgeKindSchema,
@@ -69,6 +70,27 @@ export const EdgeLongSchema = z.object({
   dataClass: DataClassSchema.optional(),
 });
 
+/**
+ * A named reading of the document.
+ *
+ * Everything here is keyed by *node key* — the same `api-gateway` the `nodes`
+ * and `layout` blocks use — never by shape id. `compile` rebuilds the model with
+ * fresh ids on every keystroke in the code panel, so a view written in ids would
+ * point at nothing the moment somebody typed. This is the same reason `layout`
+ * is keyed the way it is: `views` is to selection what `layout` already is to
+ * position.
+ */
+export const ViewSpecSchema = z.object({
+  /** Absent for the main view, which the interface names in the reader's own
+   *  language rather than pinning one into the document. */
+  name: z.string().default(''),
+  kind: ViewKindSchema.default('free'),
+  /** Node keys this view shows. Absent means all of them. */
+  include: z.array(z.string()).optional(),
+  /** Where this view puts a node, when it puts it somewhere of its own. */
+  place: z.record(z.string(), PositionSchema).optional(),
+});
+
 export const DslDocumentSchema = z.object({
   version: z.number().default(DSL_VERSION),
   /** Default cloud used to resolve unprefixed service names. */
@@ -78,6 +100,7 @@ export const DslDocumentSchema = z.object({
   nodes: z.record(z.string(), NodeEntrySchema),
   edges: z.array(z.union([EdgeLongSchema, z.record(z.string(), z.string())])).default([]),
   layout: z.record(z.string(), PositionSchema).optional(),
+  views: z.record(z.string(), ViewSpecSchema).optional(),
 });
 
 export type Position = z.infer<typeof PositionSchema>;

@@ -23,10 +23,19 @@ export interface DocState {
   lastCreated: string[];
   /** Outcome of the last cloud switch, for the status toast. */
   lastCloudSwitch: SwitchCloudResult | null;
+  /** The view the last action created, for the interface to select. */
+  lastCreatedViewId: string | null;
 }
 
 export function initialDocState(model: DiagramModel): DocState {
-  return { model, past: [], future: [], lastCreated: [], lastCloudSwitch: null };
+  return {
+    model,
+    past: [],
+    future: [],
+    lastCreated: [],
+    lastCloudSwitch: null,
+    lastCreatedViewId: null,
+  };
 }
 
 export const canUndo = (s: DocState) => s.past.length > 0;
@@ -37,6 +46,8 @@ interface ActionOutcome {
   created: string[];
   /** Populated only by a cloud switch, for the status toast. */
   cloudSwitch?: SwitchCloudResult;
+  /** A view the action created, so the interface can switch to it. */
+  viewId?: string;
 }
 
 const NOTHING: ActionOutcome = { created: [] };
@@ -57,6 +68,21 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       draft.shapes = action.model.shapes;
       draft.connectors = action.model.connectors;
       draft.showFooter = action.model.showFooter;
+      // Views too. Compiling mints fresh shape ids, so keeping the old views
+      // here would leave every one of them selecting and placing shapes that no
+      // longer exist — the views would survive a code edit as empty names.
+      //
+      // But their *ids* are kept, matched by name. A view rebuilt from the
+      // document gets an id derived from its slug, and swapping it in would make
+      // the reader's own view vanish from under them on the keystroke that
+      // recompiled — the interface points at an id that no longer exists and
+      // falls back to the main view. Same trick as `diff.ts`: identity has to
+      // survive a recompile, and the name is what survives it.
+      const idByName = new Map(draft.views.map((v) => [v.name, v.id]));
+      draft.views = action.model.views.map((view) => {
+        const existing = idByName.get(view.name);
+        return existing && existing !== view.id ? { ...view, id: existing } : view;
+      });
       return NOTHING;
     }
 
@@ -109,19 +135,36 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
         if (action.ids.some((other) => other !== id && E.isAncestor(draft, id, other))) continue;
         for (const descendantId of E.collectDescendantIds(draft, id)) moved.add(descendantId);
       }
+      // In the main view a drag moves the shape; anywhere else it writes that
+      // view's own placement and leaves the shape — and every other view —
+      // exactly where they were.
+      const view = E.isMainView(draft, action.viewId) ? null : E.getView(draft, action.viewId);
+
       for (const id of moved) {
         const shape = E.getShape(draft, id);
         if (!shape) continue;
-        shape.x += action.dx;
-        shape.y += action.dy;
+        if (view) {
+          const at = E.placementOf(view, shape);
+          E.setPlacement(view, shape, { x: at.x + action.dx, y: at.y + action.dy });
+        } else {
+          shape.x += action.dx;
+          shape.y += action.dy;
+        }
       }
-      E.routeConnectorsFor(draft, moved);
+      // Only the main view's routes are stored; `resolveView` re-routes the rest.
+      if (!view) E.routeConnectorsFor(draft, moved);
       return NOTHING;
     }
 
     case 'resizeShape': {
       const shape = E.getShape(draft, action.id);
       if (!shape) return NOTHING;
+
+      if (!E.isMainView(draft, action.viewId)) {
+        E.setPlacement(E.getView(draft, action.viewId), shape, { w: action.w, h: action.h });
+        return NOTHING;
+      }
+
       shape.w = action.w;
       shape.h = action.h;
       shape.manualSize = true;
@@ -221,6 +264,52 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       return NOTHING;
     }
 
+    case 'addView': {
+      const source = action.from ? draft.views.find((v) => v.id === action.from) : undefined;
+      // The first explicit view has to record the main one too, or the model
+      // would answer "views: [Security]" and lose the reading it already had.
+      if (!draft.views.length) draft.views.push({ ...E.defaultView(), name: '' });
+      const view = {
+        id: E.newViewId(),
+        name: action.name,
+        kind: source?.kind ?? ('free' as const),
+        ...(source?.include ? { include: [...source.include] } : {}),
+        // Copied box by box, not with `structuredClone`: `source` is an Immer
+        // draft, and a proxy is not cloneable.
+        ...(source?.place
+          ? {
+              place: Object.fromEntries(
+                Object.entries(source.place).map(([id, box]) => [id, { ...box }]),
+              ),
+            }
+          : {}),
+      };
+      draft.views.push(view);
+      return { created: [], viewId: view.id };
+    }
+
+    case 'renameView': {
+      const view = draft.views.find((v) => v.id === action.id);
+      if (view) view.name = action.name;
+      return NOTHING;
+    }
+
+    case 'deleteView': {
+      // The main view is the model's own reading of itself; there is no diagram
+      // without it, so it is the one view that cannot be deleted.
+      if (draft.views.length < 2 || draft.views[0].id === action.id) return NOTHING;
+      draft.views = draft.views.filter((v) => v.id !== action.id);
+      return NOTHING;
+    }
+
+    case 'setViewInclude': {
+      const view = draft.views.find((v) => v.id === action.id);
+      if (!view) return NOTHING;
+      if (action.include) view.include = action.include;
+      else delete view.include;
+      return NOTHING;
+    }
+
     case 'switchShapeCloud': {
       E.switchShapeCloud(draft, action.id, action.target, action.locale);
       return NOTHING;
@@ -274,7 +363,12 @@ export function docReducer(state: DocState, action: EditorAction): DocState {
         // something to report, such as a cloud switch where nothing had an
         // equivalent. Swallowing that would leave the user with silence.
         if (outcome.cloudSwitch) {
-          return { ...state, lastCreated: [], lastCloudSwitch: outcome.cloudSwitch };
+          return {
+            ...state,
+            lastCreated: [],
+            lastCloudSwitch: outcome.cloudSwitch,
+            lastCreatedViewId: null,
+          };
         }
         return state;
       }
@@ -284,6 +378,7 @@ export function docReducer(state: DocState, action: EditorAction): DocState {
         future: [],
         lastCreated: outcome.created,
         lastCloudSwitch: outcome.cloudSwitch ?? null,
+        lastCreatedViewId: outcome.viewId ?? null,
       };
     }
   }

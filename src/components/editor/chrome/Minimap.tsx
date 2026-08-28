@@ -12,17 +12,17 @@ const WIDTH = 190;
 const HEIGHT = 128;
 
 export function Minimap({ size }: { size: { width: number; height: number } }) {
-  const { doc, ui, dispatchUi, t } = useEditor();
+  const { ui, view: model, dispatchUi, t } = useEditor();
   const theme = canvasTheme();
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const box = useMemo(() => contentBBox(doc.model), [doc.model]);
+  const box = useMemo(() => contentBBox(model), [model]);
   const viewBox = useMemo(() => {
     const pad = Math.max(box.w, box.h) * 0.06 + 40;
     return { x: box.x - pad, y: box.y - pad, w: box.w + pad * 2, h: box.h + pad * 2 };
   }, [box]);
 
-  if (!ui.minimapOpen || !doc.model.shapes.length) return null;
+  if (!ui.minimapOpen || !model.shapes.length) return null;
 
   const view = size.width ? visibleBox(ui.viewport, size) : null;
   const strokeScale = viewBox.w / WIDTH;
@@ -86,7 +86,7 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
         onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
       >
         <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill={theme.sheet} />
-        {doc.model.shapes
+        {model.shapes
           .filter((s) => s.type === 'boundary')
           .map((s) => (
             <rect
@@ -101,7 +101,7 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
               strokeWidth={strokeScale}
             />
           ))}
-        {doc.model.shapes
+        {model.shapes
           .filter((s) => s.type === 'group')
           .map((s) => (
             <rect
@@ -116,7 +116,7 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
               strokeWidth={strokeScale}
             />
           ))}
-        {doc.model.shapes
+        {model.shapes
           .filter((s) => s.type === 'item')
           .map((s) => (
             <rect

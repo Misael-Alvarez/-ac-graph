@@ -77,6 +77,7 @@ export function createEmptyModel(): DiagramModel {
     shapes: [],
     connectors: [],
     showFooter: false,
+    views: [],
   };
 }
 
@@ -213,12 +214,37 @@ export function addItemToContainer(model: DiagramModel, containerId: string): Sh
 
 /* ── mutation ───────────────────────────────────────────── */
 
+/**
+ * Drops shapes from every view that mentions them.
+ *
+ * Lives here rather than in `views` so that module can keep depending on this
+ * one and not the other way round. It needs nothing from it: a view's `include`
+ * and `place` are plain lists of ids.
+ */
+export function forgetShapeInViews(model: DiagramModel, shapeIds: Iterable<string>): void {
+  const gone = new Set(shapeIds);
+  if (!gone.size) return;
+
+  for (const view of model.views) {
+    if (view.include) {
+      const kept = view.include.filter((id) => !gone.has(id));
+      if (kept.length !== view.include.length) view.include = kept;
+    }
+    if (view.place) {
+      for (const id of gone) delete view.place[id];
+    }
+  }
+}
+
 export function deleteShape(model: DiagramModel, id: string): void {
   const s = getShape(model, id);
   if (!s) return;
   const toRemove = collectDescendantIds(model, id);
   const parentId = s.parentId;
   model.shapes = model.shapes.filter((sh) => !toRemove.has(sh.id));
+  // Here rather than in the reducer so that every caller — clipboard, DSL
+  // recompile, cloud switch — gets it, instead of only the one that remembered.
+  forgetShapeInViews(model, toRemove);
   model.connectors = model.connectors.filter(
     (c) => !toRemove.has(c.sourceId) && !toRemove.has(c.targetId),
   );

@@ -1,5 +1,5 @@
 import { parseDocument, type Document } from 'yaml';
-import type { DiagramModel, Shape } from '@/lib/domain';
+import type { DiagramModel, Shape, View } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { PROVIDER_COLORS, providerOf } from '@/lib/editor/providers';
@@ -305,6 +305,49 @@ export function compile(
   }
 
   E.routeAllConnectors(model);
+
+  // Views last: they name nodes, and a node's group only has its final position
+  // once the boundaries above have finished pushing things around.
+  if (document.views) {
+    for (const [key, spec] of Object.entries(document.views)) {
+      const view: View = {
+        id: key === 'main' ? E.MAIN_VIEW_ID : `view_${key}`,
+        name: spec.name,
+        kind: spec.kind,
+      };
+
+      if (spec.include) {
+        const ids = spec.include.map(groupOfNode).filter((g): g is Shape => Boolean(g));
+        if (ids.length !== spec.include.length) {
+          diagnostics.push({
+            severity: 'warning',
+            message: `View "${key}" names a node the document does not define.`,
+            from: 0,
+            to: 0,
+            path: ['views', key, 'include'],
+          });
+        }
+        view.include = ids.map((g) => g.id);
+      }
+
+      for (const [nodeId, [x, y]] of Object.entries(spec.place ?? {})) {
+        const group = groupOfNode(nodeId);
+        if (!group) continue;
+        // The document places the group; the container and item inside it move
+        // by the same delta, which is what dragging the group did to produce it.
+        const dx = x - group.x;
+        const dy = y - group.y;
+        view.place ??= {};
+        for (const id of E.collectDescendantIds(model, group.id)) {
+          const shape = E.getShape(model, id);
+          if (shape) view.place[id] = { x: shape.x + dx, y: shape.y + dy, w: shape.w, h: shape.h };
+        }
+      }
+
+      model.views.push(view);
+    }
+  }
+
   return { model, diagnostics };
 }
 

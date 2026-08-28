@@ -21,6 +21,8 @@ import { ToolDock } from './chrome/ToolDock';
 import { TopBar } from './chrome/TopBar';
 import { VersionPanel } from './chrome/VersionPanel';
 import { ZoomControls } from './chrome/ZoomControls';
+import { ViewBar } from './chrome/ViewBar';
+import { Breadcrumb } from './canvas/Breadcrumb';
 import { useKeyboard } from './hooks/useKeyboard';
 
 /** Tracks the canvas element size for fit-to-view and the minimap viewport box. */
@@ -119,6 +121,8 @@ function EditorShell({
         {ui.browserOpen && <ServiceBrowser />}
         <main className="editor-stage">
           <Canvas />
+          <Breadcrumb />
+          <ViewBar />
           <ToolDock />
           <InspectorPanel />
           <ZoomControls size={size} />

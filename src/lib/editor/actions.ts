@@ -25,8 +25,11 @@ export type EditorAction =
     }
   | { type: 'addItem'; containerId: string }
   | { type: 'deleteShapes'; ids: string[] }
-  | { type: 'moveShapes'; ids: string[]; dx: number; dy: number }
-  | { type: 'resizeShape'; id: string; w: number; h: number }
+  /* `viewId` on the two actions that write geometry: in the main view a drag
+     moves the shape, in any other view it writes that view's own placement. See
+     engine/views. */
+  | { type: 'moveShapes'; ids: string[]; dx: number; dy: number; viewId: string | null }
+  | { type: 'resizeShape'; id: string; w: number; h: number; viewId: string | null }
   | { type: 'setShapeProps'; id: string; patch: Partial<Shape> }
   | { type: 'reorderItem'; id: string; dir: 1 | -1 }
   | { type: 'alignShapes'; ids: string[]; edge: AlignEdge }
@@ -43,6 +46,12 @@ export type EditorAction =
   /* `locale` because retargeting rewrites each shape's subtitle from the
      catalogue, and a subtitle is content: it must arrive in the author's
      language, not in whatever the library defaults to. */
+  /* Views are content, so they live in the model and ride the same history,
+     persistence and share path as everything else. */
+  | { type: 'addView'; name: string; from: string | null }
+  | { type: 'renameView'; id: string; name: string }
+  | { type: 'deleteView'; id: string }
+  | { type: 'setViewInclude'; id: string; include: string[] | null }
   | { type: 'switchCloud'; target: CloudTarget; locale: Locale }
   | { type: 'switchShapeCloud'; id: string; target: CloudTarget; locale: Locale }
   | { type: 'undo' }

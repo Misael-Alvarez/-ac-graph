@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { children, createEmptyModel, getShape } from '@/lib/engine';
+import { children, createEmptyModel, getShape, resolveView } from '@/lib/engine';
 import type { EditorAction } from './actions';
 import { canRedo, canUndo, docReducer, initialDocState, type DocState } from './reducer';
 
@@ -69,6 +69,7 @@ describe('undo / redo', () => {
       ids: [groupId],
       dx: 250,
       dy: -60,
+      viewId: null,
     });
     expect(getShape(moved.model, groupId)).toMatchObject({ x: origin.x + 250, y: origin.y - 60 });
 
@@ -84,6 +85,7 @@ describe('undo / redo', () => {
       ids: [groupId],
       dx: 100,
       dy: 100,
+      viewId: null,
     });
     const redone = run(moved, { type: 'undo' }, { type: 'redo' });
     expect(getShape(redone.model, groupId)).toMatchObject(getShape(moved.model, groupId)!);
@@ -93,7 +95,7 @@ describe('undo / redo', () => {
     const { state, groupId } = withOneGroup();
     const original = { w: getShape(state.model, groupId)!.w, h: getShape(state.model, groupId)!.h };
 
-    const resized = run(state, { type: 'resizeShape', id: groupId, w: 800, h: 500 });
+    const resized = run(state, { type: 'resizeShape', id: groupId, w: 800, h: 500, viewId: null });
     expect(getShape(resized.model, groupId)!.w).toBe(800);
 
     const undone = run(resized, { type: 'undo' });
@@ -104,7 +106,7 @@ describe('undo / redo', () => {
     let state = withOneGroup().state;
     const groupId = state.model.shapes.find((s) => s.type === 'group')!.id;
     for (let i = 0; i < 20; i++) {
-      state = run(state, { type: 'moveShapes', ids: [groupId], dx: 10, dy: 0 });
+      state = run(state, { type: 'moveShapes', ids: [groupId], dx: 10, dy: 0, viewId: null });
     }
     expect(getShape(state.model, groupId)!.x).toBe(300);
     for (let i = 0; i < 20; i++) state = run(state, { type: 'undo' });
@@ -114,7 +116,7 @@ describe('undo / redo', () => {
 
   it('drops the redo stack once new work happens', () => {
     const { state, groupId } = withOneGroup();
-    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 50, dy: 0 });
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 50, dy: 0, viewId: null });
     const undone = run(moved, { type: 'undo' });
     expect(canRedo(undone)).toBe(true);
 
@@ -123,6 +125,7 @@ describe('undo / redo', () => {
       ids: [groupId],
       dx: -50,
       dy: 0,
+      viewId: null,
     });
     expect(canRedo(diverged)).toBe(false);
   });
@@ -157,7 +160,7 @@ describe('undo / redo', () => {
 
   it('clears history when a document is loaded', () => {
     const { state: seeded, groupId } = withOneGroup();
-    const state = run(seeded, { type: 'moveShapes', ids: [groupId], dx: 10, dy: 0 });
+    const state = run(seeded, { type: 'moveShapes', ids: [groupId], dx: 10, dy: 0, viewId: null });
     expect(canUndo(state)).toBe(true);
     const loaded = run(state, { type: 'load', model: createEmptyModel() });
     expect(canUndo(loaded)).toBe(false);
@@ -171,7 +174,7 @@ describe('moveShapes', () => {
     const item = state.model.shapes.find((s) => s.type === 'item')!;
     const offset = { x: item.x - 100, y: item.y - 100 };
 
-    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 40 });
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 40, viewId: null });
     const movedItem = getShape(moved.model, item.id)!;
     expect(movedItem.x).toBe(140 + offset.x);
     expect(movedItem.y).toBe(140 + offset.y);
@@ -185,6 +188,7 @@ describe('moveShapes', () => {
 
     const moved = run(state, {
       type: 'moveShapes',
+      viewId: null,
       ids: [groupId, container.id, item.id],
       dx: 30,
       dy: 0,
@@ -214,6 +218,7 @@ describe('moveShapes', () => {
       ids: [items[0].parentId!],
       dx: 0,
       dy: 120,
+      viewId: null,
     });
 
     expect(moved.model.connectors[0].waypoints).not.toEqual(state.model.connectors[0].waypoints);
@@ -222,7 +227,9 @@ describe('moveShapes', () => {
 
   it('ignores unknown ids', () => {
     const { state } = withOneGroup();
-    expect(run(state, { type: 'moveShapes', ids: ['ghost'], dx: 10, dy: 10 })).toBe(state);
+    expect(run(state, { type: 'moveShapes', ids: ['ghost'], dx: 10, dy: 10, viewId: null })).toBe(
+      state,
+    );
   });
 });
 
@@ -380,7 +387,7 @@ describe('immutability', () => {
   it('never mutates the previous state', () => {
     const { state, groupId } = withOneGroup();
     const snapshot = structuredClone(state.model);
-    run(state, { type: 'moveShapes', ids: [groupId], dx: 99, dy: 99 });
+    run(state, { type: 'moveShapes', ids: [groupId], dx: 99, dy: 99, viewId: null });
     expect(state.model).toEqual(snapshot);
   });
 
@@ -395,6 +402,7 @@ describe('immutability', () => {
       ids: [otherGroupId],
       dx: 10,
       dy: 0,
+      viewId: null,
     });
     // Structural sharing is what keeps large diagrams cheap to update.
     expect(moved.model.shapes.find((s) => s.id === untouched.id)).toBe(untouched);
@@ -527,5 +535,165 @@ describe('reverseConnector', () => {
   it('ignores an unknown connector', () => {
     const { state } = withOneGroup();
     expect(run(state, { type: 'reverseConnector', id: 'ghost' })).toBe(state);
+  });
+});
+
+describe('views', () => {
+  /** A document with one group and a second view selected. */
+  function withSecondView() {
+    const { state, groupId } = withOneGroup();
+    const added = run(state, { type: 'addView', name: 'Seguridad', from: null });
+    return { state: added, groupId, viewId: added.lastCreatedViewId! };
+  }
+
+  it('records the main view when the first explicit one is added', () => {
+    const { state } = withSecondView();
+    // Otherwise the model would answer "views: [Seguridad]" and lose the reading
+    // it already had, which is the whole diagram.
+    expect(state.model.views).toHaveLength(2);
+    expect(state.model.views[0].id).toBe('view_main');
+  });
+
+  it('moving in the main view moves the shape, as it always did', () => {
+    const { state, groupId } = withOneGroup();
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId: null });
+
+    expect(getShape(moved.model, groupId)!.x).toBe(140);
+    expect(moved.model.views).toHaveLength(0);
+  });
+
+  it('moving in another view writes a placement and leaves the shape alone', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId });
+
+    expect(getShape(moved.model, groupId)!.x).toBe(100);
+    expect(moved.model.views[1].place?.[groupId]).toMatchObject({ x: 140 });
+  });
+
+  it('so the same shape sits in two places at once', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 300, dy: 0, viewId });
+
+    const inMain = resolveView(moved.model, null).shapes.find((s) => s.id === groupId)!;
+    const inOther = resolveView(moved.model, viewId).shapes.find((s) => s.id === groupId)!;
+    expect(inMain.x).toBe(100);
+    expect(inOther.x).toBe(400);
+  });
+
+  it('a second move in a view accumulates on the first', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const twice = run(
+      state,
+      { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId },
+      { type: 'moveShapes', ids: [groupId], dx: 10, dy: 5, viewId },
+    );
+    expect(twice.model.views[1].place?.[groupId]).toMatchObject({ x: 150, y: 105 });
+  });
+
+  it('undoes a per-view move like any other edit', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId });
+    expect(canUndo(moved)).toBe(true);
+
+    const back = run(moved, { type: 'undo' });
+    expect(back.model.views[1].place?.[groupId]).toBeUndefined();
+  });
+
+  it('resizes per view too', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const before = getShape(state.model, groupId)!.w;
+    const resized = run(state, { type: 'resizeShape', id: groupId, w: 999, h: 42, viewId });
+
+    expect(getShape(resized.model, groupId)!.w).toBe(before);
+    expect(resized.model.views[1].place?.[groupId]).toMatchObject({ w: 999, h: 42 });
+  });
+
+  it('copies the source view when duplicating one', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId });
+    const copied = run(moved, { type: 'addView', name: 'Copia', from: viewId });
+
+    expect(copied.model.views[2].place?.[groupId]).toMatchObject({ x: 140 });
+    // A copy, not a share: moving in one must not move the other.
+    const after = run(copied, {
+      type: 'moveShapes',
+      ids: [groupId],
+      dx: 10,
+      dy: 0,
+      viewId: copied.lastCreatedViewId!,
+    });
+    expect(after.model.views[1].place?.[groupId]).toMatchObject({ x: 140 });
+    expect(after.model.views[2].place?.[groupId]).toMatchObject({ x: 150 });
+  });
+
+  it('renames and deletes a view', () => {
+    const { state, viewId } = withSecondView();
+    expect(run(state, { type: 'renameView', id: viewId, name: 'PCI' }).model.views[1].name).toBe(
+      'PCI',
+    );
+    expect(run(state, { type: 'deleteView', id: viewId }).model.views).toHaveLength(1);
+  });
+
+  it('refuses to delete the main view, which is the diagram itself', () => {
+    const { state } = withSecondView();
+    const after = run(state, { type: 'deleteView', id: 'view_main' });
+    expect(after.model.views).toHaveLength(2);
+  });
+
+  it('narrows a view and widens it again', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const narrowed = run(state, { type: 'setViewInclude', id: viewId, include: [groupId] });
+    expect(narrowed.model.views[1].include).toEqual([groupId]);
+
+    const widened = run(narrowed, { type: 'setViewInclude', id: viewId, include: null });
+    expect(widened.model.views[1].include).toBeUndefined();
+  });
+
+  it('forgets a deleted shape everywhere, so no view selects a ghost', () => {
+    const { state, groupId, viewId } = withSecondView();
+    const prepared = run(
+      state,
+      { type: 'setViewInclude', id: viewId, include: [groupId] },
+      { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId },
+    );
+
+    const deleted = run(prepared, { type: 'deleteShapes', ids: [groupId] });
+    expect(deleted.model.views[1].include).toEqual([]);
+    expect(deleted.model.views[1].place).toEqual({});
+  });
+});
+
+describe('replacing the model from the code panel', () => {
+  it('takes the compiled views, not the ones built against dead ids', () => {
+    const { state, groupId, viewId } = (() => {
+      const { state, groupId } = withOneGroup();
+      const added = run(state, { type: 'addView', name: 'Seguridad', from: null });
+      return { state: added, groupId, viewId: added.lastCreatedViewId! };
+    })();
+    const moved = run(state, { type: 'moveShapes', ids: [groupId], dx: 40, dy: 0, viewId });
+
+    // What a recompile hands back: the same architecture, every shape new.
+    const recompiled = createEmptyModel();
+    recompiled.views = [
+      { id: 'view_main', name: '', kind: 'free' },
+      { id: 'view_seguridad', name: 'Seguridad', kind: 'free' },
+    ];
+
+    const after = run(moved, { type: 'replaceModel', model: recompiled });
+    // The stale placement is gone rather than left pointing at a deleted shape.
+    expect(after.model.views[1].place).toBeUndefined();
+    // But the id is the one the interface is pointing at, matched by name, so
+    // the reader is not thrown back to the main view by their own keystroke.
+    expect(after.model.views[1].id).toBe(viewId);
+    expect(after.model.views[0].id).toBe('view_main');
+  });
+
+  it('takes a genuinely new view’s own id', () => {
+    const { state } = withOneGroup();
+    const recompiled = createEmptyModel();
+    recompiled.views = [{ id: 'view_pci', name: 'PCI', kind: 'free' }];
+
+    const after = run(state, { type: 'replaceModel', model: recompiled });
+    expect(after.model.views[0].id).toBe('view_pci');
   });
 });
