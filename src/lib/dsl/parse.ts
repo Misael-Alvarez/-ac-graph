@@ -306,6 +306,8 @@ export function compile(
 
   E.routeAllConnectors(model);
 
+  if (document.rules?.length) model.rules = document.rules;
+
   // Views last: they name nodes, and a node's group only has its final position
   // once the boundaries above have finished pushing things around.
   if (document.views) {

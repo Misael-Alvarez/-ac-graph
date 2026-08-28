@@ -1201,6 +1201,16 @@ kbd {
 
 /* What the import dialog made of a paste, shown before the reader commits to
    replacing their diagram with it. */
+/* A violated standard says what broke it and, under that, the rule in the
+   team's own words — which is the half that says what to do about it. */
+.insight-rule {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
 .import-read {
   display: flex;
   align-items: center;

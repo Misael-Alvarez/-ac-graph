@@ -139,6 +139,9 @@ const en = {
   'inspector.type.container': 'Frame',
   'inspector.type.item': 'Service',
 
+  'rules.broken': 'Standards broken',
+  'rules.violated': 'Standards broken ({count})',
+  'rules.inert': 'These rules matched nothing, which usually means a typo: {rules}',
   'import.clients': 'Clients',
   'import.operationOne': '{count} operation',
   'import.operationMany': '{count} operations',
@@ -471,6 +474,9 @@ const es: Record<MessageKey, string> = {
   'inspector.type.container': 'Marco',
   'inspector.type.item': 'Servicio',
 
+  'rules.broken': 'Normas incumplidas',
+  'rules.violated': 'Normas incumplidas ({count})',
+  'rules.inert': 'Estas reglas no coincidieron con nada, lo que suele ser una errata: {rules}',
   'import.clients': 'Clientes',
   'import.operationOne': '{count} operación',
   'import.operationMany': '{count} operaciones',

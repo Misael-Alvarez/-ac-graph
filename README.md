@@ -103,7 +103,7 @@ build, which is what stops a diagram quietly stopping being true.
 
 ```bash
 npx ac-graph check main.tf                 # analyse; exits non-zero on findings
-npx ac-graph check arch.yaml --fail-on medium --json
+npx ac-graph check arch.yaml --rules standards.yaml --fail-on medium --json
 npx ac-graph import k8s/deployment.yaml -o architecture.yaml
 npx ac-graph diff before.yaml after.yaml   # non-zero when anything moved
 npx ac-graph mermaid arch.yaml             # for a pull request or a README
@@ -147,6 +147,49 @@ twenty-line resolver in `bin/hooks.mjs` teaching Node the two import rules Next
 uses. That is the whole cost of not keeping a second copy of the library, or a
 bundler, for the sake of a binary.
 
+## Standards, made executable
+
+A team already has architecture rules — production services name an owner,
+nothing but payments talks to the ledger, customer data never travels
+unauthenticated. They live in a wiki page nobody reads and a reviewer's memory.
+Written into the document, they are checked by the editor, failed on by CI and
+answerable by an agent.
+
+```yaml
+rules:
+  - id: prod-needs-owner
+    description: Every production service names the team that answers for it.
+    services: { environment: prod }
+    require: { owner: true }
+
+  - id: ledger-is-private
+    description: Only the payments service talks to the ledger.
+    links: { to: { tag: database } }
+    forbid: true
+    except: { from: { owner: payments } }
+
+  - id: pci-authenticated
+    description: Card data never travels unauthenticated.
+    links: { dataClass: [pci, pii] }
+    require: { auth: true }
+```
+
+A rule is about `services` or about `links`, and either **requires** something
+of what it matches or **forbids** the match existing. A matcher is a value, a
+list of allowed values, `true` for "is set at all", or a cloud prefix like
+`aws-`. `description` is the team's own sentence and is shown verbatim, in
+whatever language it was written in — it is the one piece of copy in the app
+that belongs to the data rather than to the interface.
+
+Rules that match nothing are reported separately. A rule with a typo in its
+selector passes trivially and looks exactly like a rule that is working, which
+is the most common way a standard silently stops being enforced. For the same
+reason an unreadable rule is refused rather than narrowed: every field name is
+checked against what the model actually knows.
+
+`ac-graph check --rules standards.yaml` adds an organisation-wide file on top of
+whatever a document declares for itself.
+
 ## Architecture
 
 ```
@@ -155,6 +198,7 @@ src/lib/engine/   Pure geometry, routing, layout. No browser APIs, so it can
                   render on a server for embeds.
 src/lib/dsl/      YAML and Mermaid, in and out
 src/lib/import/   Terraform, Kubernetes and OpenAPI, each into a DSL document
+src/lib/rules/    Declarative standards, and checking a model against them
 src/lib/ai/       Prompts, output schema, rate limiting
 src/lib/share/    Link codec and share/embed URLs
 src/lib/store/    DiagramRepository — the only I/O boundary in the app

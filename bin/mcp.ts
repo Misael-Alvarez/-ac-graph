@@ -3,6 +3,7 @@ import { compile, parseDsl, serializeDsl, toMermaid } from '@/lib/dsl';
 import { FINDING_HEADLINE, analyzeArchitecture, diffModels, getShape } from '@/lib/engine';
 import type { DiagramModel, Shape } from '@/lib/domain';
 import { detectFormat, importArchitecture } from '@/lib/import';
+import { checkRules, parseRules } from '@/lib/rules';
 import { queryCatalog } from '@/lib/editor/catalog';
 import { translate } from '@/lib/i18n/messages';
 
@@ -105,6 +106,24 @@ const TOOLS = [
         document: { type: 'string', description: 'The DSL source.' },
       },
       required: ['path', 'document'],
+    },
+  },
+  {
+    name: 'check_standards',
+    description:
+      'Check an architecture against the rules it declares, and optionally a shared rules ' +
+      "file. Returns which standards are broken, by what, and the rule's own wording. Rules " +
+      'that matched nothing come back separately, since those pass for the wrong reason.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        rules: {
+          type: 'string',
+          description: 'A rules file, on top of any the document declares.',
+        },
+      },
+      required: ['path'],
     },
   },
   {
@@ -295,6 +314,27 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
         links: analysis.edges,
         score: analysis.score,
         findings: analysis.findings.map((f) => translate('en', FINDING_HEADLINE[f.kind], f.detail)),
+      };
+    }
+
+    case 'check_standards': {
+      const { model } = await readModel(String(args.path));
+      const shared = args.rules ? parseRules(await readFile(String(args.rules), 'utf8')).rules : [];
+      const report = checkRules(model, {
+        version: 1,
+        rules: [...(model.rules ?? []), ...shared],
+      });
+      return {
+        checked: report.checked,
+        violations: report.violations.map((v) => ({
+          rule: v.ruleId,
+          severity: v.severity,
+          subject: v.subject,
+          field: v.field,
+          // Verbatim: the rule is the team's sentence, not this tool's.
+          says: v.description,
+        })),
+        rulesThatMatchedNothing: report.inert,
       };
     }
 

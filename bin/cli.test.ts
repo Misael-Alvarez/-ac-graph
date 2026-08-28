@@ -256,3 +256,110 @@ describe('mermaid and fmt', () => {
     expect(await readFile(path, 'utf8')).toBe(once);
   });
 });
+
+describe('standards, which are the team’s own rules made executable', () => {
+  const STANDARDS = `version: 1
+rules:
+  - id: prod-needs-owner
+    description: Every production service names a team.
+    services: {environment: prod}
+    require: {owner: true}
+  - id: ledger-is-private
+    description: Only payments talks to the ledger.
+    links: {to: {tag: database}}
+    forbid: true
+    except: {from: {owner: payments}}
+`;
+
+  const PROD = `version: 1
+cloud: aws
+nodes:
+  payments: {service: lambda, label: Payments, owner: payments, environment: prod}
+  reporting: {service: lambda, label: Reporting, environment: prod}
+  ledger: {service: rds, label: Ledger, owner: payments, environment: prod, tags: [database]}
+edges:
+  - {from: payments, to: ledger, label: SQL}
+  - {from: reporting, to: ledger, label: SQL}
+`;
+
+  it('fails a build on a broken standard', async () => {
+    const path = await write('a.yaml', PROD);
+    const rules = await write('rules.yaml', STANDARDS);
+    expect(await main(['check', path, '--rules', rules])).toBe(1);
+  });
+
+  it("says the team's own sentence, not a generated one", async () => {
+    const path = await write('a.yaml', PROD);
+    const rules = await write('rules.yaml', STANDARDS);
+    await main(['check', path, '--rules', rules, '--exit-zero']);
+    expect(stdout()).toContain('Only payments talks to the ledger.');
+    expect(stdout()).toContain('[ledger-is-private]');
+  });
+
+  it('names the field a requirement failed on', async () => {
+    const path = await write('a.yaml', PROD);
+    const rules = await write('rules.yaml', STANDARDS);
+    await main(['check', path, '--rules', rules, '--exit-zero']);
+    expect(stdout()).toContain('Reporting — owner');
+  });
+
+  it('checks the standards a document declares, with no file at all', async () => {
+    // Rules travel with the architecture, so a shared file is an addition
+    // rather than the only way to have any.
+    const path = await write(
+      'a.yaml',
+      `${PROD}rules:\n  - {id: own, description: Everything has an owner., services: {}, require: {owner: true}}\n`,
+    );
+    expect(await main(['check', path])).toBe(1);
+    expect(stdout()).toContain('Everything has an owner.');
+  });
+
+  it('checks both at once, the document’s and the organisation’s', async () => {
+    const path = await write(
+      'a.yaml',
+      `${PROD}rules:\n  - {id: own, description: Mine., services: {}, require: {owner: true}}\n`,
+    );
+    const rules = await write('rules.yaml', STANDARDS);
+    await main(['check', path, '--rules', rules, '--exit-zero']);
+    expect(stdout()).toContain('Mine.');
+    expect(stdout()).toContain('Only payments talks to the ledger.');
+  });
+
+  it('reports a rule that matched nothing rather than counting it as passed', async () => {
+    const path = await write('a.yaml', PROD);
+    const rules = await write(
+      'rules.yaml',
+      'rules:\n  - {id: typo, description: T., services: {environment: producton}, require: {owner: true}}',
+    );
+    expect(await main(['check', path, '--rules', rules])).toBe(0);
+    expect(stdout()).toContain('typo');
+  });
+
+  it('refuses a rules file it cannot read, rather than checking nothing', async () => {
+    const path = await write('a.yaml', PROD);
+    const rules = await write('rules.yaml', 'rules:\n  - {id: x, description: X., services: {}}');
+    expect(await main(['check', path, '--rules', rules])).toBe(1);
+    expect(stderr()).toContain('cannot be read');
+  });
+
+  it('gives a pipeline the violations alongside the findings', async () => {
+    const path = await write('a.yaml', PROD);
+    const rules = await write('rules.yaml', STANDARDS);
+    await main(['check', path, '--rules', rules, '--json', '--exit-zero']);
+    const report = JSON.parse(stdout());
+    expect(report.violations.map((v: { rule: string }) => v.rule)).toContain('ledger-is-private');
+    expect(report).toHaveProperty('inertRules');
+  });
+
+  it('respects the bar for a violation as it does for a finding', async () => {
+    // PAIR is clean by every check there is, so the only thing that can fail
+    // this build is the rule — which is what the test is about.
+    const path = await write('a.yaml', PAIR);
+    const rules = await write(
+      'rules.yaml',
+      'rules:\n  - {id: soft, description: S., severity: low, services: {}, require: {repository: true}}',
+    );
+    expect(await main(['check', path, '--rules', rules, '--fail-on', 'medium'])).toBe(0);
+    expect(await main(['check', path, '--rules', rules, '--fail-on', 'low'])).toBe(1);
+  });
+});

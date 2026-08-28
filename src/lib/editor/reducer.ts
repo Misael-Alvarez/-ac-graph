@@ -78,6 +78,11 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       // recompiled — the interface points at an id that no longer exists and
       // falls back to the main view. Same trick as `diff.ts`: identity has to
       // survive a recompile, and the name is what survives it.
+      // And the standards, for the same reason: they are part of the document,
+      // so a code edit that dropped them would delete a team's rules the first
+      // time anybody touched the architecture they guard.
+      draft.rules = action.model.rules;
+
       const idByName = new Map(draft.views.map((v) => [v.name, v.id]));
       draft.views = action.model.views.map((view) => {
         const existing = idByName.get(view.name);

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { EdgeMeta, NodeMeta } from '@/lib/domain';
+import { RuleSchema } from '@/lib/rules/schema';
 import {
   ViewKindSchema,
   CriticalitySchema,
@@ -101,6 +102,8 @@ export const DslDocumentSchema = z.object({
   edges: z.array(z.union([EdgeLongSchema, z.record(z.string(), z.string())])).default([]),
   layout: z.record(z.string(), PositionSchema).optional(),
   views: z.record(z.string(), ViewSpecSchema).optional(),
+  /** Standards this architecture holds itself to. See lib/rules. */
+  rules: z.array(RuleSchema).optional(),
 });
 
 export type Position = z.infer<typeof PositionSchema>;

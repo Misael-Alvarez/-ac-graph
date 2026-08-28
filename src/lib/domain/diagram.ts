@@ -8,6 +8,7 @@
  * malformed shapes into the editor.
  */
 import { z } from 'zod';
+import { RuleSchema } from '@/lib/rules/schema';
 
 /** Bumped whenever a stored model needs a migration. */
 export const CURRENT_SCHEMA_VERSION = 3;
@@ -203,6 +204,15 @@ export const DiagramModelSchema = z.object({
    * the whole model, so there is nothing to migrate.
    */
   views: z.array(ViewSchema).default([]),
+  /**
+   * The standards this architecture holds itself to.
+   *
+   * On the model rather than beside it so they ride the same persistence,
+   * history, share link and export path as the diagram — a rule kept somewhere
+   * else is a rule that goes missing the first time somebody sends the diagram
+   * to a colleague.
+   */
+  rules: z.array(RuleSchema).optional(),
 });
 
 export type Environment = z.infer<typeof EnvironmentSchema>;

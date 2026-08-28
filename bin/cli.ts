@@ -10,6 +10,7 @@ import {
   type Severity,
 } from '@/lib/engine';
 import { detectFormat, importArchitecture } from '@/lib/import';
+import { NO_RULES, checkRules, parseRules, type RuleDocument } from '@/lib/rules';
 import { LOCALES, translate, type Locale, type MessageKey } from '@/lib/i18n/messages';
 
 /**
@@ -36,6 +37,8 @@ const USAGE = `ac-graph — architecture from the terminal
 Options
   -o, --out <file>              Write here instead of standard output
       --json                    Machine-readable output, for a pipeline
+      --rules <file>            Standards to check against, on top of any the
+                                document declares itself
       --fail-on <severity>      high | medium | low   (check, default: high)
       --exit-zero               Report, but do not fail the build
       --lang <locale>           ${LOCALES.join(' | ')}
@@ -51,6 +54,7 @@ Mermaid is the format Git hosts draw themselves anyway.`;
 
 interface Options {
   out?: string;
+  rules?: string;
   json: boolean;
   failOn: Severity;
   exitZero: boolean;
@@ -71,6 +75,7 @@ function parseOptions(argv: string[]): Options {
     const arg = argv[i];
     const take = () => argv[(i += 1)];
     if (arg === '-o' || arg === '--out') options.out = take();
+    else if (arg === '--rules') options.rules = take();
     else if (arg === '--json') options.json = true;
     else if (arg === '--exit-zero') options.exitZero = true;
     else if (arg === '--fail-on') {
@@ -120,6 +125,22 @@ async function readModel(
   return { model: parsed.model, source, format: 'dsl' };
 }
 
+/**
+ * The standards to check against.
+ *
+ * A document can declare its own, and a repository can keep a shared file of
+ * them. Both, when both exist: an architecture's own rules are the ones its
+ * author thought about, and the shared file is the ones the organisation did.
+ */
+async function loadRules(
+  declared: RuleDocument['rules'] | undefined,
+  path: string | undefined,
+): Promise<RuleDocument> {
+  const shared = path ? parseRules(await readFile(path, 'utf8')) : NO_RULES;
+  const rules = [...(declared ?? []), ...shared.rules];
+  return { version: 1, rules };
+}
+
 async function emit(text: string, out: string | undefined): Promise<void> {
   if (out) await writeFile(out, text, 'utf8');
   else process.stdout.write(text.endsWith('\n') ? text : `${text}\n`);
@@ -133,6 +154,8 @@ async function check(path: string, options: Options): Promise<number> {
 
   const { model, format } = await readModel(path, options.locale);
   const analysis = analyzeArchitecture(model);
+  const rules = await loadRules(model.rules, options.rules);
+  const report = checkRules(model, rules);
 
   if (options.json) {
     await emit(
@@ -151,6 +174,16 @@ async function check(path: string, options: Options): Promise<number> {
             severity: f.severity,
             detail: f.detail,
           })),
+          violations: report.violations.map((v) => ({
+            rule: v.ruleId,
+            severity: v.severity,
+            subject: v.subject,
+            field: v.field,
+            // The team's own sentence, which is data rather than copy, so it
+            // travels whole rather than as a key.
+            description: v.description,
+          })),
+          inertRules: report.inert,
         },
         null,
         2,
@@ -162,7 +195,23 @@ async function check(path: string, options: Options): Promise<number> {
       `${basename(path)}  ${analysis.score}/100  ` +
         t('insight.counted', { nodes: analysis.nodes, edges: analysis.edges }),
     ];
-    if (!analysis.findings.length) lines.push('', `  ${t('insight.clean')}`);
+    if (!analysis.findings.length && !report.violations.length) {
+      lines.push('', `  ${t('insight.clean')}`);
+    }
+
+    // A violated standard comes before anything the analysis noticed: one is a
+    // rule the team wrote down and one is an observation.
+    if (report.violations.length) {
+      lines.push('', t('rules.violated', { count: report.violations.length }));
+      for (const violation of report.violations) {
+        const field = violation.field ? ` — ${violation.field}` : '';
+        lines.push(
+          `  ${DOT[violation.severity]} ${violation.subject}${field}`,
+          `      ${violation.description}  [${violation.ruleId}]`,
+        );
+      }
+    }
+
     for (const severity of SEVERITY_ORDER) {
       const group = analysis.findings.filter((f) => f.severity === severity);
       if (!group.length) continue;
@@ -170,6 +219,12 @@ async function check(path: string, options: Options): Promise<number> {
       for (const finding of group) {
         lines.push(`  ${DOT[severity]} ${t(FINDING_HEADLINE[finding.kind], finding.detail)}`);
       }
+    }
+
+    // A rule that matches nothing passes for the wrong reason, and looks
+    // exactly like one that is working.
+    if (report.inert.length) {
+      lines.push('', t('rules.inert', { rules: report.inert.join(', ') }));
     }
     await emit(lines.join('\n'), options.out);
   }
@@ -179,8 +234,11 @@ async function check(path: string, options: Options): Promise<number> {
   // medium` and being told only about mediums would be a strange promotion of
   // the worse problems into silence.
   const threshold = SEVERITY_ORDER.indexOf(options.failOn);
-  const failing = analysis.findings.filter((f) => SEVERITY_ORDER.indexOf(f.severity) <= threshold);
-  return failing.length ? 1 : 0;
+  const atOrAbove = (severity: Severity) => SEVERITY_ORDER.indexOf(severity) <= threshold;
+  const failing =
+    analysis.findings.filter((f) => atOrAbove(f.severity)).length +
+    report.violations.filter((v) => atOrAbove(v.severity)).length;
+  return failing ? 1 : 0;
 }
 
 async function runImport(path: string, options: Options): Promise<number> {

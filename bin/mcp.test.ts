@@ -233,3 +233,54 @@ describe('failing', () => {
     expect(answer.isError).toBe(true);
   });
 });
+
+describe('standards', () => {
+  const WITH_RULES = `${ARCH}rules:
+  - id: prod-needs-owner
+    description: Every production service names a team.
+    services: {}
+    require: {environment: true}
+`;
+
+  it('checks the rules a document declares', async () => {
+    const path = await write('a.yaml', WITH_RULES);
+    const { data } = await call('check_standards', { path });
+    expect(data.checked).toBe(1);
+    expect(data.violations.length).toBeGreaterThan(0);
+  });
+
+  it("hands back the team's own sentence, not one of its own", async () => {
+    const path = await write('a.yaml', WITH_RULES);
+    const { data } = await call('check_standards', { path });
+    expect(data.violations[0].says).toBe('Every production service names a team.');
+  });
+
+  it('takes a shared rules file on top of them', async () => {
+    const path = await write('a.yaml', WITH_RULES);
+    const rules = await write(
+      'rules.yaml',
+      'rules:\n  - {id: shared, description: Shared., services: {}, require: {repository: true}}',
+    );
+    const { data } = await call('check_standards', { path, rules });
+    expect(data.checked).toBe(2);
+    expect(data.violations.map((v: { rule: string }) => v.rule)).toContain('shared');
+  });
+
+  it('separates the rules that matched nothing', async () => {
+    const path = await write('a.yaml', ARCH);
+    const rules = await write(
+      'rules.yaml',
+      'rules:\n  - {id: typo, description: T., services: {environment: producton}, require: {owner: true}}',
+    );
+    const { data } = await call('check_standards', { path, rules });
+    expect(data.rulesThatMatchedNothing).toEqual(['typo']);
+    expect(data.violations).toEqual([]);
+  });
+
+  it('refuses a rules file it cannot read', async () => {
+    const path = await write('a.yaml', ARCH);
+    const rules = await write('rules.yaml', 'rules:\n  - {id: x, description: X., services: {}}');
+    const answer = await call('check_standards', { path, rules });
+    expect(answer.isError).toBe(true);
+  });
+});

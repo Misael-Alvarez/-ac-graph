@@ -697,3 +697,34 @@ describe('replacing the model from the code panel', () => {
     expect(after.model.views[0].id).toBe('view_pci');
   });
 });
+
+describe('the standards a document declares', () => {
+  const RULE = {
+    id: 'own',
+    description: 'Everything has an owner.',
+    severity: 'high' as const,
+    services: {},
+    require: { owner: true },
+  };
+
+  it('survives a recompile from the code panel', () => {
+    // They are part of the document, so a code edit that dropped them would
+    // delete a team's rules the first time anybody touched the architecture.
+    const { state } = withOneGroup();
+    const recompiled = createEmptyModel();
+    recompiled.rules = [RULE];
+
+    const after = run(state, { type: 'replaceModel', model: recompiled });
+    expect(after.model.rules).toEqual([RULE]);
+  });
+
+  it('goes away when the document no longer declares any', () => {
+    const { state } = withOneGroup();
+    const withRules = run(state, {
+      type: 'replaceModel',
+      model: { ...createEmptyModel(), rules: [RULE] },
+    });
+    const without = run(withRules, { type: 'replaceModel', model: createEmptyModel() });
+    expect(without.model.rules).toBeUndefined();
+  });
+});

@@ -180,6 +180,8 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
     document.layout = layout;
   }
 
+  if (model.rules?.length) document.rules = model.rules;
+
   if (model.views.length) {
     const groupIdByKey = new Map(records.map((r) => [r.group.id, r.key]));
     const views: Record<string, unknown> = {};
