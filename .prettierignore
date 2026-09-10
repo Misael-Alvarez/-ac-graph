@@ -4,3 +4,7 @@ package-lock.json
 src/components/icons/svgIconDefs.ts
 src/data/aionLogo.ts
 public
+.agents/skills
+.claude/skills
+
+vendor/icons

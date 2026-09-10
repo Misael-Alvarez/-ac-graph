@@ -5,14 +5,25 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      ANTHROPIC_API_KEY: ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -20,3 +31,66 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:critical
+      - name: Functional audit — every control changes something observable
+        run: |
+          (PORT=3100 HOSTNAME=127.0.0.1 ANTHROPIC_API_KEY= npm run start > /tmp/audit-server.log 2>&1 &)
+          for i in $(seq 1 60); do curl --silent --fail http://127.0.0.1:3100/api/health && break; sleep 1; done
+          npm run audit:controls -- http://127.0.0.1:3100
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failures
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_PORT: '43127'
+      ANTHROPIC_API_KEY: ''
+      COMPOSE_PROFILES: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate Compose, including the optional database profile
+        run: |
+          docker compose -p acgraph-foundation config --quiet
+          docker compose -p acgraph-foundation --profile postgres config --quiet
+      - name: Build the production image
+        run: docker compose -p acgraph-foundation build app
+      - name: Wait for a healthy non-root app
+        run: docker compose -p acgraph-foundation up -d --no-build --wait --wait-timeout 90 app
+      - name: Check health, HTML, public assets and Next static assets
+        run: |
+          curl --fail --silent --show-error http://127.0.0.1:43127/api/health
+          docker compose -p acgraph-foundation exec -T app node --input-type=module -e '
+            import assert from "node:assert/strict";
+            assert.notEqual(process.getuid(), 0);
+            const base = "http://127.0.0.1:3000";
+            const health = await fetch(`${base}/api/health`);
+            assert.equal(health.status, 200);
+            assert.match(health.headers.get("cache-control"), /no-store/);
+            assert.deepEqual(await health.json(), { status: "ok" });
+            const page = await fetch(base);
+            assert.equal(page.status, 200);
+            const html = await page.text();
+            const assets = [...html.matchAll(/(?:src|href)="([^"\s]+)"/g)]
+              .map(match => match[1]).filter(path => path.startsWith("/_next/static/"));
+            assert.ok(assets.length > 0, "HTML must reference built static assets");
+            for (const path of new Set(["/file.svg", ...assets])) {
+              const response = await fetch(new URL(path, base));
+              assert.equal(response.status, 200, path);
+              assert.ok((await response.arrayBuffer()).byteLength > 0, path);
+            }
+            console.log("Non-root, health, HTML, public and static smoke checks passed");
+          '
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -p acgraph-foundation logs --no-color --tail 100 app
+      - name: Stop only this project, preserving volumes
+        if: always()
+        run: docker compose -p acgraph-foundation down --timeout 30

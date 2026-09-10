@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Keep real environment files private; version only the empty/safe template.
 .env*
+!/.env.example
 
 # vercel
 .vercel
@@ -53,3 +54,10 @@ generate-icons.js
 
 # Python bytecode from the .claude skills
 __pycache__/
+
+# Agent skills are installed from skills-lock.json (`npx skills add`), like
+# dependencies; the bodies are third-party and the .claude entries are symlinks
+# into them. The one skill that ships with the repo stays tracked.
+/.agents/
+/.claude/skills/*
+!/.claude/skills/ui-ux-pro-max/

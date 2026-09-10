@@ -1,0 +1,35 @@
+# Allow only build inputs. Host dependencies, caches, docs, Git history and
+# agent skills never enter the context, including untracked files.
+**
+!package.json
+!package-lock.json
+!next.config.ts
+!tsconfig.json
+!postcss.config.mjs
+!src/
+!src/**
+!public/
+!public/**
+
+# Keep secrets and agent files out even if nested under a build input.
+**/.env*
+**/.npmrc
+**/.yarnrc*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/credentials*
+**/secrets
+**/.aws
+**/.ssh
+**/.git
+**/.agents
+**/.claude
+**/.opencode
+**/skills
+**/node_modules
+**/.next*
+**/AGENTS.md
+**/CLAUDE.md
+**/skills-lock.json
