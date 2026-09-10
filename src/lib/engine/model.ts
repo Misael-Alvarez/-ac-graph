@@ -244,13 +244,22 @@ export function deleteShape(model: DiagramModel, id: string): void {
   if (!s) return;
   const toRemove = collectDescendantIds(model, id);
   const parentId = s.parentId;
-  model.shapes = model.shapes.filter((sh) => !toRemove.has(sh.id));
+  // Removed in place, never by replacing the array. The model is an Immer
+  // draft here, and a fresh array assigned over a draft holds draft proxies;
+  // the relayout below then writes to those proxies, and after the produce
+  // ends they are revoked — every later read of `model.shapes` threw
+  // "cannot perform 'get' on a proxy that has been revoked", and the analysis,
+  // the minimap and the autosave all read it.
+  for (let i = model.shapes.length - 1; i >= 0; i--) {
+    if (toRemove.has(model.shapes[i].id)) model.shapes.splice(i, 1);
+  }
   // Here rather than in the reducer so that every caller — clipboard, DSL
   // recompile, cloud switch — gets it, instead of only the one that remembered.
   forgetShapeInViews(model, toRemove);
-  model.connectors = model.connectors.filter(
-    (c) => !toRemove.has(c.sourceId) && !toRemove.has(c.targetId),
-  );
+  for (let i = model.connectors.length - 1; i >= 0; i--) {
+    const c = model.connectors[i];
+    if (toRemove.has(c.sourceId) || toRemove.has(c.targetId)) model.connectors.splice(i, 1);
+  }
   if (!parentId) return;
   const parent = getShape(model, parentId);
   if (parent?.type === 'container' && parent.parentId) {

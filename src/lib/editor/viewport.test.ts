@@ -6,6 +6,8 @@ import {
   MIN_ZOOM,
   clampZoom,
   fitToBox,
+  frameOnOpen,
+  lerpViewport,
   pan,
   toCanvas,
   toScreen,
@@ -112,6 +114,58 @@ describe('fitToBox', () => {
     const vp = fitToBox({ x: 10, y: 10, w: 0, h: 0 }, size);
     expect(Number.isFinite(vp.x)).toBe(true);
     expect(Number.isFinite(vp.zoom)).toBe(true);
+  });
+});
+
+describe('frameOnOpen', () => {
+  it('fits a large diagram so all of it is on screen', () => {
+    // 1600×800 fits a 1000×600 viewport at about 0.56: above the collapse
+    // floor, so the whole of it lands inside the padding.
+    const box = { x: 0, y: 0, w: 1600, h: 800 };
+    const vp = frameOnOpen(box, size);
+    const topLeft = toScreen(vp, { x: 0, y: 0 });
+    const bottomRight = toScreen(vp, { x: 1600, y: 800 });
+    expect(topLeft.x).toBeGreaterThanOrEqual(47);
+    expect(bottomRight.x).toBeLessThanOrEqual(size.width - 47);
+    expect(bottomRight.y).toBeLessThanOrEqual(size.height - 47);
+  });
+
+  it('never magnifies a small diagram, only centres it', () => {
+    const box = { x: 100, y: 100, w: 300, h: 200 };
+    const vp = frameOnOpen(box, size);
+    expect(vp.zoom).toBe(1);
+    const centre = toScreen(vp, { x: 250, y: 200 });
+    expect(centre.x).toBeCloseTo(500);
+    expect(centre.y).toBeCloseTo(300);
+  });
+
+  it('never opens so far out that groups would collapse into summaries', () => {
+    const vast = { x: 0, y: 0, w: 6000, h: 4000 };
+    expect(frameOnOpen(vast, size).zoom).toBeCloseTo(0.52);
+  });
+
+  it('keeps clear of floating chrome on the left', () => {
+    const box = { x: 0, y: 0, w: 300, h: 200 };
+    const vp = frameOnOpen(box, size, { left: 100 });
+    const centre = toScreen(vp, { x: 150, y: 100 });
+    expect(centre.x).toBeCloseTo(550);
+  });
+});
+
+describe('lerpViewport', () => {
+  const from = { x: 0, y: 0, zoom: 0.25 };
+  const to = { x: 100, y: -50, zoom: 1 };
+
+  it('returns the ends exactly', () => {
+    expect(lerpViewport(from, to, 0)).toBe(from);
+    expect(lerpViewport(from, to, 1)).toBe(to);
+  });
+
+  it('halves the zoom distance on a log scale', () => {
+    // Two doublings from 25% to 100%: half way is one doubling, 50%.
+    expect(lerpViewport(from, to, 0.5).zoom).toBeCloseTo(0.5);
+    expect(lerpViewport(from, to, 0.5).x).toBeCloseTo(50);
+    expect(lerpViewport(from, to, 0.5).y).toBeCloseTo(-25);
   });
 });
 

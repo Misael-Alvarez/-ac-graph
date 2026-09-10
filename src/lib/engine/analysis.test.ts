@@ -213,3 +213,15 @@ describe('the score', () => {
     expect(first.severity).toBe('high');
   });
 });
+
+describe('ordering', () => {
+  it('lists equal findings in the same order however the ids were minted', async () => {
+    const { TEMPLATES } = await import('@/lib/editor/templates');
+    const build = () => TEMPLATES.find((t) => t.id === 'microservices')!.build('es');
+    const a = analyzeArchitecture(build());
+    const b = analyzeArchitecture(build());
+    const summary = (analysis: typeof a) =>
+      analysis.findings.map((f) => `${f.severity}:${f.kind}:${JSON.stringify(f.detail)}`);
+    expect(summary(a)).toEqual(summary(b));
+  });
+});

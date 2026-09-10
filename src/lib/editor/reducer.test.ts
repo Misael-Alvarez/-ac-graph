@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { children, createEmptyModel, getShape, resolveView } from '@/lib/engine';
+import {
+  addConnector,
+  addGroup,
+  bbox,
+  children,
+  createEmptyModel,
+  focusSubtree,
+  getShape,
+  resolveView,
+} from '@/lib/engine';
+import { modelWith } from '@/lib/engine/testUtils';
 import type { EditorAction } from './actions';
 import { canRedo, canUndo, docReducer, initialDocState, type DocState } from './reducer';
 
@@ -168,6 +178,74 @@ describe('undo / redo', () => {
   });
 });
 
+describe('coalesced history', () => {
+  const nudge = (ids: string[], dx: number, key = 'nudge:a'): EditorAction => ({
+    type: 'moveShapes',
+    ids,
+    dx,
+    dy: 0,
+    viewId: null,
+    coalesceKey: key,
+  });
+
+  it('folds a burst of arrow-key moves into one undo step', () => {
+    // Forty one-pixel nudges used to be forty entries: one Cmd+Z moved the
+    // shape back a single pixel, which reads as "undo does nothing".
+    const { state, groupId } = withOneGroup();
+    let s = state;
+    for (let i = 0; i < 40; i++) s = run(s, nudge([groupId], 1));
+    expect(getShape(s.model, groupId)!.x).toBe(140);
+    expect(s.past).toHaveLength(1);
+
+    const undone = run(s, { type: 'undo' });
+    expect(getShape(undone.model, groupId)!.x).toBe(100);
+    expect(canUndo(undone)).toBe(false);
+
+    const redone = run(undone, { type: 'redo' });
+    expect(getShape(redone.model, groupId)!.x).toBe(140);
+  });
+
+  it('starts a new step when the key changes or is absent', () => {
+    const { state, groupId } = withOneGroup();
+    const s = run(
+      state,
+      nudge([groupId], 5),
+      nudge([groupId], 5),
+      nudge([groupId], 5, 'nudge:b'),
+      { type: 'moveShapes', ids: [groupId], dx: 5, dy: 0, viewId: null },
+      nudge([groupId], 5, 'nudge:b'),
+    );
+    expect(s.past).toHaveLength(4);
+    expect(getShape(s.model, groupId)!.x).toBe(125);
+    expect(getShape(run(s, { type: 'undo' }).model, groupId)!.x).toBe(120);
+    expect(getShape(run(s, { type: 'undo' }, { type: 'undo' }).model, groupId)!.x).toBe(115);
+  });
+
+  it('folds typing into one step per burst and keeps redo exact', () => {
+    const { state, groupId } = withOneGroup();
+    const key = `props:${groupId}:title:1`;
+    let s = state;
+    for (const title of ['P', 'Pa', 'Pag', 'Pago', 'Pagos']) {
+      s = run(s, { type: 'setShapeProps', id: groupId, patch: { title }, coalesceKey: key });
+    }
+    expect(s.past).toHaveLength(1);
+    const undone = run(s, { type: 'undo' });
+    expect(getShape(undone.model, groupId)!.title).toBe(getShape(state.model, groupId)!.title);
+    expect(getShape(run(undone, { type: 'redo' }).model, groupId)!.title).toBe('Pagos');
+  });
+
+  it('never merges across an unrelated action', () => {
+    const { state, groupId } = withOneGroup();
+    const s = run(
+      state,
+      nudge([groupId], 10),
+      { type: 'addGroup', x: 900, y: 900 },
+      nudge([groupId], 10),
+    );
+    expect(s.past).toHaveLength(3);
+  });
+});
+
 describe('moveShapes', () => {
   it('carries descendants along', () => {
     const { state, groupId } = withOneGroup();
@@ -250,7 +328,7 @@ describe('shape properties', () => {
       .filter((s) => s.type === 'item')
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    const reordered = run(withTwo, { type: 'reorderItem', id: second.id, dir: -1 });
+    const reordered = run(withTwo, { type: 'reorderItem', id: second.id, dir: -1, viewId: null });
     expect(getShape(reordered.model, second.id)!.y).toBeLessThan(
       getShape(reordered.model, first.id)!.y,
     );
@@ -311,7 +389,7 @@ describe('clipboard and layout', () => {
     state = run(state, { type: 'addGroup', x: 1500, y: 1200 });
     const before = { ...state.model.shapes.find((s) => s.type === 'group')! };
 
-    const laid = run(state, { type: 'autoLayout' });
+    const laid = run(state, { type: 'autoLayout', viewId: null });
     expect(laid.model.shapes.find((s) => s.type === 'group')!.x).not.toBe(before.x);
 
     const undone = run(laid, { type: 'undo' });
@@ -476,7 +554,7 @@ describe('alignment', () => {
 
   it('aligns and stays undoable in one step', () => {
     const { state, ids } = twoApart();
-    const aligned = run(state, { type: 'alignShapes', ids, edge: 'left' });
+    const aligned = run(state, { type: 'alignShapes', ids, edge: 'left', viewId: null });
     const xs = aligned.model.shapes.filter((s) => s.type === 'group').map((s) => s.x);
     expect(new Set(xs).size).toBe(1);
 
@@ -489,14 +567,16 @@ describe('alignment', () => {
   it('moves each group together with its contents', () => {
     const { state, ids } = twoApart();
     const before = state.model.shapes.find((s) => s.type === 'item' && s.x > 700)!;
-    const aligned = run(state, { type: 'alignShapes', ids, edge: 'left' });
+    const aligned = run(state, { type: 'alignShapes', ids, edge: 'left', viewId: null });
     const after = getShape(aligned.model, before.id)!;
     expect(after.x).toBeLessThan(before.x);
   });
 
   it('does nothing with fewer than two shapes', () => {
     const { state, ids } = twoApart();
-    expect(run(state, { type: 'alignShapes', ids: [ids[0]], edge: 'left' })).toBe(state);
+    expect(run(state, { type: 'alignShapes', ids: [ids[0]], edge: 'left', viewId: null })).toBe(
+      state,
+    );
   });
 
   it('spaces three shapes evenly', () => {
@@ -509,7 +589,7 @@ describe('alignment', () => {
     );
     const ids = state.model.shapes.filter((s) => s.type === 'group').map((s) => s.id);
 
-    const spaced = run(state, { type: 'distributeShapes', ids, axis: 'horizontal' });
+    const spaced = run(state, { type: 'distributeShapes', ids, axis: 'horizontal', viewId: null });
     const groups = spaced.model.shapes.filter((s) => s.type === 'group').sort((a, b) => a.x - b.x);
     expect(groups[1].x - (groups[0].x + groups[0].w)).toBeCloseTo(
       groups[2].x - (groups[1].x + groups[1].w),
@@ -663,6 +743,234 @@ describe('views', () => {
   });
 });
 
+describe('view-scoped geometry', () => {
+  function arranged() {
+    const model = createEmptyModel();
+    const groups = [2000, 3500, 5000, 10000].map((x) => addGroup(model, x, x));
+    const ids = groups.map((g) => g.id);
+    const items = model.shapes.filter((s) => s.type === 'item');
+    addConnector(model, items[0].id, items[1].id);
+    addConnector(model, items[1].id, items[3].id);
+    const place = Object.fromEntries(
+      groups.slice(0, 3).flatMap((g, i) => {
+        const reading = focusSubtree(model, [g.id]);
+        const x = [100, 600, 1600][i];
+        return reading.shapes.map((s) => [
+          s.id,
+          {
+            ...bbox(s),
+            x: s.x - g.x + x,
+            y: s.y - g.y + x + 50,
+            ...(s.id === g.id ? { w: 500 + i * 70, h: 230 + i * 30 } : {}),
+          },
+        ]);
+      }),
+    );
+    model.views = [
+      { id: 'main', name: 'Main', kind: 'free' },
+      { id: 'detail', name: 'Detail', kind: 'free', include: ids.slice(0, 3), place },
+    ];
+    return { state: initialDocState(model), ids };
+  }
+
+  it.each(['left', 'centerX', 'right', 'top', 'centerY', 'bottom'] as const)(
+    'aligns %s using visible placements and dimensions, including descendants once',
+    (edge) => {
+      const { state, ids } = arranged();
+      const before = resolveView(state.model, 'detail');
+      const groups = ids.slice(0, 3).map((id) => getShape(before, id)!);
+      const x = edge === 'left' || edge === 'centerX' || edge === 'right';
+      const start = Math.min(...groups.map((s) => (x ? s.x : s.y)));
+      const end = Math.max(...groups.map((s) => (x ? s.x + s.w : s.y + s.h)));
+      const target =
+        edge === 'left' || edge === 'top'
+          ? start
+          : edge === 'right' || edge === 'bottom'
+            ? end
+            : (start + end) / 2;
+      const aligned = run(state, {
+        type: 'alignShapes',
+        ids: [...ids, ...before.shapes.map((s) => s.id), 'gone'],
+        edge,
+        viewId: 'detail',
+      });
+      const after = resolveView(aligned.model, 'detail');
+      for (const g of groups) {
+        const moved = getShape(after, g.id)!;
+        const at =
+          edge === 'left'
+            ? moved.x
+            : edge === 'right'
+              ? moved.x + moved.w
+              : edge === 'centerX'
+                ? moved.x + moved.w / 2
+                : edge === 'top'
+                  ? moved.y
+                  : edge === 'bottom'
+                    ? moved.y + moved.h
+                    : moved.y + moved.h / 2;
+        expect(at).toBeCloseTo(target);
+        for (const child of focusSubtree(before, [g.id]).shapes) {
+          expect(getShape(after, child.id)).toMatchObject({
+            x: child.x + moved.x - g.x,
+            y: child.y + moved.y - g.y,
+          });
+        }
+      }
+      expect(aligned.model.shapes).toEqual(state.model.shapes);
+      expect(aligned.model.connectors).toEqual(state.model.connectors);
+      expect(aligned.model.views[0]).toEqual(state.model.views[0]);
+      expect(aligned.model.views[1].place?.[ids[3]]).toBeUndefined();
+      expect(aligned.past).toHaveLength(1);
+      expect(run(aligned, { type: 'undo' }).model).toEqual(state.model);
+      expect(run(aligned, { type: 'undo' }, { type: 'redo' }).model).toEqual(aligned.model);
+    },
+  );
+
+  it.each(['horizontal', 'vertical'] as const)('distributes %s by view dimensions', (axis) => {
+    const { state, ids } = arranged();
+    const spaced = run(state, { type: 'distributeShapes', ids, axis, viewId: 'detail' });
+    const [a, b, c] = resolveView(spaced.model, 'detail').shapes.filter((s) => s.type === 'group');
+    if (axis === 'horizontal') expect(b.x - a.x - a.w).toBeCloseTo(c.x - b.x - b.w);
+    else expect(b.y - a.y - a.h).toBeCloseTo(c.y - b.y - b.h);
+    expect(spaced.model.shapes).toEqual(state.model.shapes);
+    expect(spaced.model.connectors).toEqual(state.model.connectors);
+    expect(spaced.past).toHaveLength(1);
+    expect(run(spaced, { type: 'undo' }).model).toEqual(state.model);
+  });
+
+  it.each(['moveShapes', 'autoLayout'] as const)('limits %s to the drilled branch', (type) => {
+    const { state, ids } = arranged();
+    const changed = run(
+      state,
+      type === 'moveShapes'
+        ? { type, ids, dx: 18, dy: -1, viewId: 'detail', drillPath: [ids[0]] }
+        : { type, viewId: 'detail', drillPath: [ids[0]] },
+    );
+    expect(changed.model.views[1].place?.[ids[0]]).not.toEqual(
+      state.model.views[1].place?.[ids[0]],
+    );
+    const outside = new Set(focusSubtree(state.model, [ids[0]]).shapes.map((s) => s.id));
+    for (const shape of state.model.shapes.filter((s) => !outside.has(s.id))) {
+      expect(changed.model.views[1].place?.[shape.id]).toEqual(
+        state.model.views[1].place?.[shape.id],
+      );
+    }
+    expect(changed.model.shapes).toEqual(state.model.shapes);
+    expect(changed.model.connectors).toEqual(state.model.connectors);
+    expect(changed.past).toHaveLength(1);
+    expect(run(changed, { type: 'undo' }).model).toEqual(state.model);
+    expect(run(changed, { type: 'undo' }, { type: 'redo' }).model).toEqual(changed.model);
+  });
+
+  it('nudge starts at the view placement and reroutes only the resolved reading', () => {
+    const { state, ids } = arranged();
+    const before = resolveView(state.model, 'detail');
+    const changed = run(state, {
+      type: 'moveShapes',
+      ids: [ids[0], ids[3]],
+      dx: 18,
+      dy: 1,
+      viewId: 'detail',
+    });
+    const reading = resolveView(changed.model, 'detail');
+    expect(getShape(reading, ids[0])).toMatchObject({ x: 118, y: 151 });
+    expect(reading.connectors[0].waypoints).not.toEqual(before.connectors[0].waypoints);
+    expect(changed.model.connectors).toEqual(state.model.connectors);
+    expect(changed.model.shapes).toEqual(state.model.shapes);
+  });
+
+  it('auto-layout changes visible placements, not hidden geometry or another view', () => {
+    const { state, ids } = arranged();
+    const changed = run(state, { type: 'autoLayout', viewId: 'detail' });
+    expect(getShape(resolveView(changed.model, 'detail'), ids[0])).toMatchObject({
+      x: 80,
+      y: 80,
+      w: 500,
+      h: 230,
+    });
+    expect(changed.model.shapes).toEqual(state.model.shapes);
+    expect(changed.model.connectors).toEqual(state.model.connectors);
+    expect(changed.model.views[0]).toEqual(state.model.views[0]);
+    expect(changed.model.views[1].place?.[ids[3]]).toBeUndefined();
+    expect(changed.past).toHaveLength(1);
+    expect(run(changed, { type: 'undo' }).model).toEqual(state.model);
+  });
+
+  it('the main reading of a split model is isolated too', () => {
+    const { state, ids } = arranged();
+    const changed = run(state, { type: 'moveShapes', ids: [ids[0]], dx: 10, dy: 1, viewId: null });
+    expect(getShape(resolveView(changed.model, null), ids[0])).toMatchObject({ x: 2010, y: 2001 });
+    expect(changed.model.shapes).toEqual(state.model.shapes);
+    expect(changed.model.views[1]).toEqual(state.model.views[1]);
+    expect(run(changed, { type: 'undo' }).model).toEqual(state.model);
+  });
+
+  it('ignores hidden selections and empty views without creating undo entries', () => {
+    const { state, ids } = arranged();
+    expect(run(state, { type: 'moveShapes', ids: [ids[3]], dx: 18, dy: 0, viewId: 'detail' })).toBe(
+      state,
+    );
+    expect(
+      run(state, { type: 'alignShapes', ids, edge: 'left', viewId: 'detail', drillPath: [ids[0]] }),
+    ).toBe(state);
+    expect(run(state, { type: 'resizeShape', id: ids[3], w: 100, h: 100, viewId: 'detail' })).toBe(
+      state,
+    );
+    const empty = run(state, { type: 'setViewInclude', id: 'detail', include: [] });
+    expect(run(empty, { type: 'autoLayout', viewId: 'detail' })).toBe(empty);
+  });
+
+  it('inspector reordering and resizing survive layout without changing base order or size', () => {
+    const model = modelWith([
+      { id: 'g', type: 'group', x: 100, y: 100, w: 470, h: 314 },
+      { id: 'c', type: 'container', parentId: 'g' },
+      { id: 'a', parentId: 'c', y: 170, order: 0 },
+      { id: 'b', parentId: 'c', y: 276, order: 1 },
+    ]);
+    model.views = [
+      { id: 'main', name: 'Main', kind: 'free' },
+      { id: 'detail', name: 'Detail', kind: 'free' },
+    ];
+    addConnector(model, 'a', 'b');
+    const state = initialDocState(model);
+    const ordered = run(state, { type: 'reorderItem', id: 'b', dir: -1, viewId: 'detail' });
+    const reading = resolveView(ordered.model, 'detail');
+    expect(getShape(reading, 'b')!.y).toBe(170);
+    expect(getShape(reading, 'b')!.order).toBe(0);
+    expect(reading.connectors[0].waypoints[0].y).toBe(getShape(reading, 'a')!.y);
+    const resized = run(ordered, {
+      type: 'resizeShape',
+      id: 'g',
+      w: 700,
+      h: 500,
+      viewId: 'detail',
+    });
+    const laid = run(resized, { type: 'autoLayout', viewId: 'detail' });
+    const after = resolveView(laid.model, 'detail');
+    expect(getShape(after, 'g')).toMatchObject({ w: 700, h: 500 });
+    expect(getShape(after, 'b')!.y).toBeLessThan(getShape(after, 'a')!.y);
+    expect(laid.model.shapes).toEqual(state.model.shapes);
+    expect(laid.model.connectors).toEqual(state.model.connectors);
+    expect(run(laid, { type: 'undo' }, { type: 'undo' }, { type: 'undo' }).model).toEqual(
+      state.model,
+    );
+  });
+
+  it('editing shared content in the inspector does not relayout either reading', () => {
+    const { state, ids } = arranged();
+    const changed = run(state, {
+      type: 'setShapeProps',
+      id: ids[0],
+      patch: { title: 'Renamed', fill: '#123456' },
+    });
+    expect(changed.model.shapes.map(bbox)).toEqual(state.model.shapes.map(bbox));
+    expect(changed.model.views).toEqual(state.model.views);
+    expect(getShape(resolveView(changed.model, 'detail'), ids[0])!.title).toBe('Renamed');
+    expect(run(changed, { type: 'undo' }).model).toEqual(state.model);
+  });
+});
+
 describe('replacing the model from the code panel', () => {
   it('takes the compiled views, not the ones built against dead ids', () => {
     const { state, groupId, viewId } = (() => {
@@ -726,5 +1034,72 @@ describe('the standards a document declares', () => {
     });
     const without = run(withRules, { type: 'replaceModel', model: createEmptyModel() });
     expect(without.model.rules).toBeUndefined();
+  });
+});
+
+describe('origin of the current model', () => {
+  it('marks a revision adopted from another editor so the autosave leaves it alone', () => {
+    const start = initialDocState(createEmptyModel());
+    expect(start.origin).toBe('local');
+    const remote = docReducer(start, {
+      type: 'replaceModel',
+      model: { ...createEmptyModel(), canvas: { w: 900, h: 900 } },
+      origin: 'remote',
+    });
+    expect(remote.origin).toBe('remote');
+    // Undoing it is a local decision again, and so is any edit after it.
+    expect(docReducer(remote, { type: 'undo' }).origin).toBe('local');
+    expect(docReducer(remote, { type: 'addBoundary', x: 0, y: 0, variant: 'outer' }).origin).toBe(
+      'local',
+    );
+    // A plain replace (code panel, import) is a local edit.
+    expect(
+      docReducer(start, {
+        type: 'replaceModel',
+        model: { ...createEmptyModel(), canvas: { w: 1, h: 1 } },
+      }).origin,
+    ).toBe('local');
+  });
+});
+
+describe('custom icons', () => {
+  const icon = {
+    key: 'custom-datadog-a1b2c',
+    name: 'Datadog',
+    createdAt: '2026-09-09T00:00:00.000Z',
+    svg: { viewBox: '0 0 24 24', body: '<circle cx="12" cy="12" r="10"/>' },
+  };
+
+  it('embeds an uploaded icon once, replacing by key', () => {
+    const { state } = withOneGroup();
+    const once = run(state, { type: 'addCustomIcon', icon });
+    expect(once.model.customIcons).toEqual([icon]);
+    const twice = run(once, { type: 'addCustomIcon', icon: { ...icon, name: 'Datadog APM' } });
+    expect(twice.model.customIcons).toHaveLength(1);
+    expect(twice.model.customIcons?.[0].name).toBe('Datadog APM');
+    expect(canUndo(twice)).toBe(true);
+  });
+
+  it('keeps the icons through a recompile that never knew them', () => {
+    const { state } = withOneGroup();
+    const withIcon = run(state, { type: 'addCustomIcon', icon });
+    const recompiled = run(withIcon, { type: 'replaceModel', model: createEmptyModel() });
+    expect(recompiled.model.customIcons).toEqual([icon]);
+  });
+});
+
+describe('deleting a service inside its group', () => {
+  it('leaves a model every reader can read afterwards', () => {
+    // The relayout that follows the removal used to write into draft proxies
+    // held by a freshly assigned array; once the produce ended they were
+    // revoked and the next `checkCollisions` threw.
+    const { state } = withOneGroup();
+    const item = state.model.shapes.find((s) => s.type === 'item')!;
+    const after = run(state, { type: 'deleteShapes', ids: [item.id] });
+    expect(() => JSON.stringify(after.model)).not.toThrow();
+    expect(after.model.shapes.every((s) => typeof s.id === 'string')).toBe(true);
+    expect(after.model.shapes.find((s) => s.type === 'item')).toBeUndefined();
+    const restored = run(after, { type: 'undo' });
+    expect(restored.model.shapes).toHaveLength(state.model.shapes.length);
   });
 });

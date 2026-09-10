@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isMac, modKey, shortcut } from './platform';
+import { isMac, modKey, shortcut, spellChord } from './platform';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -41,5 +41,20 @@ describe('shortcut spelling', () => {
     vi.stubGlobal('navigator', undefined);
     expect(isMac()).toBe(false);
     expect(shortcut('K')).toBe('Ctrl+K');
+  });
+});
+
+describe('spellChord', () => {
+  it('runs modifier glyphs together on a Mac, the way the menu bar does', () => {
+    vi.stubGlobal('navigator', { platform: 'MacIntel' });
+    expect(spellChord('Mod+Shift+S')).toBe('⌘⇧S');
+    expect(spellChord('Mod+/')).toBe('⌘/');
+    expect(spellChord('Del')).toBe('Del');
+  });
+
+  it('keeps words joined by plus signs elsewhere', () => {
+    vi.stubGlobal('navigator', { platform: 'Win32' });
+    expect(spellChord('Mod+Shift+S')).toBe('Ctrl+Shift+S');
+    expect(spellChord('Shift+Arrows')).toBe('Shift+Arrows');
   });
 });

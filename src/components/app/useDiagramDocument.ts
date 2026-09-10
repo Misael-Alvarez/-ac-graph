@@ -2,146 +2,227 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiagramModel, DiagramRecord } from '@/lib/domain';
-import { renderThumbnail } from '@/lib/store/thumbnail';
+import { DraftJournal } from '@/lib/store/draftJournal';
+import { acquireDraftSession, type DraftSessionLease } from '@/lib/store/draftSession';
+import { SaveCoordinator, type RemoteConflict, type SaveStatus } from '@/lib/store/saveCoordinator';
+import type { DiagramRepository } from '@/lib/store/types';
 import { useRepository, useRepositoryReady } from './RepositoryProvider';
 
-/**
- * `pending` exists because the previous status model showed "Saved" both when
- * the document was written and when an edit was still sitting in the debounce
- * window. That reads as a guarantee the app had not yet made.
- */
-export type SaveStatus = 'saved' | 'pending' | 'saving' | 'error';
+export type { SaveStatus } from '@/lib/store/saveCoordinator';
 
-/** How long after the last edit to write to storage. */
-const AUTOSAVE_DEBOUNCE_MS = 1200;
-
-/**
- * How long between version snapshots.
- *
- * Snapshotting every autosave would bury the useful history under hundreds of
- * near-identical entries; one every few minutes of active editing gives a
- * timeline a person can actually read.
- */
-const SNAPSHOT_INTERVAL_MS = 5 * 60_000;
+// A quick return to the same route must not load ahead of its departing writer.
+const departures = new WeakMap<DiagramRepository, Map<string, Promise<void>>>();
 
 export interface DiagramDocument {
   record: DiagramRecord | null;
   loading: boolean;
-  /** Set when the id does not exist, so the page can offer a way back. */
   notFound: boolean;
   status: SaveStatus;
-  save: (model: DiagramModel, options?: { immediate?: boolean; snapshot?: boolean }) => void;
+  recoveryConflict: DiagramModel | null;
+  recoveryUnavailable: boolean;
+  /** Somebody else's newer revision, when this editor has unsaved changes. */
+  remoteConflict: RemoteConflict | null;
+  save: (model: DiagramModel) => void;
   rename: (title: string) => Promise<void>;
-  reload: () => Promise<void>;
+  snapshot: (model: DiagramModel) => Promise<void>;
+  restore: (versionId: string, model: DiagramModel) => Promise<DiagramRecord>;
+  retry: () => Promise<void>;
+  /**
+   * Takes a revision saved elsewhere as the baseline. Returns the record when
+   * it was adopted (nothing was pending here), null when it became a conflict.
+   */
+  adoptRemote: (record: DiagramRecord) => DiagramRecord | null;
+  /** Resolves a conflict in favour of the other side; returns their record. */
+  acceptRemote: () => DiagramRecord | null;
+  /** The revision this editor last confirmed, to compare with live events. */
+  confirmedUpdatedAt: () => string | null;
 }
 
-/** Loads one diagram and keeps it saved as it changes. */
+/** Browser lifecycle adapter; all write ordering and recovery live outside React. */
 export function useDiagramDocument(id: string): DiagramDocument {
   const repository = useRepository();
   const ready = useRepositoryReady();
-
-  const [record, setRecord] = useState<DiagramRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  // A freshly loaded document is, by definition, saved.
-  const [status, setStatus] = useState<SaveStatus>('saved');
-
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pending = useRef<DiagramModel | null>(null);
-  const lastSnapshot = useRef(0);
-
-  /** Re-reads the record from storage. Safe to call from an event handler. */
-  const load = useCallback(async () => {
-    try {
-      const found = await repository.get(id);
-      setRecord(found);
-      setNotFound(!found);
-    } catch {
-      setNotFound(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [repository, id]);
+  const writer = useRef<{ id: string; coordinator: SaveCoordinator } | null>(null);
+  const [state, setState] = useState<{
+    id: string;
+    record: DiagramRecord | null;
+    loading: boolean;
+    notFound: boolean;
+    status: SaveStatus;
+    recoveryConflict: DiagramModel | null;
+    recoveryUnavailable: boolean;
+    remoteConflict: RemoteConflict | null;
+  }>({
+    id,
+    record: null,
+    loading: true,
+    notFound: false,
+    status: 'saved',
+    recoveryConflict: null,
+    recoveryUnavailable: false,
+    remoteConflict: null,
+  });
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
+    let leftPage = false;
+    let lease: DraftSessionLease | null = null;
+    let coordinator: SaveCoordinator | null = null;
+    let recoveryUnavailable = false;
+    const closing = departures.get(repository) ?? new Map<string, Promise<void>>();
+    departures.set(repository, closing);
+    const previous = Promise.all([...closing.values()]);
 
-    // Every state update happens in a `then` callback, never synchronously in
-    // the effect body. The cancelled flag also stops a load that is still in
-    // flight when the user navigates to another diagram from landing on this one.
-    repository.get(id).then(
-      (found) => {
-        if (cancelled) return;
-        setRecord(found);
-        setNotFound(!found);
-        setLoading(false);
-      },
-      () => {
-        if (cancelled) return;
-        setNotFound(true);
-        setLoading(false);
-      },
-    );
+    const publish = () => {
+      if (cancelled || leftPage || !coordinator) return;
+      setState({
+        id,
+        record: coordinator.record,
+        status: coordinator.status,
+        recoveryConflict: coordinator.recoveryConflict?.model ?? null,
+        recoveryUnavailable,
+        remoteConflict: coordinator.remoteConflict,
+        notFound: false,
+        loading: false,
+      });
+    };
+    const flush = () => void coordinator?.flush().catch(() => {});
+    const onPageHide = () => {
+      leftPage = true;
+      flush();
+      void lease?.release().catch(() => {});
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      // A bfcache document released its lease. Reopen under a new lease before editing.
+      if (event.persisted) window.location.reload();
+    };
+    const onVisibility = () => {
+      if (!leftPage && document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const opened = (async () => {
+      try {
+        await previous;
+        if (cancelled || leftPage) return;
+        try {
+          lease = await acquireDraftSession(window.sessionStorage, navigator.locks);
+        } catch {
+          // Denied locks/storage must not enable recovery under an unowned id.
+        }
+        if (cancelled || leftPage) {
+          await lease?.release();
+          return;
+        }
+        const found = await repository.get(id);
+        if (cancelled || leftPage) return;
+        if (!found) {
+          await lease?.release();
+          setState({
+            id,
+            record: null,
+            loading: false,
+            notFound: true,
+            status: 'saved',
+            recoveryConflict: null,
+            recoveryUnavailable: false,
+            remoteConflict: null,
+          });
+          return;
+        }
+        let journal: DraftJournal | null = null;
+        try {
+          if (lease) {
+            const owner = lease;
+            journal = new DraftJournal(window.localStorage, owner.id, found, () => owner.active);
+          }
+        } catch {
+          // Storage can be denied independently of IndexedDB. The coordinator
+          // then bypasses debounce and keeps unsuccessful writes retryable.
+        }
+        recoveryUnavailable = !journal;
+        coordinator = new SaveCoordinator(repository, found, journal, publish);
+        writer.current = { id, coordinator };
+        publish();
+        if (coordinator.status === 'pending') flush();
+      } catch {
+        await lease?.release().catch(() => {});
+        if (!cancelled && !leftPage) {
+          setState({
+            id,
+            record: null,
+            loading: false,
+            notFound: false,
+            status: 'error',
+            recoveryConflict: null,
+            recoveryUnavailable,
+            remoteConflict: null,
+          });
+        }
+      }
+    })();
 
     return () => {
       cancelled = true;
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (writer.current?.coordinator === coordinator) writer.current = null;
+      const departure = opened
+        .then(async () => {
+          await coordinator?.flush().catch(() => {});
+          await lease?.release();
+        })
+        .catch(() => {});
+      closing.set(id, departure);
+      void departure.then(() => {
+        if (closing.get(id) === departure) closing.delete(id);
+      });
     };
   }, [ready, repository, id]);
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
+  const current = useCallback(() => {
+    if (writer.current?.id !== id) throw new Error('The diagram is not ready.');
+    return writer.current.coordinator;
+  }, [id]);
+  const save = useCallback((model: DiagramModel) => current().save(model), [current]);
+  const rename = useCallback((title: string) => current().rename(title), [current]);
+  const snapshot = useCallback((model: DiagramModel) => current().snapshot(model), [current]);
+  const restore = useCallback(
+    (versionId: string, model: DiagramModel) => current().restore(versionId, model),
+    [current],
   );
-
-  const flush = useCallback(async () => {
-    const model = pending.current;
-    if (!model) return;
-    pending.current = null;
-
-    const now = Date.now();
-    const snapshot = now - lastSnapshot.current > SNAPSHOT_INTERVAL_MS;
-    if (snapshot) lastSnapshot.current = now;
-
-    setStatus('saving');
-    try {
-      const saved = await repository.save(id, model, { snapshot });
-      const withThumbnail = await repository.updateMeta(id, {
-        thumbnail: renderThumbnail(model),
-      });
-      setRecord({ ...withThumbnail, model: saved.model });
-      setStatus('saved');
-    } catch {
-      // Keep the edit in hand so the next attempt can still write it.
-      pending.current = model;
-      setStatus('error');
-    }
-  }, [repository, id]);
-
-  const save = useCallback<DiagramDocument['save']>(
-    (model, options = {}) => {
-      pending.current = model;
-      if (timer.current) clearTimeout(timer.current);
-      if (options.snapshot) lastSnapshot.current = 0;
-      if (options.immediate) {
-        void flush();
-        return;
-      }
-      setStatus('pending');
-      timer.current = setTimeout(() => void flush(), AUTOSAVE_DEBOUNCE_MS);
+  const retry = useCallback(() => current().flush(), [current]);
+  const adoptRemote = useCallback(
+    (record: DiagramRecord) => {
+      const coordinator = writer.current?.id === id ? writer.current.coordinator : null;
+      if (!coordinator) return null;
+      return coordinator.adoptRemote(record) === 'adopted' ? record : null;
     },
-    [flush],
+    [id],
   );
+  const acceptRemote = useCallback(() => {
+    const coordinator = writer.current?.id === id ? writer.current.coordinator : null;
+    return coordinator?.acceptRemote() ?? null;
+  }, [id]);
+  const confirmedUpdatedAt = useCallback(() => {
+    const coordinator = writer.current?.id === id ? writer.current.coordinator : null;
+    return coordinator?.confirmedUpdatedAt ?? null;
+  }, [id]);
 
-  const rename = useCallback(
-    async (title: string) => {
-      const updated = await repository.updateMeta(id, { title });
-      setRecord((current) => (current ? { ...current, title: updated.title } : updated));
-    },
-    [repository, id],
-  );
-
-  return { record, loading, notFound, status, save, rename, reload: load };
+  return {
+    ...state,
+    loading: state.id !== id || state.loading,
+    save,
+    rename,
+    snapshot,
+    restore,
+    retry,
+    adoptRemote,
+    acceptRemote,
+    confirmedUpdatedAt,
+  };
 }

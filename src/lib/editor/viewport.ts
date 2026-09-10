@@ -76,7 +76,14 @@ export interface Insets {
  * Insets keep the content clear of the floating chrome: without them, fitting a
  * wide diagram tucks its right-hand side underneath the inspector panel.
  */
-export function fitToBox(box: BBox, size: Size, padding = 48, insets: Insets = {}): Viewport {
+export function fitToBox(
+  box: BBox,
+  size: Size,
+  padding = 48,
+  insets: Insets = {},
+  maxZoom = MAX_ZOOM,
+  minZoom = MIN_ZOOM,
+): Viewport {
   const left = (insets.left ?? 0) + padding;
   const right = (insets.right ?? 0) + padding;
   const top = (insets.top ?? 0) + padding;
@@ -84,8 +91,12 @@ export function fitToBox(box: BBox, size: Size, padding = 48, insets: Insets = {
 
   const availableW = Math.max(size.width - left - right, 1);
   const availableH = Math.max(size.height - top - bottom, 1);
-  const zoom = clampZoom(
-    Math.min(availableW / Math.max(box.w, 1), availableH / Math.max(box.h, 1)),
+  const zoom = Math.max(
+    minZoom,
+    Math.min(
+      maxZoom,
+      clampZoom(Math.min(availableW / Math.max(box.w, 1), availableH / Math.max(box.h, 1))),
+    ),
   );
 
   return {
@@ -94,6 +105,24 @@ export function fitToBox(box: BBox, size: Size, padding = 48, insets: Insets = {
     y: top + availableH / 2 - (box.y + box.h / 2) * zoom,
   };
 }
+
+/**
+ * The camera a diagram opens with.
+ *
+ * Fit to the free area, but never magnified: a three-box sketch shown at 400%
+ * looks broken, while a fifty-service platform shown at 100% from its top-left
+ * corner shows the reader a quarter of it and a lot of empty paper — which is
+ * what every diagram opened as before this existed.
+ */
+export function frameOnOpen(box: BBox, size: Size, insets: Insets = {}): Viewport {
+  // Never so far out that the groups fold into summaries: a diagram that opens
+  // as "3 services · 2 services" has hidden the very things it exists to show.
+  // Below this the reader sees most of it and pans for the rest.
+  return fitToBox(box, size, 48, insets, 1, OPEN_MIN_ZOOM);
+}
+
+/** The zoom at which groups start summarising; opening stays just above it. */
+export const OPEN_MIN_ZOOM = 0.52;
 
 /** The canvas-space rectangle currently visible, used to skip off-screen shapes. */
 export function visibleBox(vp: Viewport, size: Size): BBox {
@@ -124,4 +153,23 @@ export function centerOn(vp: Viewport, point: Point, size: Size): Viewport {
 /** SVG transform string for the canvas root group. */
 export function viewportTransform(vp: Viewport): string {
   return `translate(${vp.x} ${vp.y}) scale(${vp.zoom})`;
+}
+
+/**
+ * A viewport part-way between two others.
+ *
+ * Zoom is interpolated on a log scale: going from 25% to 100% should feel like
+ * two doublings at an even pace, not a lurch at the start and a crawl at the
+ * end, which is what a straight line between the two numbers gives. The
+ * offsets follow the zoom so the point being zoomed towards stays put.
+ */
+export function lerpViewport(from: Viewport, to: Viewport, t: number): Viewport {
+  if (t <= 0) return from;
+  if (t >= 1) return to;
+  const zoom = Math.exp(Math.log(from.zoom) + (Math.log(to.zoom) - Math.log(from.zoom)) * t);
+  return {
+    zoom,
+    x: from.x + (to.x - from.x) * t,
+    y: from.y + (to.y - from.y) * t,
+  };
 }

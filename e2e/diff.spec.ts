@@ -19,10 +19,11 @@ async function openHistory(page: import('@playwright/test').Page) {
   await page.locator('.palette input').first().fill('historial');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.version-list');
-  // The first autosave of a diagram always leaves a snapshot behind, so a
-  // settled list holds the current state plus that one. Waiting for it means
-  // the next assertion is not racing the panel's own refresh.
-  await expect(page.locator('.version-row')).toHaveCount(2);
+  // A blank canvas is not snapshotted when the first edit lands, so a settled
+  // list holds exactly the current state. Waiting for the empty-history note
+  // means the next assertion is not racing the panel's own refresh.
+  await expect(page.locator('.version-row')).toHaveCount(1);
+  await expect(page.getByText('Aún no hay versiones anteriores')).toBeVisible();
 }
 
 /**

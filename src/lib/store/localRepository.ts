@@ -1,4 +1,4 @@
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
 import {
   DiagramRecordSchema,
   DiagramVersionSchema,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/domain';
 import { uid } from '@/lib/engine';
 import type { CreateDiagramInput, DiagramRepository, SaveOptions, WorkspaceExport } from './types';
+import { renderThumbnail } from './thumbnail';
 
 const DB_NAME = 'aion-architecture-studio';
 const DB_VERSION = 1;
@@ -26,6 +27,15 @@ interface StudioDB extends DBSchema {
   diagrams: { key: string; value: DiagramRecord };
   versions: { key: string; value: DiagramVersion; indexes: { byDiagram: string } };
   flags: { key: string; value: boolean };
+}
+
+type WriteTransaction = IDBPTransaction<StudioDB, ['diagrams', 'versions'], 'readwrite'>;
+
+export class DiagramConflictError extends Error {
+  constructor() {
+    super('The diagram changed in another editor. Reload before saving over it.');
+    this.name = 'DiagramConflictError';
+  }
 }
 
 /** Projects a stored record onto its metadata, dropping the heavy model payload. */
@@ -70,8 +80,13 @@ export class LocalDiagramRepository implements DiagramRepository {
    * make the version history order non-deterministic. It also gives DynamoDB a
    * usable sort key when the store moves to AWS.
    */
-  private now(): string {
-    const ms = Math.max(Date.now(), this.lastStamp + 1);
+  private now(after?: string): string {
+    const previous = after ? Date.parse(after) : 0;
+    const ms = Math.max(
+      Date.now(),
+      this.lastStamp + 1,
+      Number.isFinite(previous) ? previous + 1 : 0,
+    );
     this.lastStamp = ms;
     return new Date(ms).toISOString();
   }
@@ -135,35 +150,36 @@ export class LocalDiagramRepository implements DiagramRepository {
   }
 
   async save(id: string, model: DiagramModel, options: SaveOptions = {}): Promise<DiagramRecord> {
-    const db = await this.db();
-    const existing = await db.get('diagrams', id);
-    if (!existing) throw new Error(`Diagram not found: ${id}`);
-
-    if (options.snapshot) await this.snapshot(existing, options.label ?? null);
-
-    const updated: DiagramRecord = DiagramRecordSchema.parse({
-      ...existing,
-      model,
-      updatedAt: this.now(),
+    return this.change(id, async (existing, tx) => {
+      if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
+        throw new DiagramConflictError();
+      }
+      const updated = DiagramRecordSchema.parse({
+        ...existing,
+        ...options.metadata,
+        model,
+      });
+      updated.thumbnail = renderThumbnail(updated.model);
+      if (options.snapshotModel || options.snapshot) {
+        await this.snapshot(
+          tx,
+          options.snapshotModel ? { ...updated, model: options.snapshotModel } : existing,
+          options.label ?? null,
+        );
+      }
+      return { ...updated, updatedAt: this.now(existing.updatedAt) };
     });
-    await db.put('diagrams', updated);
-    return updated;
   }
 
   async updateMeta(
     id: string,
     patch: Partial<Pick<DiagramMeta, 'title' | 'description' | 'folder' | 'thumbnail'>>,
   ): Promise<DiagramRecord> {
-    const db = await this.db();
-    const existing = await db.get('diagrams', id);
-    if (!existing) throw new Error(`Diagram not found: ${id}`);
-    const updated: DiagramRecord = DiagramRecordSchema.parse({
+    return this.change(id, async (existing) => ({
       ...existing,
       ...patch,
-      updatedAt: this.now(),
-    });
-    await db.put('diagrams', updated);
-    return updated;
+      updatedAt: this.now(existing.updatedAt),
+    }));
   }
 
   async duplicate(id: string): Promise<DiagramRecord> {
@@ -194,14 +210,28 @@ export class LocalDiagramRepository implements DiagramRepository {
     return all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
   }
 
-  async restoreVersion(diagramId: string, versionId: string): Promise<DiagramRecord> {
-    const db = await this.db();
-    const version = await db.get('versions', versionId);
-    if (!version || version.diagramId !== diagramId) {
-      throw new Error(`Version not found: ${versionId}`);
-    }
-    // Snapshot current state first, so restoring is itself undoable.
-    return this.save(diagramId, version.model, { snapshot: true, label: 'before restore' });
+  async restoreVersion(
+    diagramId: string,
+    versionId: string,
+    options: Pick<SaveOptions, 'expectedUpdatedAt'> = {},
+  ): Promise<DiagramRecord> {
+    return this.change(diagramId, async (existing, tx) => {
+      if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
+        throw new DiagramConflictError();
+      }
+      const storedVersion = await tx.objectStore('versions').get(versionId);
+      if (!storedVersion || storedVersion.diagramId !== diagramId) {
+        throw new Error(`Version not found: ${versionId}`);
+      }
+      const version = DiagramVersionSchema.parse(storedVersion);
+      await this.snapshot(tx, existing, 'before restore');
+      return {
+        ...existing,
+        model: version.model,
+        thumbnail: renderThumbnail(version.model),
+        updatedAt: this.now(existing.updatedAt),
+      };
+    });
   }
 
   async exportWorkspace(): Promise<WorkspaceExport> {
@@ -273,22 +303,51 @@ export class LocalDiagramRepository implements DiagramRepository {
     return record;
   }
 
-  private async snapshot(record: DiagramRecord, label: string | null): Promise<void> {
+  /** The read, history/pruning, metadata and model commit are one atomic mutation. */
+  private async change(
+    id: string,
+    update: (record: DiagramRecord, tx: WriteTransaction) => Promise<DiagramRecord>,
+  ): Promise<DiagramRecord> {
     const db = await this.db();
+    const tx = db.transaction(['diagrams', 'versions'], 'readwrite');
+    try {
+      const existing = await tx.objectStore('diagrams').get(id);
+      if (!existing) throw new Error(`Diagram not found: ${id}`);
+      const updated = DiagramRecordSchema.parse(await update(existing, tx));
+      await tx.objectStore('diagrams').put(updated);
+      await tx.done;
+      return updated;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch {
+        // A failed transaction may already have aborted itself.
+      }
+      await tx.done.catch(() => {});
+      throw error;
+    }
+  }
+
+  private async snapshot(
+    tx: WriteTransaction,
+    record: DiagramRecord,
+    label: string | null,
+  ): Promise<void> {
     const version: DiagramVersion = DiagramVersionSchema.parse({
       id: uid('ver'),
       diagramId: record.id,
-      createdAt: this.now(),
+      createdAt: this.now(record.updatedAt),
       label,
       model: record.model,
     });
-    await db.put('versions', version);
+    const versions = tx.objectStore('versions');
+    await versions.put(version);
 
-    const existing = await db.getAllFromIndex('versions', 'byDiagram', record.id);
+    const existing = await versions.index('byDiagram').getAll(record.id);
     if (existing.length <= MAX_VERSIONS_PER_DIAGRAM) return;
     const oldestFirst = existing.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
     for (const stale of oldestFirst.slice(0, existing.length - MAX_VERSIONS_PER_DIAGRAM)) {
-      await db.delete('versions', stale.id);
+      await versions.delete(stale.id);
     }
   }
 }

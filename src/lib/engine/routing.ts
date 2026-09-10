@@ -170,5 +170,6 @@ export function addConnector(model: DiagramModel, sourceId: string, targetId: st
 }
 
 export function deleteConnector(model: DiagramModel, id: string): void {
-  model.connectors = model.connectors.filter((c) => c.id !== id);
+  const index = model.connectors.findIndex((c) => c.id === id);
+  if (index >= 0) model.connectors.splice(index, 1);
 }

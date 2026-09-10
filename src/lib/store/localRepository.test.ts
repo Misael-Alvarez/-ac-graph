@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmptyModel, addGroup } from '@/lib/engine';
 import { LEGACY_LOCALSTORAGE_KEY, LocalDiagramRepository } from './localRepository';
+import { renderThumbnail } from './thumbnail';
 
 function modelWithGroups(n: number) {
   const m = createEmptyModel();
@@ -18,6 +19,10 @@ function freshRepo() {
 let repo: LocalDiagramRepository;
 beforeEach(() => {
   repo = freshRepo();
+});
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await repo.close();
 });
 
 describe('create / get / list', () => {
@@ -76,6 +81,119 @@ describe('save', () => {
     await repo.save(created.id, modelWithGroups(1));
     expect(await repo.listVersions(created.id)).toHaveLength(0);
   });
+
+  it('commits the model, thumbnail, metadata and explicit snapshot together', async () => {
+    const created = await repo.create({ title: 'A', model: createEmptyModel() });
+    const current = modelWithGroups(2);
+    const captured = modelWithGroups(1);
+    const saved = await repo.save(created.id, current, {
+      metadata: { title: 'Renamed' },
+      snapshotModel: captured,
+      expectedUpdatedAt: created.updatedAt,
+    });
+    expect(saved.title).toBe('Renamed');
+    expect(saved.model).toEqual(current);
+    expect(saved.thumbnail).toBe(renderThumbnail(current));
+    expect((await repo.listVersions(created.id))[0].model).toEqual(captured);
+  });
+
+  it('rejects stale revisions without changing the model or creating a snapshot', async () => {
+    const created = await repo.create({ title: 'A', model: createEmptyModel() });
+    const newer = await repo.save(created.id, modelWithGroups(2));
+    await expect(
+      repo.save(created.id, modelWithGroups(1), {
+        snapshot: true,
+        expectedUpdatedAt: created.updatedAt,
+      }),
+    ).rejects.toThrow(/another editor/);
+    expect(await repo.get(created.id)).toEqual(newer);
+    expect(await repo.listVersions(created.id)).toEqual([]);
+  });
+
+  it('does not lose concurrent model or metadata updates, including across repository instances', async () => {
+    const dbName = `concurrent-${++dbCounter}`;
+    const first = new LocalDiagramRepository({ dbName });
+    const second = new LocalDiagramRepository({ dbName });
+    try {
+      const created = await first.create({ title: 'A', model: createEmptyModel() });
+      const content = modelWithGroups(3);
+      const results = await Promise.all([
+        first.save(created.id, content),
+        second.updateMeta(created.id, { title: 'Renamed' }),
+        first.updateMeta(created.id, { folder: 'Clients' }),
+      ]);
+      const saved = await first.get(created.id);
+      expect(saved?.model).toEqual(content);
+      expect(saved?.thumbnail).toBe(renderThumbnail(content));
+      expect(saved?.title).toBe('Renamed');
+      expect(saved?.folder).toBe('Clients');
+      expect(new Set(results.map((record) => record.updatedAt)).size).toBe(3);
+    } finally {
+      await first.close();
+      await second.close();
+    }
+  });
+});
+
+describe('transaction failures', () => {
+  function abortOnDiagramWrite() {
+    const put = IDBObjectStore.prototype.put;
+    vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value,
+      key,
+    ) {
+      const request = put.call(this, value, key);
+      if (this.name === 'diagrams') {
+        request.addEventListener('success', () => this.transaction.abort(), { once: true });
+      }
+      return request;
+    });
+  }
+
+  it('rejects a late transaction abort and rolls back model, metadata, thumbnail, snapshot and pruning', async () => {
+    const created = await repo.create({ title: 'A', model: createEmptyModel() });
+    for (let i = 0; i < 50; i++) {
+      await repo.save(created.id, createEmptyModel(), { snapshot: true, label: `v${i}` });
+    }
+    const before = await repo.get(created.id);
+    const history = await repo.listVersions(created.id);
+    abortOnDiagramWrite();
+    await expect(
+      repo.save(created.id, modelWithGroups(3), {
+        snapshotModel: modelWithGroups(2),
+        metadata: { title: 'Not committed' },
+      }),
+    ).rejects.toThrow();
+    expect(await repo.get(created.id)).toEqual(before);
+    expect(await repo.listVersions(created.id)).toEqual(history);
+  });
+
+  it('rolls back a failed restore and its before-restore snapshot', async () => {
+    const created = await repo.create({ title: 'A', model: createEmptyModel() });
+    const before = await repo.save(created.id, modelWithGroups(2), { snapshot: true });
+    const history = await repo.listVersions(created.id);
+    abortOnDiagramWrite();
+    await expect(repo.restoreVersion(created.id, history[0].id)).rejects.toThrow();
+    expect(await repo.get(created.id)).toEqual(before);
+    expect(await repo.listVersions(created.id)).toEqual(history);
+  });
+
+  it('does not create a version when model validation fails', async () => {
+    const created = await repo.create({ title: 'A', model: createEmptyModel() });
+    await expect(
+      repo.save(
+        created.id,
+        {
+          ...createEmptyModel(),
+          canvas: { w: Number.NaN, h: 100 },
+        },
+        { snapshot: true },
+      ),
+    ).rejects.toThrow();
+    expect(await repo.get(created.id)).toEqual(created);
+    expect(await repo.listVersions(created.id)).toEqual([]);
+  });
 });
 
 describe('version history', () => {
@@ -110,6 +228,19 @@ describe('version history', () => {
     const [v] = await repo.listVersions(a.id);
 
     await expect(repo.restoreVersion(b.id, v.id)).rejects.toThrow(/not found/i);
+  });
+
+  it('refuses a restore requested against an obsolete saved revision', async () => {
+    const created = await repo.create({ title: 'A', model: createEmptyModel() });
+    const saved = await repo.save(created.id, modelWithGroups(1), { snapshot: true });
+    const [version] = await repo.listVersions(created.id);
+    await expect(
+      repo.restoreVersion(created.id, version.id, {
+        expectedUpdatedAt: created.updatedAt,
+      }),
+    ).rejects.toThrow(/another editor/);
+    expect(await repo.get(created.id)).toEqual(saved);
+    expect(await repo.listVersions(created.id)).toHaveLength(1);
   });
 
   it('caps the history so the store cannot grow without bound', async () => {

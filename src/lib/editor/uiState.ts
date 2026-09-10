@@ -2,6 +2,14 @@ import type { Locale } from '@/lib/i18n/messages';
 import { DEFAULT_VIEWPORT, type Viewport } from './viewport';
 import type { BrandMode, ToolMode } from './types';
 
+/**
+ * The interface's tone: which colour every accent, selection and focus ring
+ * takes. Violet is AION's; the others are for readers who live in the tool
+ * all day and want it in their own key. The brand mark keeps its gradient.
+ */
+export const ACCENTS = ['violet', 'indigo', 'graphite', 'ocean', 'rose'] as const;
+export type Accent = (typeof ACCENTS)[number];
+
 export interface ContextMenuTarget {
   /** Screen position where the menu opens. */
   x: number;
@@ -15,7 +23,10 @@ export interface ContextMenuTarget {
 }
 
 export type ModalKind =
-  'templates' | 'markdown' | 'shortcuts' | 'switchCloud' | 'ai' | 'share' | null;
+  'templates' | 'markdown' | 'shortcuts' | 'switchCloud' | 'ai' | 'share' | 'icons' | null;
+
+/** The top bar menus. One open at a time; opening another closes the first. */
+export type MenuKind = 'export' | 'account' | 'more' | null;
 
 export interface UiState {
   tool: ToolMode;
@@ -24,12 +35,17 @@ export interface UiState {
   /** Set while the connector tool is waiting for its second click. */
   connectorSourceId: string | null;
   viewport: Viewport;
+  /** Whether the last viewport change should be animated on screen. */
+  viewportSmooth: boolean;
   gridSnap: boolean;
   dark: boolean;
+  accent: Accent;
   brand: BrandMode;
   locale: Locale;
   minimapOpen: boolean;
   paletteOpen: boolean;
+  /** The find bar over the canvas (⌘F). */
+  findOpen: boolean;
   /** Split code/canvas view. */
   codeOpen: boolean;
   /** Version history panel. */
@@ -52,6 +68,7 @@ export interface UiState {
   browserOpen: boolean;
   inspectorPinned: boolean;
   modal: ModalKind;
+  menu: MenuKind;
   contextMenu: ContextMenuTarget | null;
   toast: string | null;
 }
@@ -62,13 +79,16 @@ export const initialUiState: UiState = {
   selectedConnectorId: null,
   connectorSourceId: null,
   viewport: DEFAULT_VIEWPORT,
+  viewportSmooth: false,
   gridSnap: true,
   // Dark by default: the chrome is meant to sit back behind the drawing.
   dark: true,
+  accent: 'violet',
   brand: 'aion',
   locale: 'es',
   minimapOpen: true,
   paletteOpen: false,
+  findOpen: false,
   codeOpen: false,
   versionsOpen: false,
   insightsOpen: false,
@@ -78,6 +98,7 @@ export const initialUiState: UiState = {
   browserOpen: false,
   inspectorPinned: false,
   modal: null,
+  menu: null,
   contextMenu: null,
   toast: null,
 };
@@ -89,12 +110,14 @@ export type UiAction =
   | { type: 'clearSelection' }
   | { type: 'selectConnector'; id: string | null }
   | { type: 'setConnectorSource'; id: string | null }
-  | { type: 'setViewport'; viewport: Viewport }
+  /** `smooth` asks the canvas to glide there rather than jump: fit, reset, drill. */
+  | { type: 'setViewport'; viewport: Viewport; smooth?: boolean }
   | { type: 'setActiveView'; id: string | null }
   | { type: 'drillInto'; id: string }
   | { type: 'drillUpTo'; depth: number }
   | { type: 'toggleGridSnap' }
   | { type: 'toggleDark' }
+  | { type: 'setAccent'; accent: Accent }
   | { type: 'setBrand'; brand: BrandMode }
   | { type: 'setLocale'; locale: Locale }
   | { type: 'toggleMinimap' }
@@ -104,8 +127,10 @@ export type UiAction =
   | { type: 'setDiffHighlight'; highlight: UiState['diffHighlight'] }
   | { type: 'toggleBrowser' }
   | { type: 'setPaletteOpen'; open: boolean }
+  | { type: 'setFindOpen'; open: boolean }
   | { type: 'toggleInspectorPinned' }
   | { type: 'setModal'; modal: ModalKind }
+  | { type: 'setMenu'; menu: MenuKind }
   | { type: 'openContextMenu'; target: ContextMenuTarget }
   | { type: 'closeContextMenu' }
   | { type: 'toast'; message: string | null };
@@ -140,7 +165,7 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       return { ...state, connectorSourceId: action.id };
 
     case 'setViewport':
-      return { ...state, viewport: action.viewport };
+      return { ...state, viewport: action.viewport, viewportSmooth: action.smooth === true };
 
     case 'setActiveView':
       // The selection is dropped: the ids are still valid, but a shape the new
@@ -180,6 +205,9 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
     case 'toggleDark':
       return { ...state, dark: !state.dark };
 
+    case 'setAccent':
+      return { ...state, accent: action.accent };
+
     case 'setBrand':
       return { ...state, brand: action.brand };
 
@@ -207,13 +235,19 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       return { ...state, browserOpen: !state.browserOpen };
 
     case 'setPaletteOpen':
-      return { ...state, paletteOpen: action.open };
+      return { ...state, paletteOpen: action.open, menu: action.open ? null : state.menu };
+
+    case 'setFindOpen':
+      return { ...state, findOpen: action.open };
 
     case 'toggleInspectorPinned':
       return { ...state, inspectorPinned: !state.inspectorPinned };
 
     case 'setModal':
-      return { ...state, modal: action.modal, contextMenu: null };
+      return { ...state, modal: action.modal, contextMenu: null, menu: null };
+
+    case 'setMenu':
+      return { ...state, menu: action.menu, contextMenu: null };
 
     case 'openContextMenu':
       return { ...state, contextMenu: action.target, paletteOpen: false };
@@ -232,6 +266,7 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
 /** Preferences worth remembering between sessions. */
 export interface StoredPreferences {
   dark: boolean;
+  accent: Accent;
   gridSnap: boolean;
   brand: BrandMode;
   locale: Locale;
@@ -255,6 +290,7 @@ export function readPreferences(storage: Pick<Storage, 'getItem'>): Partial<Stor
 export function toPreferences(state: UiState): StoredPreferences {
   return {
     dark: state.dark,
+    accent: state.accent,
     gridSnap: state.gridSnap,
     brand: state.brand,
     locale: state.locale,

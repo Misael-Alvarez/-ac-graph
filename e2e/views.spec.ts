@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
+import { inflateRawSync } from 'node:zlib';
+import type { DiagramModel } from '../src/lib/domain';
 import { resetWorkspace } from './helpers';
 
 /** Opens the microservices template, which has several groups and edges. */
@@ -28,6 +30,54 @@ async function dragBy(page: Page, selector: string, dx: number, dy: number) {
   await page.mouse.move(box.x + box.width / 2 + dx, box.y + 14 + dy, { steps: 10 });
   await page.mouse.up();
   return box;
+}
+
+async function runCommand(page: Page, label: string) {
+  await page.keyboard.press('ControlOrMeta+k');
+  await page.locator('.palette-input').fill(label);
+  await page.getByRole('option', { name: label }).click();
+}
+
+async function download(page: Page, trigger: () => Promise<void>) {
+  const pending = page.waitForEvent('download');
+  await trigger();
+  const stream = await (await pending).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+
+async function nativeModel(page: Page): Promise<DiagramModel> {
+  return JSON.parse(
+    (await download(page, () => page.keyboard.press('ControlOrMeta+s'))).toString(),
+  );
+}
+
+async function sharedModel(page: Page): Promise<DiagramModel> {
+  const field = page.getByRole('textbox', { name: 'Enlace', exact: true });
+  await expect(field).toBeVisible();
+  const payload = new URL(await field.inputValue()).searchParams.get('d')!;
+  return JSON.parse(inflateRawSync(Buffer.from(payload, 'base64url')).toString());
+}
+
+async function narrowToGroups(page: Page, count = 1) {
+  await addView(page, 'Vista de prueba');
+  const ids: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const group = page.locator('[data-shape-id^="grp_"]').nth(i);
+    ids.push((await group.getAttribute('data-shape-id'))!);
+    // The floating view bar covers the top edge of the template's first row, and
+    // the dashed container starts 64 canvas units down a 208-unit card, so the
+    // click lands on the group's own header band between the two — measured as a
+    // fraction of the rendered box, which holds at any zoom.
+    const box = (await group.boundingBox())!;
+    await group.click({
+      position: { x: box.width * 0.05, y: box.height * 0.24 },
+      modifiers: i ? ['Shift'] : [],
+    });
+  }
+  await page.getByRole('button', { name: 'Limitar a la selección' }).click();
+  return ids;
 }
 
 test.beforeEach(async ({ page }) => {
@@ -61,18 +111,19 @@ test('moving a node in a view leaves the main view alone', async ({ page }) => {
   expect(Math.round(back.y)).toBe(Math.round(before.y));
 });
 
-test('and moving it in the main view moves it everywhere', async ({ page }) => {
+test('moving in the main reading of a split model leaves the other view alone', async ({
+  page,
+}) => {
   await addView(page, 'Seguridad');
   await page.locator('.view-bar [role="tab"]').first().click();
   const before = await dragBy(page, '[data-shape-id^="grp_"]', 200, 0);
   const moved = (await page.locator('[data-shape-id^="grp_"]').first().boundingBox())!;
   expect(moved.x).toBeGreaterThan(before.x + 150);
 
-  // Where it landed exactly is the grid's business; that the other view agrees
-  // is the model's, and that is what this is about.
   await page.locator('.view-bar [role="tab"]').nth(1).click();
   const inView = (await page.locator('[data-shape-id^="grp_"]').first().boundingBox())!;
-  expect(Math.round(inView.x)).toBe(Math.round(moved.x));
+  expect(Math.round(inView.x)).toBe(Math.round(before.x));
+  expect(Math.round(inView.y)).toBe(Math.round(before.y));
 });
 
 test('a view survives a recompile from the code panel', async ({ page }) => {
@@ -128,6 +179,14 @@ test('drilling into a group narrows the canvas and the trail leads back', async 
   await expect(page.locator('.breadcrumb')).toBeVisible();
   await expect(page.locator('[data-shape-id]')).toHaveCount(5);
 
+  await page.keyboard.press('ControlOrMeta+a');
+  await expect(page.locator('.selection-outline')).toHaveCount(4);
+  await page.keyboard.press('ControlOrMeta+Shift+s');
+  const projected = await sharedModel(page);
+  expect(projected.shapes).toHaveLength(5);
+  expect(projected.views).toEqual([]);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ControlOrMeta+Shift+a');
   await page.keyboard.press('Escape');
   await expect(page.locator('.breadcrumb')).toHaveCount(0);
   await expect(page.locator('[data-shape-id]')).toHaveCount(all);
@@ -141,4 +200,147 @@ test('double-clicking a single-service group still renames it', async ({ page })
 
   await expect(page.locator('.breadcrumb')).toHaveCount(0);
   await expect(page.locator('.inspector .input').first()).toBeFocused();
+});
+
+test('select-all, nudge and inspector use the narrowed view and undo preserves the model', async ({
+  page,
+}) => {
+  const [id] = await narrowToGroups(page);
+  const before = await nativeModel(page);
+  const group = page.locator(`[data-shape-id="${id}"]`);
+  const x = Number(await group.getAttribute('x'));
+  await page.keyboard.press('ControlOrMeta+a');
+  await expect(page.locator('.selection-outline')).toHaveCount(2);
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(group).toHaveAttribute('x', String(x + 18));
+  const moved = await nativeModel(page);
+  expect(moved.shapes).toEqual(before.shapes);
+  expect(moved.connectors).toEqual(before.connectors);
+  expect(moved.views[1].place?.[id].x).toBe(x + 18);
+
+  await group.click({ position: { x: 20, y: 12 } });
+  await page.getByRole('button', { name: 'Posición', exact: true }).click();
+  // The position is a field now, and it reads the view's placement.
+  await expect(page.getByLabel('X', { exact: true })).toHaveValue(String(Math.round(x + 18)));
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(group).toHaveAttribute('x', String(x));
+  expect(await nativeModel(page)).toEqual(before);
+});
+
+test('fit from the keyboard and zoom controls frames only the narrowed reading', async ({
+  page,
+}) => {
+  await page.keyboard.press('ControlOrMeta+1');
+  const wholeZoom = Number((await page.locator('.zoom-value').innerText()).replace('%', ''));
+  await narrowToGroups(page);
+  await page.keyboard.press('ControlOrMeta+Shift+a');
+  await page.keyboard.press('ControlOrMeta+1');
+  const narrowedZoom = await page.locator('.zoom-value').innerText();
+  expect(Number(narrowedZoom.replace('%', ''))).toBeGreaterThan(wholeZoom);
+  await page.keyboard.press('ControlOrMeta+0');
+  await page
+    .locator('.zoom-controls')
+    .getByRole('button', { name: /Ajustar/ })
+    .click();
+  await expect(page.locator('.zoom-value')).toHaveText(narrowedZoom);
+});
+
+test('alignment, distribution and auto-layout edit placements in one undo step', async ({
+  page,
+}) => {
+  await narrowToGroups(page, 3);
+  await page.keyboard.press('ControlOrMeta+a');
+  const before = await nativeModel(page);
+  for (const label of [
+    'Alinear a la izquierda',
+    'Espaciar en horizontal',
+    'Organizar automáticamente',
+  ]) {
+    if (label === 'Organizar automáticamente') await runCommand(page, label);
+    else
+      await page
+        .locator('.selection-toolbar')
+        .getByRole('button', { name: label, exact: true })
+        .click();
+    const after = await nativeModel(page);
+    expect(after.shapes).toEqual(before.shapes);
+    expect(after.connectors).toEqual(before.connectors);
+    expect(after.views[0]).toEqual(before.views[0]);
+    expect(after.views[1].place).not.toEqual(before.views[1].place);
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await nativeModel(page)).toEqual(before);
+  }
+});
+
+test('SVG, PNG and Markdown export the view while native JSON keeps the full model', async ({
+  page,
+}) => {
+  const [id] = await narrowToGroups(page);
+  await page.keyboard.press('Shift+ArrowRight');
+  const full = await nativeModel(page);
+  const svg = (
+    await download(page, () => runCommand(page, 'Exportar SVG (vista actual)'))
+  ).toString();
+  // Mod+E opens the export menu in the top bar; Markdown is one of its rows.
+  const markdown = (
+    await download(page, async () => {
+      await page.keyboard.press('ControlOrMeta+e');
+      await page.getByRole('menuitem', { name: /^Markdown/ }).click();
+    })
+  ).toString();
+  const png = await download(page, () => runCommand(page, 'Exportar PNG (vista actual)'));
+  const shown = full.shapes.filter(
+    (s) =>
+      s.id === id ||
+      s.parentId === id ||
+      full.shapes.some((p) => p.id === s.parentId && p.parentId === id),
+  );
+  const shownIds = new Set(shown.map((s) => s.id));
+  for (const s of full.shapes) {
+    if (shownIds.has(s.id)) expect(svg).toContain(`data-shape-id="${s.id}"`);
+    else expect(svg).not.toContain(`data-shape-id="${s.id}"`);
+    if (s.type === 'item' && s.title && !shown.some((v) => v.title === s.title)) {
+      expect(markdown).not.toContain(s.title);
+    }
+  }
+  expect(markdown).toContain(shown.find((s) => s.type === 'item')!.title!);
+  expect(full.shapes.length).toBeGreaterThan(shown.length);
+  expect(full.views).toHaveLength(2);
+  const svgSize = svg.match(/<svg[^>]*\bwidth="(\d+)" height="(\d+)"/)!;
+  expect(png.subarray(1, 4).toString()).toBe('PNG');
+  expect(png.readUInt32BE(16)).toBe(Number(svgSize[1]) * 2);
+  expect(png.readUInt32BE(20)).toBe(Number(svgSize[2]) * 2);
+});
+
+test('sharing defaults to the view, full model is explicit, and reopening resets scope', async ({
+  page,
+}) => {
+  await narrowToGroups(page);
+  const full = await nativeModel(page);
+  await page.keyboard.press('ControlOrMeta+Shift+s');
+  const scope = page.getByRole('combobox', { name: 'Alcance del enlace' });
+  await expect(scope).toHaveValue('view');
+  const projected = await sharedModel(page);
+  expect(projected.shapes).toHaveLength(3);
+  expect(projected.views).toEqual([]);
+  expect(projected.rules).toBeUndefined();
+  const visible = new Set(projected.shapes.map((s) => s.id));
+  expect(projected.shapes.every((s) => !s.parentId || visible.has(s.parentId))).toBe(true);
+  expect(
+    projected.connectors.every((c) => visible.has(c.sourceId) && visible.has(c.targetId)),
+  ).toBe(true);
+
+  await scope.selectOption('model');
+  expect((await sharedModel(page)).shapes).toEqual(full.shapes);
+  await scope.selectOption('view');
+  expect((await sharedModel(page)).shapes).toEqual(projected.shapes);
+  await scope.selectOption('model');
+  await sharedModel(page);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ControlOrMeta+Shift+s');
+  await expect(scope).toHaveValue('view');
+  expect((await sharedModel(page)).shapes).toEqual(projected.shapes);
+  await expect(page.getByRole('dialog', { name: 'Compartir' })).toContainText(
+    'ni se puede revocar',
+  );
 });

@@ -10,8 +10,13 @@ export interface CreateDiagramInput {
 export interface SaveOptions {
   /** Also snapshot the previous content into the version history. */
   snapshot?: boolean;
+  /** Explicit history entry: the model captured when the user requested it. */
+  snapshotModel?: DiagramModel;
   /** Human label attached to that snapshot. */
   label?: string;
+  metadata?: Partial<Pick<DiagramMeta, 'title' | 'description' | 'folder'>>;
+  /** Reject rather than overwrite a revision this editor has not seen. */
+  expectedUpdatedAt?: string;
 }
 
 export interface WorkspaceExport {
@@ -41,7 +46,11 @@ export interface DiagramRepository {
   delete(id: string): Promise<void>;
 
   listVersions(diagramId: string): Promise<DiagramVersion[]>;
-  restoreVersion(diagramId: string, versionId: string): Promise<DiagramRecord>;
+  restoreVersion(
+    diagramId: string,
+    versionId: string,
+    options?: Pick<SaveOptions, 'expectedUpdatedAt'>,
+  ): Promise<DiagramRecord>;
 
   exportWorkspace(): Promise<WorkspaceExport>;
   importWorkspace(data: WorkspaceExport): Promise<number>;

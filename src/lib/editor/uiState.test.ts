@@ -70,7 +70,7 @@ describe('toggles', () => {
   it('stores viewport, brand and locale', () => {
     const vp = { x: 10, y: 20, zoom: 1.5 };
     expect(uiReducer(initialUiState, { type: 'setViewport', viewport: vp }).viewport).toEqual(vp);
-    expect(uiReducer(initialUiState, { type: 'setBrand', brand: 'banorte' }).brand).toBe('banorte');
+    expect(uiReducer(initialUiState, { type: 'setBrand', brand: 'none' }).brand).toBe('none');
     expect(uiReducer(initialUiState, { type: 'setLocale', locale: 'en' }).locale).toBe('en');
   });
 });
@@ -80,6 +80,7 @@ describe('preferences', () => {
     const prefs = toPreferences({ ...initialUiState, dark: true, tool: 'connector' });
     expect(prefs).toEqual({
       dark: true,
+      accent: 'violet',
       gridSnap: true,
       brand: 'aion',
       locale: 'es',
@@ -102,5 +103,19 @@ describe('preferences', () => {
 
   it('uses a stable storage key', () => {
     expect(PREFERENCES_KEY).toBe('aion-studio-preferences');
+  });
+});
+
+describe('top bar menus', () => {
+  it('opens one menu at a time and closes it when a modal or the palette opens', () => {
+    let s = uiReducer(initialUiState, { type: 'setMenu', menu: 'export' });
+    expect(s.menu).toBe('export');
+    s = uiReducer(s, { type: 'setMenu', menu: 'account' });
+    expect(s.menu).toBe('account');
+    s = uiReducer(s, { type: 'setModal', modal: 'share' });
+    expect(s.menu).toBeNull();
+    s = uiReducer(s, { type: 'setMenu', menu: 'export' });
+    s = uiReducer(s, { type: 'setPaletteOpen', open: true });
+    expect(s.menu).toBeNull();
   });
 });

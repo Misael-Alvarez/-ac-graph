@@ -1,7 +1,21 @@
-import type { Connector, DiagramModel, Shape } from '@/lib/domain';
+import type { Connector, CustomIcon, DiagramModel, Shape } from '@/lib/domain';
 import type { AlignEdge, ClipboardPayload, DistributeAxis } from '@/lib/engine';
 import type { CloudTarget } from '@/data/cloudEquivalents';
 import type { Locale } from '@/lib/i18n/messages';
+
+/**
+ * Lets a burst of small edits land in the history as one step.
+ *
+ * Two consecutive actions carrying the same key are merged into the previous
+ * undo entry, so an arrow-key move of forty pixels or a label typed letter by
+ * letter come back with one Cmd+Z, not forty. The caller owns the key: it is
+ * what decides where one burst ends and the next begins — a new field focused,
+ * a pause between key presses — and any action without a key, or with a
+ * different one, breaks the chain.
+ */
+export interface Coalescable {
+  coalesceKey?: string;
+}
 
 /**
  * Domain-level editor actions.
@@ -14,8 +28,12 @@ import type { Locale } from '@/lib/i18n/messages';
 export type EditorAction =
   /** Replaces the document wholesale and clears history (open, template, import). */
   | { type: 'load'; model: DiagramModel }
-  /** Replaces the content but keeps history, so a code edit stays undoable. */
-  | { type: 'replaceModel'; model: DiagramModel }
+  /**
+   * Replaces the content but keeps history, so a code edit stays undoable.
+   * `origin: 'remote'` marks a revision that arrived from another editor: it is
+   * already saved, so the autosave must not write it back.
+   */
+  | { type: 'replaceModel'; model: DiagramModel; origin?: 'local' | 'remote' }
   | { type: 'addBoundary'; x: number; y: number; variant: 'outer' | 'sub' }
   | {
       type: 'addGroup';
@@ -25,24 +43,41 @@ export type EditorAction =
     }
   | { type: 'addItem'; containerId: string }
   | { type: 'deleteShapes'; ids: string[] }
-  /* `viewId` on the two actions that write geometry: in the main view a drag
-     moves the shape, in any other view it writes that view's own placement. See
-     engine/views. */
-  | { type: 'moveShapes'; ids: string[]; dx: number; dy: number; viewId: string | null }
-  | { type: 'resizeShape'; id: string; w: number; h: number; viewId: string | null }
-  | { type: 'setShapeProps'; id: string; patch: Partial<Shape> }
-  | { type: 'reorderItem'; id: string; dir: 1 | -1 }
-  | { type: 'alignShapes'; ids: string[]; edge: AlignEdge }
-  | { type: 'distributeShapes'; ids: string[]; axis: DistributeAxis }
+  /* Geometry uses the resolved view and optional drill scope, in one undo step. */
+  | ({
+      type: 'moveShapes';
+      ids: string[];
+      dx: number;
+      dy: number;
+      viewId: string | null;
+      drillPath?: string[];
+    } & Coalescable)
+  | ({ type: 'resizeShape'; id: string; w: number; h: number; viewId: string | null } & Coalescable)
+  | ({ type: 'setShapeProps'; id: string; patch: Partial<Shape> } & Coalescable)
+  | { type: 'reorderItem'; id: string; dir: 1 | -1; viewId: string | null; drillPath?: string[] }
+  | {
+      type: 'alignShapes';
+      ids: string[];
+      edge: AlignEdge;
+      viewId: string | null;
+      drillPath?: string[];
+    }
+  | {
+      type: 'distributeShapes';
+      ids: string[];
+      axis: DistributeAxis;
+      viewId: string | null;
+      drillPath?: string[];
+    }
   | { type: 'bringToFront'; id: string }
   | { type: 'sendToBack'; id: string }
   | { type: 'addConnector'; sourceId: string; targetId: string }
   | { type: 'deleteConnector'; id: string }
   | { type: 'reverseConnector'; id: string }
-  | { type: 'setConnectorProps'; id: string; patch: Partial<Connector> }
+  | ({ type: 'setConnectorProps'; id: string; patch: Partial<Connector> } & Coalescable)
   | { type: 'paste'; payload: ClipboardPayload; offsetX: number; offsetY: number }
   | { type: 'duplicateShapes'; ids: string[] }
-  | { type: 'autoLayout' }
+  | { type: 'autoLayout'; viewId: string | null; drillPath?: string[] }
   /* `locale` because retargeting rewrites each shape's subtitle from the
      catalogue, and a subtitle is content: it must arrive in the author's
      language, not in whatever the library defaults to. */
@@ -54,6 +89,8 @@ export type EditorAction =
   | { type: 'setViewInclude'; id: string; include: string[] | null }
   | { type: 'switchCloud'; target: CloudTarget; locale: Locale }
   | { type: 'switchShapeCloud'; id: string; target: CloudTarget; locale: Locale }
+  /* An icon of the author's own, embedded so the document carries it. */
+  | { type: 'addCustomIcon'; icon: CustomIcon }
   | { type: 'undo' }
   | { type: 'redo' };
 

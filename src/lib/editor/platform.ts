@@ -32,3 +32,22 @@ export function modKey(): string {
 export function shortcut(key: string): string {
   return `${modKey()}${key}`;
 }
+
+/**
+ * A registry chord (`Mod+Shift+S`, `Del`, `Arrows`) spelled for this platform.
+ *
+ * On a Mac the modifiers become glyphs and run together the way the menu bar
+ * writes them: `⌘⇧S`. Elsewhere they stay words joined by plus signs. Keys
+ * that are not modifiers pass through untouched.
+ */
+export function spellChord(chord: string): string {
+  const mac = isMac();
+  const parts = chord.split('+');
+  const spelled = parts.map((part) => {
+    if (part === 'Mod') return mac ? '⌘' : 'Ctrl';
+    if (part === 'Shift') return mac ? '⇧' : 'Shift';
+    if (part === 'Alt') return mac ? '⌥' : 'Alt';
+    return part;
+  });
+  return mac ? spelled.join('') : spelled.join('+');
+}

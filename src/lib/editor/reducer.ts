@@ -13,6 +13,8 @@ const HISTORY_LIMIT = 200;
 interface HistoryEntry {
   redo: Patch[];
   undo: Patch[];
+  /** Set when the entry may absorb the next action carrying the same key. */
+  key?: string;
 }
 
 export interface DocState {
@@ -25,6 +27,12 @@ export interface DocState {
   lastCloudSwitch: SwitchCloudResult | null;
   /** The view the last action created, for the interface to select. */
   lastCreatedViewId: string | null;
+  /**
+   * Where the current model came from. `remote` means it was adopted from
+   * another editor's confirmed save and is not a local edit: the autosave
+   * skips it, or two editors would re-save each other's work in a loop.
+   */
+  origin: 'local' | 'remote';
 }
 
 export function initialDocState(model: DiagramModel): DocState {
@@ -35,6 +43,7 @@ export function initialDocState(model: DiagramModel): DocState {
     lastCreated: [],
     lastCloudSwitch: null,
     lastCreatedViewId: null,
+    origin: 'local',
   };
 }
 
@@ -82,6 +91,10 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       // so a code edit that dropped them would delete a team's rules the first
       // time anybody touched the architecture they guard.
       draft.rules = action.model.rules;
+      // Uploaded icons ride along: a recompile from the code panel yields a
+      // model that never knew them, and dropping them would blank every card
+      // that wears one the moment somebody edits the YAML.
+      if (action.model.customIcons?.length) draft.customIcons = action.model.customIcons;
 
       const idByName = new Map(draft.views.map((v) => [v.name, v.id]));
       draft.views = action.model.views.map((view) => {
@@ -132,49 +145,27 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     }
 
     case 'moveShapes': {
-      const moved = new Set<string>();
-      for (const id of action.ids) {
-        const shape = E.getShape(draft, id);
-        if (!shape) continue;
-        // A selected descendant would otherwise be shifted twice.
-        if (action.ids.some((other) => other !== id && E.isAncestor(draft, id, other))) continue;
-        for (const descendantId of E.collectDescendantIds(draft, id)) moved.add(descendantId);
-      }
-      // In the main view a drag moves the shape; anywhere else it writes that
-      // view's own placement and leaves the shape — and every other view —
-      // exactly where they were.
-      const view = E.isMainView(draft, action.viewId) ? null : E.getView(draft, action.viewId);
-
-      for (const id of moved) {
-        const shape = E.getShape(draft, id);
-        if (!shape) continue;
-        if (view) {
-          const at = E.placementOf(view, shape);
-          E.setPlacement(view, shape, { x: at.x + action.dx, y: at.y + action.dy });
-        } else {
-          shape.x += action.dx;
-          shape.y += action.dy;
-        }
-      }
-      // Only the main view's routes are stored; `resolveView` re-routes the rest.
-      if (!view) E.routeConnectorsFor(draft, moved);
+      E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], (reading) => {
+        E.applyMoves(
+          reading,
+          E.outermost(
+            reading,
+            action.ids.filter((id) => E.getShape(reading, id)),
+          ).map((s) => ({ id: s.id, dx: action.dx, dy: action.dy })),
+        );
+      });
       return NOTHING;
     }
 
     case 'resizeShape': {
-      const shape = E.getShape(draft, action.id);
-      if (!shape) return NOTHING;
-
-      if (!E.isMainView(draft, action.viewId)) {
-        E.setPlacement(E.getView(draft, action.viewId), shape, { w: action.w, h: action.h });
-        return NOTHING;
-      }
-
-      shape.w = action.w;
-      shape.h = action.h;
-      shape.manualSize = true;
-      if (shape.type === 'group') E.relayoutGroup(draft, shape);
-      E.routeConnectorsFor(draft, E.collectDescendantIds(draft, action.id));
+      E.editViewGeometry(draft, action.viewId, [], (reading) => {
+        const shape = E.getShape(reading, action.id);
+        if (!shape || (shape.w === action.w && shape.h === action.h)) return;
+        shape.w = action.w;
+        shape.h = action.h;
+        shape.manualSize = true;
+        if (shape.type === 'group') E.relayoutGroup(reading, shape);
+      });
       return NOTHING;
     }
 
@@ -182,35 +173,39 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       const shape = E.getShape(draft, action.id);
       if (!shape) return NOTHING;
       Object.assign(shape, action.patch);
-      if (shape.type === 'group') E.relayoutGroup(draft, shape);
-      E.routeConnectorsFor(draft, E.collectDescendantIds(draft, action.id));
+      // Content edits are shared, but must not reset a view's arrangement.
+      if (['x', 'y', 'w', 'h', 'manualSize'].some((key) => key in action.patch)) {
+        if (shape.type === 'group') E.relayoutGroup(draft, shape);
+        E.routeConnectorsFor(draft, E.collectDescendantIds(draft, action.id));
+      }
       return NOTHING;
     }
 
-    case 'alignShapes': {
-      const moves = E.alignMoves(draft, action.ids, action.edge);
-      E.applyMoves(draft, moves);
-      E.routeConnectorsFor(
-        draft,
-        new Set(action.ids.flatMap((id) => [...E.collectDescendantIds(draft, id)])),
-      );
-      return NOTHING;
-    }
-
+    case 'alignShapes':
     case 'distributeShapes': {
-      const moves = E.distributeMoves(draft, action.ids, action.axis);
-      E.applyMoves(draft, moves);
-      E.routeConnectorsFor(
-        draft,
-        new Set(action.ids.flatMap((id) => [...E.collectDescendantIds(draft, id)])),
-      );
+      E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], (reading) => {
+        const ids = action.ids.filter((id) => E.getShape(reading, id));
+        const moves =
+          action.type === 'alignShapes'
+            ? E.alignMoves(reading, ids, action.edge)
+            : E.distributeMoves(reading, ids, action.axis);
+        E.applyMoves(reading, moves);
+      });
       return NOTHING;
     }
 
     case 'reorderItem': {
-      E.reorderItem(draft, action.id, action.dir);
-      const parentId = E.getShape(draft, action.id)?.parentId;
-      if (parentId) E.routeConnectorsFor(draft, E.collectDescendantIds(draft, parentId));
+      E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], (reading) => {
+        const item = E.getShape(reading, action.id);
+        if (!item?.parentId) return;
+        const siblings = E.children(reading, item.parentId)
+          .filter((s) => s.type === 'item')
+          .sort((a, b) => a.y - b.y);
+        const other = siblings[siblings.indexOf(item) + action.dir];
+        if (!other) return;
+        [item.y, other.y] = [other.y, item.y];
+        [item.order, other.order] = [other.order, item.order];
+      });
       return NOTHING;
     }
 
@@ -265,7 +260,9 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     }
 
     case 'autoLayout': {
-      E.autoLayout(draft);
+      // Unscoped callers must not silently rearrange the main view.
+      if (action.viewId === undefined) return NOTHING;
+      E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], E.autoLayout);
       return NOTHING;
     }
 
@@ -324,6 +321,15 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       return { created: [], cloudSwitch: E.switchCloud(draft, action.target, action.locale) };
     }
 
+    case 'addCustomIcon': {
+      const icons = draft.customIcons ?? [];
+      const index = icons.findIndex((icon) => icon.key === action.icon.key);
+      if (index >= 0) icons[index] = action.icon;
+      else icons.push(action.icon);
+      draft.customIcons = icons;
+      return NOTHING;
+    }
+
     default:
       return NOTHING;
   }
@@ -343,6 +349,7 @@ export function docReducer(state: DocState, action: EditorAction): DocState {
         past: state.past.slice(0, -1),
         future: [entry, ...state.future],
         lastCreated: [],
+        origin: 'local',
       };
     }
 
@@ -355,6 +362,7 @@ export function docReducer(state: DocState, action: EditorAction): DocState {
         past: [...state.past, entry],
         future: rest,
         lastCreated: [],
+        origin: 'local',
       };
     }
 
@@ -373,17 +381,30 @@ export function docReducer(state: DocState, action: EditorAction): DocState {
             lastCreated: [],
             lastCloudSwitch: outcome.cloudSwitch,
             lastCreatedViewId: null,
+            origin: 'local',
           };
         }
         return state;
       }
+      const key = 'coalesceKey' in action ? action.coalesceKey : undefined;
+      const previous = state.past.at(-1);
+      // Patches are relative to the state they were recorded against, so a
+      // merged entry replays them in order: the old redo then the new one, the
+      // new undo then the old one.
+      const entry: HistoryEntry =
+        key !== undefined && previous?.key === key
+          ? { key, redo: [...previous.redo, ...redo], undo: [...undo, ...previous.undo] }
+          : { redo, undo, ...(key !== undefined ? { key } : {}) };
+      const kept =
+        key !== undefined && previous?.key === key ? state.past.slice(0, -1) : state.past;
       return {
         model,
-        past: [...state.past, { redo, undo }].slice(-HISTORY_LIMIT),
+        past: [...kept, entry].slice(-HISTORY_LIMIT),
         future: [],
         lastCreated: outcome.created,
         lastCloudSwitch: outcome.cloudSwitch ?? null,
         lastCreatedViewId: outcome.viewId ?? null,
+        origin: action.type === 'replaceModel' && action.origin === 'remote' ? 'remote' : 'local',
       };
     }
   }

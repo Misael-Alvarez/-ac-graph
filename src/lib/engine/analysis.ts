@@ -344,9 +344,25 @@ export function analyzeArchitecture(model: DiagramModel): Analysis {
   const penalty = findings.reduce((sum, finding) => sum + WEIGHT[finding.severity], 0);
   const order: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
 
+  // Within a severity, by kind and then by what the finding is about — the
+  // shapes' names, not their ids. Ids are minted at random when a template is
+  // built, so sorting by them shuffled equal findings between two sessions of
+  // the same diagram, and a panel that reorders itself reads as unstable.
+  const about = (finding: Finding) =>
+    [
+      ...finding.shapeIds.map((id) => {
+        const shape = graph.byId.get(id);
+        return shape ? nameOf(shape) : '';
+      }),
+      ...finding.connectorIds.map((id) => model.connectors.find((c) => c.id === id)?.label ?? ''),
+    ].join(' ');
   return {
     findings: findings.sort(
-      (a, b) => order[a.severity] - order[b.severity] || a.id.localeCompare(b.id),
+      (a, b) =>
+        order[a.severity] - order[b.severity] ||
+        a.kind.localeCompare(b.kind) ||
+        about(a).localeCompare(about(b)) ||
+        a.id.localeCompare(b.id),
     ),
     // An empty diagram is not a perfect one, but it has nothing wrong with it
     // either; the panel says how much was looked at beside the number.

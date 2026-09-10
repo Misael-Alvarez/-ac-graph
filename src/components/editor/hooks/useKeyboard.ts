@@ -4,185 +4,190 @@ import { useEffect } from 'react';
 import { cloneShapes } from '@/lib/engine';
 import type { ToolMode } from '@/lib/editor';
 import { isTextEntryTarget } from '@/lib/editor/domFocus';
-import type { MessageKey } from '@/lib/i18n/messages';
+import { bindingFor, chordOf } from '@/lib/editor/shortcuts';
 import { useEditor } from '../EditorProvider';
 import { useCommands } from './useCommands';
 
-const TOOL_KEYS: Record<string, ToolMode> = {
-  v: 'select',
-  b: 'boundary',
-  u: 'subboundary',
-  g: 'group',
-  i: 'item',
-  c: 'connector',
-  h: 'pan',
-};
+export { SHORTCUT_GROUPS } from '@/lib/editor/shortcuts';
+
+const TOOLS = new Set<ToolMode>([
+  'select',
+  'boundary',
+  'subboundary',
+  'group',
+  'item',
+  'connector',
+  'pan',
+]);
 
 /**
  * Global shortcuts.
  *
- * Every binding advertised in the menus and the shortcut sheet is implemented
- * here — the previous editor showed `Ctrl+S` next to "Save project" and
- * `Ctrl+Shift+A` next to "Deselect" while handling neither, so both fell through
- * to the browser.
+ * The keystroke is normalised into a chord and looked up in the registry, so
+ * the handler has no key table of its own: what the shortcut sheet advertises
+ * is, by construction, what happens. Bindings with `global` scope fire from
+ * inside text fields and dialogs — a panel's own toggle has to work from
+ * inside that panel — while `canvas` and `tool` bindings wait for the canvas
+ * to have the keyboard.
  */
 export function useKeyboard() {
-  const { ui, doc, dispatch, dispatchUi, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, canUndo, canRedo, t } = useEditor();
   const commands = useCommands();
 
   useEffect(() => {
-    const runCommand = (id: string) => commands.find((c) => c.id === id)?.run();
+    const runCommand = (id: string) =>
+      commands.find((c) => c.id === id && c.enabled !== false)?.run();
+    const selectedIds = new Set(
+      view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id),
+    );
+
+    /**
+     * Undo and redo, with a word when there is nothing to do.
+     *
+     * A silent no-op is indistinguishable from a broken shortcut; after a
+     * reload, or on a diagram just opened, the history is empty and the person
+     * pressing Cmd+Z deserves to be told that rather than left guessing.
+     */
+    const history = (id: 'undo' | 'redo') => {
+      const possible = id === 'undo' ? canUndo : canRedo;
+      if (possible) runCommand(id);
+      else
+        dispatchUi({
+          type: 'toast',
+          message: t(id === 'undo' ? 'toast.nothingToUndo' : 'toast.nothingToRedo'),
+        });
+    };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      const modifier = e.metaKey || e.ctrlKey;
-      const key = e.key.toLowerCase();
+      const chord = chordOf(e);
+      if (!chord) return;
 
-      /*
-       * Application shortcuts, handled before the typing guard below.
-       *
-       * These have no meaning inside a text field, and a panel's own toggle has
-       * to work from inside that panel — otherwise the code editor can be opened
-       * with a shortcut but not closed with one.
-       */
-      if (modifier) {
-        switch (key) {
-          case 'k':
-            e.preventDefault();
-            dispatchUi({ type: 'setPaletteOpen', open: !ui.paletteOpen });
-            return;
-          case '/':
-            e.preventDefault();
-            runCommand('toggleCode');
-            return;
-          case 'j':
-            e.preventDefault();
-            runCommand('ai');
-            return;
-          case 'b':
-            e.preventDefault();
-            runCommand('toggleBrowser');
-            return;
-          case 's':
-            // Without this the browser's own save dialog opens.
-            e.preventDefault();
-            runCommand(e.shiftKey ? 'share' : 'saveProject');
-            return;
-          case 'e':
-            e.preventDefault();
-            runCommand('exportMarkdown');
-            return;
-          default:
-            break;
-        }
-      }
-
-      if (e.key === 'Escape') {
+      // Escape is its own thing: it closes whatever is open, then clears.
+      if (chord === 'Esc') {
         if (ui.paletteOpen) dispatchUi({ type: 'setPaletteOpen', open: false });
         else if (ui.modal) dispatchUi({ type: 'setModal', modal: null });
-        else {
+        else if (ui.contextMenu) dispatchUi({ type: 'closeContextMenu' });
+        else if (!isTextEntryTarget(e.target)) {
           dispatchUi({ type: 'clearSelection' });
           dispatchUi({ type: 'setTool', tool: 'select' });
         }
         return;
       }
 
-      if (isTextEntryTarget(e.target)) return;
+      const binding = bindingFor(chord);
+      if (!binding) return;
 
-      if (modifier) {
-        switch (key) {
-          case 'z':
-            e.preventDefault();
-            runCommand(e.shiftKey ? 'redo' : 'undo');
-            return;
-          case 'y':
-            e.preventDefault();
-            runCommand('redo');
-            return;
-          case 'a':
-            e.preventDefault();
-            runCommand(e.shiftKey ? 'deselect' : 'selectAll');
-            return;
-          case 'd':
-            e.preventDefault();
-            runCommand('duplicate');
-            return;
-          case '0':
-            e.preventDefault();
-            runCommand('zoomReset');
-            return;
-          case '1':
-            e.preventDefault();
-            runCommand('zoomFit');
-            return;
-          case 'c':
-            if (ui.selectedIds.size) {
-              e.preventDefault();
-              const payload = cloneShapes(doc.model, ui.selectedIds);
-              void navigator.clipboard
-                ?.writeText(JSON.stringify({ kind: 'aion-studio/shapes', payload }))
-                .catch(() => undefined);
-            }
-            return;
-          case 'v':
-            navigator.clipboard
-              ?.readText()
-              .then((text) => {
-                const parsed = JSON.parse(text) as { kind?: string; payload?: unknown };
-                if (parsed.kind !== 'aion-studio/shapes' || !parsed.payload) return;
-                dispatch({
-                  type: 'paste',
-                  payload: parsed.payload as ReturnType<typeof cloneShapes>,
-                  offsetX: 40,
-                  offsetY: 40,
-                });
-              })
-              .catch(() => undefined);
+      const typing = isTextEntryTarget(e.target);
+      const blocked = ui.modal !== null || ui.paletteOpen;
+
+      if (binding.scope === 'global') {
+        e.preventDefault();
+        switch (binding.id) {
+          case 'palette':
+            dispatchUi({ type: 'setPaletteOpen', open: !ui.paletteOpen });
             return;
           default:
+            runCommand(binding.id);
             return;
         }
       }
 
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (ui.selectedIds.size) {
-          e.preventDefault();
-          runCommand('delete');
-        } else if (ui.selectedConnectorId) {
-          e.preventDefault();
-          dispatch({ type: 'deleteConnector', id: ui.selectedConnectorId });
-          dispatchUi({ type: 'clearSelection' });
-        }
-        return;
-      }
-
-      if (e.key === '?') {
-        dispatchUi({ type: 'setModal', modal: 'shortcuts' });
-        return;
-      }
-
-      // Nudge the selection with the arrow keys; Shift moves a full grid step.
-      const nudge: Record<string, [number, number]> = {
-        ArrowLeft: [-1, 0],
-        ArrowRight: [1, 0],
-        ArrowUp: [0, -1],
-        ArrowDown: [0, 1],
-      };
-      if (e.key in nudge && ui.selectedIds.size) {
-        e.preventDefault();
-        const step = e.shiftKey ? 18 : 1;
-        const [dx, dy] = nudge[e.key];
-        dispatch({
-          type: 'moveShapes',
-          ids: [...ui.selectedIds],
-          dx: dx * step,
-          dy: dy * step,
-          viewId: ui.activeViewId,
+      // Undo pressed inside a plain field: the field's own history goes first,
+      // and when it has none — controlled inputs often do not — the drawing's
+      // does. Otherwise Cmd+Z in a label that was just typed into and then left
+      // alone does nothing at all, which is how "undo is broken" gets reported.
+      // Rich editors (CodeMirror) keep their own undo and are left to it.
+      if ((binding.id === 'undo' || binding.id === 'redo') && typing && !blocked) {
+        const field = e.target as HTMLInputElement | HTMLTextAreaElement;
+        if (field.tagName !== 'INPUT' && field.tagName !== 'TEXTAREA') return;
+        const before = field.value;
+        const id = binding.id;
+        requestAnimationFrame(() => {
+          if (field.isConnected && field.value === before) history(id);
         });
         return;
       }
 
-      const tool = TOOL_KEYS[key];
-      if (tool) dispatchUi({ type: 'setTool', tool });
+      if (typing || blocked) return;
+
+      if (binding.scope === 'tool') {
+        if (TOOLS.has(binding.id as ToolMode)) {
+          dispatchUi({ type: 'setTool', tool: binding.id as ToolMode });
+        }
+        return;
+      }
+
+      // Canvas scope.
+      switch (binding.id) {
+        case 'panHold':
+          // Handled by the canvas itself, which tracks key-up as well.
+          return;
+        case 'copy': {
+          if (!selectedIds.size) return;
+          e.preventDefault();
+          const payload = cloneShapes(view, selectedIds);
+          void navigator.clipboard
+            ?.writeText(JSON.stringify({ kind: 'aion-studio/shapes', payload }))
+            .catch(() => undefined);
+          return;
+        }
+        case 'paste':
+          navigator.clipboard
+            ?.readText()
+            .then((text) => {
+              const parsed = JSON.parse(text) as { kind?: string; payload?: unknown };
+              if (parsed.kind !== 'aion-studio/shapes' || !parsed.payload) return;
+              dispatch({
+                type: 'paste',
+                payload: parsed.payload as ReturnType<typeof cloneShapes>,
+                offsetX: 40,
+                offsetY: 40,
+              });
+            })
+            .catch(() => undefined);
+          return;
+        case 'delete':
+          if (selectedIds.size) {
+            e.preventDefault();
+            runCommand('delete');
+          } else if (view.connectors.some((c) => c.id === ui.selectedConnectorId)) {
+            e.preventDefault();
+            dispatch({ type: 'deleteConnector', id: ui.selectedConnectorId! });
+            dispatchUi({ type: 'clearSelection' });
+          }
+          return;
+        case 'nudge':
+        case 'nudgeStep': {
+          if (!selectedIds.size) return;
+          e.preventDefault();
+          const step = binding.id === 'nudgeStep' ? 18 : 1;
+          const delta: Record<string, [number, number]> = {
+            ArrowLeft: [-1, 0],
+            ArrowRight: [1, 0],
+            ArrowUp: [0, -1],
+            ArrowDown: [0, 1],
+          };
+          const [dx, dy] = delta[e.key] ?? [0, 0];
+          dispatch({
+            type: 'moveShapes',
+            ids: [...selectedIds],
+            dx: dx * step,
+            dy: dy * step,
+            viewId: ui.activeViewId,
+            drillPath: ui.drillPath,
+            coalesceKey: nudgeBurst([...selectedIds]),
+          });
+          return;
+        }
+        case 'undo':
+        case 'redo':
+          e.preventDefault();
+          history(binding.id);
+          return;
+        default:
+          e.preventDefault();
+          runCommand(binding.id);
+      }
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -191,66 +196,39 @@ export function useKeyboard() {
     commands,
     ui.paletteOpen,
     ui.modal,
+    ui.contextMenu,
     ui.selectedIds,
     ui.selectedConnectorId,
     ui.activeViewId,
-    doc.model,
+    ui.drillPath,
+    view,
     dispatch,
     dispatchUi,
+    canUndo,
+    canRedo,
     t,
   ]);
 }
 
-/** Bindings shown in the shortcut sheet, kept next to the handler above. */
+/** Arrow presses closer together than this belong to the same move. */
+const NUDGE_BURST_MS = 800;
+
+let lastNudge = { key: '', at: 0, burst: 0 };
+
 /**
- * The shortcut sheet's contents.
+ * The history key for one keyboard move.
  *
- * `Mod` is written out rather than spelled: the sheet renders it through
- * `shortcut()`, so the same table reads ⌘ on a Mac and Ctrl+ everywhere else.
- * The group titles are message keys like everything else the reader sees — they
- * were the last three English words in the Spanish build.
+ * Holding an arrow for two seconds is one gesture, and should come back with
+ * one Cmd+Z; a second move after a pause is a new one. The pause is measured
+ * here, in the handler, so the reducer stays pure.
  */
-export const SHORTCUT_GROUPS: {
-  titleKey: MessageKey;
-  items: [keys: string, description: MessageKey][];
-}[] = [
-  {
-    titleKey: 'shortcuts.tools',
-    items: [
-      ['V', 'tool.select'],
-      ['B', 'tool.boundary'],
-      ['U', 'tool.subboundary'],
-      ['G', 'tool.group'],
-      ['I', 'tool.item'],
-      ['C', 'tool.connector'],
-      ['Space', 'action.zoomFit'],
-    ],
-  },
-  {
-    titleKey: 'shortcuts.edit',
-    items: [
-      ['Mod+Z', 'action.undo'],
-      ['Mod+Shift+Z', 'action.redo'],
-      ['Mod+A', 'action.selectAll'],
-      ['Mod+Shift+A', 'action.deselect'],
-      ['Mod+D', 'action.duplicate'],
-      ['Del', 'action.delete'],
-      ['Arrows', 'action.autoLayout'],
-    ],
-  },
-  {
-    titleKey: 'shortcuts.fileView',
-    items: [
-      ['Mod+K', 'palette.placeholder'],
-      ['Mod+B', 'action.browser'],
-      ['Mod+/', 'action.toggleCode'],
-      ['Mod+J', 'action.ai'],
-      ['Mod+S', 'action.save'],
-      ['Mod+Shift+S', 'action.share'],
-      ['Mod+E', 'action.exportMarkdown'],
-      ['Mod+0', 'action.zoomReset'],
-      ['Mod+1', 'action.zoomFit'],
-      ['?', 'action.shortcuts'],
-    ],
-  },
-];
+function nudgeBurst(ids: string[]): string {
+  const key = ids.slice().sort().join(',');
+  const now = Date.now();
+  if (key !== lastNudge.key || now - lastNudge.at > NUDGE_BURST_MS) {
+    lastNudge = { key, at: now, burst: lastNudge.burst + 1 };
+  } else {
+    lastNudge = { ...lastNudge, at: now };
+  }
+  return `nudge:${key}:${lastNudge.burst}`;
+}

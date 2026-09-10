@@ -8,12 +8,18 @@ import {
   getView,
   isMainView,
   placementOf,
+  projectView,
   resolveView,
   viewsOf,
 } from './views';
 import { forgetShapeInViews } from './model';
 import { addConnector } from './routing';
 import { modelWith } from './testUtils';
+import { contentBBox } from './geometry';
+import { exportToMarkdown } from './markdown';
+import { diagramToSvgString } from '@/lib/editor/renderSvg';
+import { buildShareLinks } from '@/lib/share/links';
+import { decodeDiagram } from '@/lib/share/codec';
 
 const three = () =>
   modelWith([
@@ -264,5 +270,143 @@ describe('canDrillInto', () => {
     // Drilling into it would change nothing on screen, so the gesture would
     // only leave the reader wondering what happened.
     expect(canDrillInto(m, 'cloud')).toBe(false);
+  });
+});
+
+describe('projectView', () => {
+  function publication() {
+    const model = modelWith([
+      { id: 'g', type: 'group', title: 'Public group', x: 100, y: 100, w: 470, h: 320 },
+      { id: 'box', type: 'container', parentId: 'g', x: 120, y: 140, w: 400, h: 260 },
+      {
+        id: 'a',
+        parentId: 'box',
+        title: 'Public API',
+        x: 130,
+        y: 150,
+        order: 0,
+        meta: { owner: 'platform' },
+      },
+      { id: 'b', parentId: 'box', title: 'Public worker', x: 130, y: 250, order: 1 },
+      {
+        id: 'hidden',
+        title: 'EXCLUDED_SERVICE',
+        x: 10000,
+        y: 10000,
+        meta: { owner: 'EXCLUDED_OWNER' },
+      },
+    ]);
+    model.views = [
+      view({ id: 'main', name: 'EXCLUDED_VIEW', include: ['hidden'] }),
+      view({
+        id: 'public',
+        include: ['g'],
+        place: {
+          a: { x: 230, y: 160, w: 240, h: 70 },
+          hidden: { x: 30000, y: 30000, w: 100, h: 50 },
+        },
+      }),
+    ];
+    model.rules = [
+      {
+        id: 'EXCLUDED_RULE',
+        description: 'Internal standard',
+        severity: 'high',
+        services: {},
+        require: { owner: true },
+      },
+    ];
+    addConnector(model, 'a', 'b').label = 'Public call';
+    addConnector(model, 'a', 'hidden').label = 'EXCLUDED_CONNECTION';
+    return model;
+  }
+
+  it('removes other views, rules, hidden shapes and dangling references without mutating the model', () => {
+    const model = publication();
+    const snapshot = structuredClone(model);
+    const projected = projectView(resolveView(model, 'public'));
+    expect(projected.views).toEqual([]);
+    expect(projected.rules).toBeUndefined();
+    expect(projected.shapes.map((s) => s.id)).toEqual(['g', 'box', 'a', 'b']);
+    expect(projected.shapes.find((s) => s.id === 'a')).toMatchObject({
+      x: 230,
+      y: 160,
+      w: 240,
+      h: 70,
+      parentId: 'box',
+      meta: { owner: 'platform' },
+    });
+    expect(projected.connectors).toHaveLength(1);
+    expect(JSON.stringify(projected)).not.toContain('EXCLUDED');
+    expect(parseDiagramModel(projected)).toEqual(projected);
+    expect(model).toEqual(snapshot);
+  });
+
+  it('detaches a visible item from an excluded parent, including during drill', () => {
+    const model = publication();
+    const reading = focusSubtree(resolveView(model, 'public'), ['a']);
+    const projected = projectView(reading);
+    expect(projected.shapes).toHaveLength(1);
+    expect(projected.shapes[0]).toMatchObject({ id: 'a', parentId: null, x: 230 });
+    expect(projected.connectors).toEqual([]);
+    expect(projected.views).toEqual([]);
+    expect(projected.rules).toBeUndefined();
+    expect(contentBBox(projected)).toEqual({ x: 230, y: 160, w: 240, h: 70 });
+  });
+
+  it('also filters dangling connectors passed in a reading', () => {
+    const model = publication();
+    model.shapes = model.shapes.filter((s) => s.id !== 'hidden');
+    expect(projectView(model).connectors).toHaveLength(1);
+  });
+
+  it('does not broaden an empty view', () => {
+    const model = publication();
+    model.views[1].include = [];
+    const projected = projectView(resolveView(model, 'public'));
+    expect(projected.shapes).toEqual([]);
+    expect(projected.connectors).toEqual([]);
+    expect(projected.views).toEqual([]);
+    expect(projected.rules).toBeUndefined();
+    expect(contentBBox(projected)).toMatchObject({ w: 600, h: 400 });
+  });
+
+  it('exports SVG and Markdown with the same scope and geometry as the canvas', async () => {
+    const projected = projectView(resolveView(publication(), 'public'));
+    const svg = await diagramToSvgString({ model: projected });
+    expect(svg).toContain('Public API');
+    const card = svg.match(/<rect[^>]*data-shape-id="a"[^>]*>/)![0];
+    expect(card).toContain('x="230" y="160" width="240" height="70"');
+    expect(svg).not.toContain('EXCLUDED');
+    const markdown = exportToMarkdown(projected);
+    expect(markdown).toContain('Public API');
+    expect(markdown).toContain('Public call');
+    expect(markdown).not.toContain('EXCLUDED');
+  });
+
+  it('the actual share and embed payloads contain only the projected reading', async () => {
+    const projected = projectView(resolveView(publication(), 'public'));
+    const links = await buildShareLinks(projected, 'https://example.test');
+    for (const url of [links.view, links.image]) {
+      const decoded = await decodeDiagram(new URL(url).searchParams.get('d')!);
+      expect(decoded.shapes).toEqual(projected.shapes);
+      expect(decoded.views).toEqual([]);
+      expect(decoded.rules).toBeUndefined();
+      expect(decoded.connectors).toHaveLength(1);
+      expect(JSON.stringify(decoded)).not.toContain('EXCLUDED');
+    }
+    expect(links.readme).toContain('Public API');
+    expect(links.readme).not.toContain('EXCLUDED');
+  });
+
+  it('full-model links and native JSON retain all views, rules and hidden content', async () => {
+    const model = publication();
+    const links = await buildShareLinks(model, 'https://example.test');
+    const decoded = await decodeDiagram(new URL(links.view).searchParams.get('d')!);
+    expect(decoded.shapes).toEqual(model.shapes);
+    expect(decoded.views).toEqual(model.views);
+    expect(decoded.rules).toEqual(model.rules);
+    expect(decoded.connectors).toHaveLength(2);
+    expect(parseDiagramModel(JSON.parse(JSON.stringify(model)))).toEqual(model);
   });
 });

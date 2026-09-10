@@ -1,7 +1,7 @@
 import type { BBox, DiagramModel, Shape, View } from '@/lib/domain';
-import { collectDescendantIds } from './model';
+import { children, collectDescendantIds, getShape } from './model';
 import { bbox, geometricallyContains } from './geometry';
-import { routeAllConnectors } from './routing';
+import { routeAllConnectors, routeConnectorsFor } from './routing';
 import { uid } from './ids';
 
 /**
@@ -48,12 +48,8 @@ export function getView(model: DiagramModel, viewId: string | null): View {
 }
 
 /**
- * True when this view is the one that owns the model's base geometry.
- *
- * Dragging in the main view moves the shape itself, exactly as it did before
- * views existed; dragging in any other view writes an override. Without that
- * asymmetry the main view would accumulate a redundant override for every shape
- * the moment anybody touched it.
+ * True for the first reading. With multiple views even this reading writes
+ * placements, so changing its layout cannot move another view implicitly.
  */
 export function isMainView(model: DiagramModel, viewId: string | null): boolean {
   return getView(model, viewId).id === viewsOf(model)[0].id;
@@ -103,7 +99,11 @@ export function resolveView(model: DiagramModel, viewId: string | null): Diagram
   for (const shape of model.shapes) {
     if (keep && !keep.has(shape.id)) continue;
     const place = view.place?.[shape.id];
-    shapes.push(place ? { ...shape, ...place } : shape);
+    shapes.push(
+      place || (hasOverrides && shape.type === 'item')
+        ? { ...shape, ...place, ...(place && shape.type === 'group' ? { manualSize: true } : {}) }
+        : shape,
+    );
   }
 
   const visible = new Set(shapes.map((s) => s.id));
@@ -114,12 +114,25 @@ export function resolveView(model: DiagramModel, viewId: string | null): Diagram
     .map((c) => ({ ...c }));
 
   const resolved = { ...model, shapes, connectors };
+  if (hasOverrides) {
+    // Stack order is geometric in a view. Derive it on the copied items so
+    // layout and routing agree without changing the shared model's order.
+    for (const shape of shapes) {
+      if (shape.type !== 'container') continue;
+      children(resolved, shape.id)
+        .filter((s) => s.type === 'item')
+        .sort((a, b) => a.y - b.y)
+        .forEach((item, order) => {
+          item.order = order;
+        });
+    }
+  }
 
   // Waypoints are always the router's, never a person's — `SharedDiagram`
   // rebuilds them from nothing on every share. So a view that moved a shape can
   // simply re-route rather than carry a second set of routes per view, which
   // would be state to store, migrate and keep in sync for no gain.
-  if (hasOverrides) routeAllConnectors(resolved);
+  if (keep || hasOverrides) routeAllConnectors(resolved);
 
   return resolved;
 }
@@ -127,14 +140,77 @@ export function resolveView(model: DiagramModel, viewId: string | null): Diagram
 /**
  * Writes where a shape sits in one view, seeded from wherever it sits now.
  *
- * Only ever called for a view that is not the main one: there, a drag moves the
- * shape itself, so that an unsplit diagram behaves exactly as it did before
- * views existed instead of accumulating an override per shape.
+ * An unsplit diagram still writes base geometry; split diagrams write placements
+ * in the active view only, including the main view.
  */
 export function setPlacement(view: View, shape: Shape, patch: Partial<BBox>): void {
   const current = placementOf(view, shape);
   view.place ??= {};
   view.place[shape.id] = { ...current, ...patch };
+}
+
+/** Run the ordinary layout engine on a detached reading, then commit only its layout. */
+export function editViewGeometry(
+  model: DiagramModel,
+  viewId: string | null,
+  drillPath: string[],
+  edit: (reading: DiagramModel) => void,
+): void {
+  const view = getView(model, viewId);
+  const before = focusSubtree(resolveView(model, viewId), drillPath);
+  const local = model.views.length > 1 || Boolean(view.place);
+  const reading = {
+    ...before,
+    shapes: before.shapes.map((s) => ({ ...s })),
+    connectors: before.connectors.map((c) => ({ ...c })),
+  };
+  edit(reading);
+
+  const changed = new Set<string>();
+  for (const after of reading.shapes) {
+    const previous = getShape(before, after.id);
+    const shape = getShape(model, after.id);
+    if (!previous || !shape) continue;
+    if (
+      after.x !== previous.x ||
+      after.y !== previous.y ||
+      after.w !== previous.w ||
+      after.h !== previous.h
+    ) {
+      if (local) setPlacement(view, shape, bbox(after));
+      else Object.assign(shape, bbox(after));
+      changed.add(shape.id);
+    }
+    if (!local) {
+      if (after.manualSize !== previous.manualSize) shape.manualSize = after.manualSize;
+      if (after.order !== previous.order) shape.order = after.order;
+    }
+  }
+  if (!local && changed.size) routeConnectorsFor(model, changed);
+}
+
+/**
+ * A resolved reading safe to send on its own. Do not spread the source model:
+ * other views and document rules can name hidden services. Visible content and
+ * metadata remain intact; only structural references outside the reading go.
+ */
+export function projectView(reading: DiagramModel): DiagramModel {
+  const visible = new Set(reading.shapes.map((s) => s.id));
+  const projected: DiagramModel = {
+    schemaVersion: reading.schemaVersion,
+    canvas: { ...reading.canvas },
+    showFooter: reading.showFooter,
+    views: [],
+    shapes: reading.shapes.map((s) => ({
+      ...s,
+      parentId: s.parentId && visible.has(s.parentId) ? s.parentId : null,
+    })),
+    connectors: reading.connectors
+      .filter((c) => visible.has(c.sourceId) && visible.has(c.targetId))
+      .map((c) => ({ ...c, waypoints: [] })),
+  };
+  routeAllConnectors(projected);
+  return projected;
 }
 
 /**
@@ -185,11 +261,15 @@ export function focusSubtree(model: DiagramModel, path: string[]): DiagramModel 
   if (shapes.length === model.shapes.length) return model;
 
   const visible = new Set(shapes.map((s) => s.id));
-  return {
+  const focused = {
     ...model,
     shapes,
-    connectors: model.connectors.filter((c) => visible.has(c.sourceId) && visible.has(c.targetId)),
+    connectors: model.connectors
+      .filter((c) => visible.has(c.sourceId) && visible.has(c.targetId))
+      .map((c) => ({ ...c })),
   };
+  routeAllConnectors(focused);
+  return focused;
 }
 
 /** Whether drilling into a shape would show anything, so the canvas can offer it. */
