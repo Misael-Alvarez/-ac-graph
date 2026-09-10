@@ -1,0 +1,78 @@
+import { createHash } from 'node:crypto';
+import type { User } from '@/lib/domain';
+import { SESSION_COOKIE, assertSameOrigin, readCookie, requireUser } from './auth/session';
+import { PgDiagramRepository } from './diagrams/repository';
+import { serverMode } from './env';
+import { HttpError, errorResponse, serverModeOff } from './http';
+import { ensureSchema } from './schema';
+
+/**
+ * The common prologue of every server-mode route.
+ *
+ * Order matters: mode first (local deployments answer 404 without touching a
+ * database), then the CSRF check for mutating methods (cheap, no I/O), then
+ * the schema, then the session. Anything thrown afterwards becomes a typed
+ * JSON error through `errorResponse`.
+ */
+export interface ServerContext {
+  user: User;
+  repository: PgDiagramRepository;
+  /** Opaque per-browser-session key for presence. Not reversible to the cookie. */
+  sessionKey: string;
+}
+
+export interface GuardOptions {
+  /** Require the same-origin marker and Origin/Referer check. */
+  mutating?: boolean;
+}
+
+export async function withUser(
+  request: Request,
+  options: GuardOptions,
+  handler: (context: ServerContext) => Promise<Response>,
+): Promise<Response> {
+  if (!serverMode()) return serverModeOff();
+  try {
+    if (options.mutating) assertSameOrigin(request);
+    // No cookie, no session: answer without waking the database.
+    if (!readCookie(request, SESSION_COOKIE)) {
+      throw new HttpError(401, 'unauthenticated', 'Sign in to use the server API.');
+    }
+    await ensureSchema();
+    const user = await requireUser(request);
+    return await handler({
+      user,
+      repository: new PgDiagramRepository(user),
+      sessionKey: sessionKeyOf(request),
+    });
+  } catch (thrown) {
+    return errorResponse(thrown);
+  }
+}
+
+/** For the auth routes, which run before there is a user. */
+export async function withServerMode(
+  request: Request,
+  options: GuardOptions,
+  handler: () => Promise<Response>,
+): Promise<Response> {
+  if (!serverMode()) return serverModeOff();
+  try {
+    if (options.mutating) assertSameOrigin(request);
+    await ensureSchema();
+    return await handler();
+  } catch (thrown) {
+    return errorResponse(thrown);
+  }
+}
+
+/**
+ * A short one-way digest of the session cookie. Two tabs of one browser share
+ * it, two browsers of one person do not, and nobody can turn it back into the
+ * cookie. Falls back to a constant when there is no cookie, which only happens
+ * for requests that fail authentication anyway.
+ */
+export function sessionKeyOf(request: Request): string {
+  const cookie = readCookie(request, SESSION_COOKIE) ?? '';
+  return createHash('sha256').update(`presence:${cookie}`).digest('hex').slice(0, 16);
+}

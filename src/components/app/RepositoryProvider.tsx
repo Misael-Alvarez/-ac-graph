@@ -2,11 +2,15 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LocalDiagramRepository, type DiagramRepository } from '@/lib/store';
+import { HttpDiagramRepository } from '@/lib/store/httpRepository';
+import { useAppConfig } from './AppConfigProvider';
 
 interface RepositoryContextValue {
   repository: DiagramRepository;
-  /** False until the one-shot import of the old localStorage autosave has run. */
+  /** False until the store is usable: config known, legacy import run. */
   ready: boolean;
+  /** Where the diagrams live. */
+  mode: 'local' | 'server';
 }
 
 const RepositoryContext = createContext<RepositoryContextValue | null>(null);
@@ -21,29 +25,48 @@ export function useRepositoryReady(): boolean {
   return useContext(RepositoryContext)?.ready ?? false;
 }
 
+export function useRepositoryMode(): 'local' | 'server' {
+  return useContext(RepositoryContext)?.mode ?? 'local';
+}
+
 /**
  * Provides the single I/O boundary of the app.
  *
- * The concrete implementation is chosen here and nowhere else, which is the
- * whole point: swapping IndexedDB for an API client is a change to this file.
+ * The concrete implementation is chosen here and nowhere else: IndexedDB for
+ * the browser-only editor, the HTTP client for the shared workspace. Both
+ * satisfy the same interface, so nothing downstream knows which it got.
  */
 export function RepositoryProvider({ children }: { children: ReactNode }) {
-  const repository = useMemo(() => new LocalDiagramRepository(), []);
-  const [ready, setReady] = useState(false);
+  const { config, ready: configReady } = useAppConfig();
+  const mode = config.mode;
+  const repository = useMemo<DiagramRepository>(
+    () => (mode === 'server' ? new HttpDiagramRepository() : new LocalDiagramRepository()),
+    [mode],
+  );
+  const [migrated, setMigrated] = useState<DiagramRepository | null>(null);
 
   useEffect(() => {
+    if (!configReady) return;
     let cancelled = false;
-    void repository
-      .migrateLegacyAutosave(window.localStorage)
-      .catch(() => null)
-      .finally(() => {
-        if (!cancelled) setReady(true);
-      });
+    const finish = () => {
+      if (!cancelled) setMigrated(repository);
+    };
+    if (repository instanceof LocalDiagramRepository) {
+      void repository
+        .migrateLegacyAutosave(window.localStorage)
+        .catch(() => null)
+        .finally(finish);
+    } else {
+      finish();
+    }
     return () => {
       cancelled = true;
     };
-  }, [repository]);
+  }, [configReady, repository]);
 
-  const value = useMemo(() => ({ repository, ready }), [repository, ready]);
+  const value = useMemo(
+    () => ({ repository, ready: configReady && migrated === repository, mode }),
+    [repository, configReady, migrated, mode],
+  );
   return <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>;
 }
