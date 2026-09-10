@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-09 (cierre de H1 del plan de mejoras).
+Última actualización: 2026-09-09 (cierre de H1 del plan de mejoras; trabajo confirmado en git).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,14 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, 5 commits por delante de `origin/main` (base `e28174b`).
-- **Estado del árbol:** ~172 archivos modificados o nuevos **sin commit**. Todo el trabajo de las entregas registradas en `CHECKPOINTS.md` desde CP0 vive en el árbol de trabajo. El usuario no ha pedido commits; se ha ofrecido agruparlos por tema (Docker/CI · servidor · diseño · deshacer · iconos propios · Aurora · herramientas de estilo).
+- **Estado del árbol:** limpio. Todo el trabajo desde la base `e28174b` está confirmado en siete commits agrupados por tema (cierre de H1, 2026-09-09; HEAD `69408f2`), 12 commits por delante de la referencia local `origin/main`, sin push:
+  - `d3e1e40` — Make the build reproducible and the image safe to ship
+  - `af03dd8` — Never lose a change, and make undo mean what it says
+  - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
+  - `c7a6a9b` — Draw what the diagram knows, and let people bring their own icons
+  - `b7f0a92` — Give the interface one face, one material and one anatomy
+  - `dd5fcdb` — Verify the interface the way it is used: every control, every pixel, every property
+  - `69408f2` — Write down where the work stands and how to pick it up
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -107,7 +114,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **Commits agrupados** del árbol de trabajo (previa confirmación del usuario): es la única deuda operativa seria.
+1. `git push` cuando el usuario lo pida (nunca se ha empujado desde esta máquina).
 2. H1 #5 **observabilidad mínima** (logs JSON con `requestId`, `/api/metrics`, OTel opcional) — M.
 3. H1 #6 **bus LISTEN/NOTIFY** para presencia multi-réplica — M; después H1 #7 **roles por diagrama** — L.
 4. Victorias rápidas restantes: enlaces clicables en el chip de repositorio, exportar con/sin metadatos y tema de exportación, ordenar/favoritos en la biblioteca, arrastrar archivo a la portada, salidas animadas con `@starting-style`, descripción accesible, virtualizar listas.

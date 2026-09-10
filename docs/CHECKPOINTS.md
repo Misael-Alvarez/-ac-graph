@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-09):** H1 del `PLAN_MEJORAS.md` cerrado en 6 de 8 puntos; arbol de trabajo sin commit (~172 archivos) sobre la base `e28174b`; contenedor local en http://127.0.0.1:3080 con la imagen de este cierre. Para retomar: `docs/CONTEXTO.md`. Siguiente paso recomendado: commits agrupados, despues H1 #5 observabilidad, #6 bus multi-replica, #7 roles.
+> **Checkpoint vigente (2026-09-09):** H1 del `PLAN_MEJORAS.md` cerrado en 6 de 8 puntos. Trabajo confirmado en siete commits por tema sobre la base `e28174b` (HEAD `69408f2`; sin push); contenedor local en http://127.0.0.1:3080 con la imagen de este cierre. Para retomar: `docs/CONTEXTO.md`. Siguiente paso recomendado: H1 #5 observabilidad, #6 bus multi-replica, #7 roles.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -297,7 +297,7 @@ Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comen
 
 ## Siguiente tarea exacta
 
-1. Confirmar el arbol de trabajo en commits agrupados por tema (todo verde: 1042 unitarias, 136 E2E, 24 visuales, auditoria 69/69, tipos/lint/formato/build, Docker).
+1. `git push` cuando el usuario lo pida; el arbol esta confirmado y verde (1042 unitarias, 136 E2E, 24 visuales, auditoria 69/69, tipos/lint/formato/build, Docker).
 2. `PLAN_MEJORAS.md` H1 #5 observabilidad minima; #6 bus LISTEN/NOTIFY para presencia multi-replica; #7 roles por diagrama.
 3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
 4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
