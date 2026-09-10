@@ -1,21 +1,62 @@
 # AC Graph
 
-A cloud architecture diagram editor for developers. Draw on a canvas, or write
-the architecture as YAML and watch it draw itself — the two stay in sync.
+AION Cloud's architecture diagram platform. Draw on a canvas, or write the
+architecture as YAML and watch it draw itself — the two stay in sync. Run it
+alone in a browser, or as a shared workspace behind the company's Authentik
+sign-in where everyone sees the same diagrams and each other's cursors.
 
 ## Getting started
 
+Use Node.js 24 LTS, pinned in `.nvmrc` (also used by CI and Docker).
+
 ```bash
-npm install
+nvm install
+nvm use
+npm ci
 npm run dev
 ```
 
 The editor is at http://localhost:3000. Nothing else is required: diagrams live
 in the browser (IndexedDB) until the backend lands.
 
-To enable the AI features, copy `.env.example` to `.env.local` and set
-`ANTHROPIC_API_KEY`. Without it everything else works and the AI panel says it
-is unavailable.
+AI is optional. `.env.example` documents the private `.env.local` settings;
+leave `ANTHROPIC_API_KEY` empty to keep AI disabled and avoid provider charges.
+Never put real credentials in the tracked template.
+
+## Docker
+
+Docker Desktop (Linux containers) or Docker Engine with Compose is enough. No
+cloud account, deployment, registry push or paid API is required.
+
+```bash
+docker compose config --quiet
+docker compose up -d --build --wait app
+curl --fail http://127.0.0.1:3080/api/health
+docker compose down
+```
+
+Open http://127.0.0.1:3080. The production image uses a pinned Node 24 image,
+Next.js standalone output, a non-root user and a healthcheck. Host ports bind
+only to loopback. Docker does not read `.env.local` unless explicitly requested.
+
+That is **local mode**: diagrams live in the browser's IndexedDB, a different
+host or port is a different workspace, and there are no accounts.
+
+**Server mode** — the shared, signed-in workspace — layers a second Compose
+file on top and needs four settings (the database password, the Authentik
+issuer and client id, and the public URL):
+
+```bash
+POSTGRES_PASSWORD=… OIDC_ISSUER=https://auth.example.com/application/o/ac-graph/ \
+OIDC_CLIENT_ID=… APP_URL=http://127.0.0.1:3080 \
+docker compose -f compose.yaml -f compose.server.yaml -p acgraph-foundation up -d --build --wait
+```
+
+Diagrams then live in PostgreSQL, every route demands an Authentik session, and
+editors of the same diagram see each other live. Set-up of the Authentik
+provider and what server mode does not do yet are in
+[docs/AUTHENTIK.md](docs/AUTHENTIK.md); ports, private runtime configuration
+and safe shutdown are in [docs/DOCKER.md](docs/DOCKER.md).
 
 ## What it does
 
@@ -29,8 +70,18 @@ is unavailable.
   positions included. Edit either side; whichever has focus wins.
 - **Generate with AI.** Describe a system and get a diagram, or ask what the one
   on screen is missing. A generated diagram is one undo step away from gone.
-- **Export** to SVG, PNG, Markdown and Mermaid. Exported files are entirely
-  self-contained — icons and logos are inlined, so they render anywhere.
+- **Export** from the top bar to PNG, SVG, PDF, Markdown, Mermaid, YAML and
+  JSON. Image and document exports show the current view; the JSON is the whole
+  model. Files are self-contained — icons and the logo are inlined.
+- **Work together.** In server mode every diagram lives in PostgreSQL and every
+  editor is live: you see who is in the room, where their cursor is, and their
+  saves land on your canvas as one undo step. Two people saving over each other
+  is detected, never merged silently — the loser chooses whose version to keep.
+- **Sign in with the company account.** Authentik (OpenID Connect) is the only
+  identity; there are no local passwords. See [docs/AUTHENTIK.md](docs/AUTHENTIK.md).
+- **Official icons.** AWS, Google Cloud and IBM Cloud services draw with the
+  vendors' own architecture artwork, vendored under `vendor/icons` with
+  per-symbol provenance in `src/data/iconSources.json`.
 - **Import what already exists.** Paste a Terraform plan or `main.tf`,
   Kubernetes manifests or an OpenAPI description and get the architecture — one
   box, no format to choose. Each reader produces a DSL document and lets the
@@ -42,15 +93,20 @@ is unavailable.
 
 ## Keyboard
 
-|                |                                                        |
-| -------------- | ------------------------------------------------------ |
-| `⌘K`           | Command palette: services and commands                 |
-| `⌘J`           | AI assistant                                           |
-| `⌘/`           | Split code view                                        |
-| `V B U G I C`  | Select, boundary, sub-boundary, group, item, connector |
-| `Space` + drag | Pan · `⌘` + wheel zooms at the cursor                  |
-| `⌘1` / `⌘0`    | Fit to view / reset zoom                               |
-| `?`            | Every shortcut                                         |
+Every binding is declared once in `src/lib/editor/shortcuts.ts`; the handler,
+the palette hints and the `?` sheet all read that table, so they cannot drift.
+
+|                     |                                                             |
+| ------------------- | ----------------------------------------------------------- |
+| `⌘K`                | Command palette: services and commands                      |
+| `⌘E`                | Export menu · `⌘S` JSON · `⌘⇧S` share                       |
+| `⌘J`                | AI assistant                                                |
+| `⌘/` `⌘B` `⌘H` `⌘I` | Code panel, service browser, history, insights              |
+| `V B U G I C H`     | Select, boundary, sub-boundary, group, item, connector, pan |
+| `Space` + drag      | Pan · `⌘` + wheel zooms at the cursor                       |
+| `⌘1` / `⌘0`         | Fit to view / reset zoom                                    |
+| `⌘⇧L`               | Auto-layout · `⌘⇧D` theme · `⌘'` grid · `⌘M` minimap        |
+| `?`                 | Every shortcut, spelled for your platform                   |
 
 ## The DSL
 
@@ -223,11 +279,34 @@ way for an embed to drift from what the author saw.
 ```bash
 npm run dev          # development server
 npm run build        # production build
+npm run start        # serve standalone output after build, including assets
 npm test             # unit tests
-npm run test:e2e     # end-to-end tests (needs the dev server running)
-npm run typecheck    # tsc --noEmit
+npm run test:e2e      # builds and manages its own production server on 3100
+npm run test:e2e:critical # library, editor, code, import, share and AI-disabled flows
+npm run typecheck    # next typegen + tsc --noEmit
 npm run lint
 npm run format
 npm run cli -- check arch.yaml   # the CLI, without installing it
 npm run mcp                      # the MCP server, on stdio
 ```
+
+Install Chromium once with `npx playwright install chromium`. Playwright does not
+reuse `next dev` or an occupied port. Next 16 separates production output (`.next`)
+from development output (`.next/dev`). CI builds first, then Playwright starts
+that build. Do not run multiple production builds against the same checkout.
+
+To test an already running **disposable, AI-disabled** server instead, set
+`E2E_BASE_URL=http://127.0.0.1:3080 npm run test:e2e:critical`. With an explicit URL,
+Playwright does not build, start or stop a server. The tests clear browser storage;
+never point them at a real user workspace or a deployment with paid AI enabled.
+
+CI checks types, formatting, unit tests, lint, a production build and the critical
+Chromium flows. A separate Docker job builds the image and checks non-root
+execution, health, HTML, public files and generated static assets without cloud
+credentials or a database.
+
+## Where the work stands
+
+- `docs/CONTEXTO.md` — how to resume: environment, commands, decisions, limits, next step.
+- `docs/CHECKPOINTS.md` — every delivery, what was verified, what is left.
+- `docs/PLAN_MEJORAS.md` — the improvement plan in three horizons, with status.
