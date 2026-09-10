@@ -5,6 +5,7 @@ import { DiagramConflictError } from './localRepository';
 import {
   HttpDiagramRepository,
   HttpRepositoryError,
+  NoAccessError,
   REQUESTED_WITH_HEADER,
   REQUESTED_WITH_VALUE,
   RemoteConflictError,
@@ -170,5 +171,65 @@ describe('HttpDiagramRepository', () => {
     const { fetchImpl, calls } = fakeFetch(() => ok(record));
     await new HttpDiagramRepository({ fetch: fetchImpl, baseUrl: 'https://x.example' }).get('a/b');
     expect(calls[0].url).toBe('https://x.example/api/diagrams/a%2Fb');
+  });
+
+  it('turns a 403 no_access into NoAccessError with whom to ask', async () => {
+    const { fetchImpl } = fakeFetch(() =>
+      ok({ code: 'no_access', message: 'nope', required: 'editor', owner: { name: 'Ada' } }, 403),
+    );
+    const repo = new HttpDiagramRepository({ fetch: fetchImpl });
+    const thrown = await repo.get('dgm_1').catch((e: unknown) => e);
+    expect(thrown).toBeInstanceOf(NoAccessError);
+    expect(thrown).toBeInstanceOf(HttpRepositoryError);
+    expect(thrown).toMatchObject({
+      status: 403,
+      code: 'no_access',
+      required: 'editor',
+      ownerName: 'Ada',
+    });
+
+    // A CSRF 403 is a different failure and stays a plain HttpRepositoryError.
+    const csrf = fakeFetch(() => ok({ code: 'forbidden', message: 'Missing marker' }, 403));
+    const other = await new HttpDiagramRepository({ fetch: csrf.fetchImpl })
+      .delete('dgm_1')
+      .catch((e: unknown) => e);
+    expect(other).not.toBeInstanceOf(NoAccessError);
+    expect(other).toMatchObject({ status: 403, code: 'forbidden' });
+  });
+
+  it('reads and edits the members of a diagram', async () => {
+    const member = {
+      user: { id: 'usr_bob', name: 'Bob', email: 'bob@example.com' },
+      role: 'viewer',
+      addedAt: '2026-01-02T00:00:00.000Z',
+    };
+    const { fetchImpl, calls } = fakeFetch((call) =>
+      call.init.method === 'GET'
+        ? ok([member])
+        : call.init.method === 'DELETE'
+          ? new Response(null, { status: 204 })
+          : ok(member),
+    );
+    const repo = new HttpDiagramRepository({ fetch: fetchImpl });
+
+    expect(await repo.listMembers('dgm_1')).toEqual([member]);
+    expect(calls[0].url).toBe('/api/diagrams/dgm_1/members');
+
+    expect(await repo.setMember('dgm_1', 'bob@example.com', 'viewer')).toEqual(member);
+    expect(calls[1].init.method).toBe('PUT');
+    expect(JSON.parse(String(calls[1].init.body))).toEqual({
+      email: 'bob@example.com',
+      role: 'viewer',
+    });
+    expect(headerOf(calls[1], REQUESTED_WITH_HEADER)).toBe(REQUESTED_WITH_VALUE);
+
+    await repo.setMemberRole('dgm_1', 'usr_bob', 'editor');
+    expect(calls[2].url).toBe('/api/diagrams/dgm_1/members/usr_bob');
+    expect(calls[2].init.method).toBe('PATCH');
+    expect(JSON.parse(String(calls[2].init.body))).toEqual({ role: 'editor' });
+
+    await repo.removeMember('dgm_1', 'usr_bob');
+    expect(calls[3].url).toBe('/api/diagrams/dgm_1/members/usr_bob');
+    expect(calls[3].init.method).toBe('DELETE');
   });
 });

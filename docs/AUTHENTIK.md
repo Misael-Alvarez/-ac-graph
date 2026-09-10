@@ -12,9 +12,9 @@ variables alone:
 other server route answers `404 {"code":"server_mode_off"}` and never touches a
 database or an identity provider.
 
-Server mode gives one shared workspace: every signed-in user of the Authentik
-application sees and edits every diagram. `ownerId` records who created each
-one; it does not restrict access yet (see [What it does not do yet](#what-it-does-not-do-yet)).
+Server mode gives one workspace where each diagram belongs to whoever created
+it: only its **members** — the owner, and the editors and viewers the owner let
+in — can open it (see [Who can open a diagram](#6-who-can-open-a-diagram)).
 
 ## 1. Create the provider in Authentik
 
@@ -164,10 +164,56 @@ against the Compose stack):
 - **Deletion.** If someone deletes the diagram under you, a banner says who and
   offers to download your local copy.
 
+## 6. Who can open a diagram
+
+Every diagram has members with one of three roles, kept in `diagram_members`:
+
+| Role     | Read, export, presence, history | Save, rename, restore | Delete, manage members |
+| -------- | ------------------------------- | --------------------- | ---------------------- |
+| `owner`  | yes                             | yes                   | yes                    |
+| `editor` | yes                             | yes                   | no                     |
+| `viewer` | yes                             | no                    | no                     |
+
+The owner is `ownerId` — whoever created the diagram (or imported it) — and
+there is exactly one. Anyone who can read a diagram may duplicate it into a
+copy of their own. The library lists only the diagrams one is a member of, with
+a chip naming the role when it is not one's own; a member who is not the owner
+can leave from the card. Every route checks the role in the database, in the
+same transaction that locks the row for a write, so a revoked person cannot
+finish a save that was already in flight. A stranger gets `403 {"code":"no_access"}`
+with the owner's name, so the interface can say whom to ask; an unknown id is
+still a 404.
+
+**Sharing** happens in the Share dialog, above the links. The owner adds people
+by e-mail (`PUT /api/diagrams/:id/members {email, role}`; the person must have
+signed in once, else `404 user_not_found`), changes a role in place
+(`PATCH /api/diagrams/:id/members/:userId {role}`) or removes someone
+(`DELETE /api/diagrams/:id/members/:userId`); every member sees the list
+(`GET /api/diagrams/:id/members`) and may remove themself. Each change is
+published to the room as an `access` event, so the dialog refreshes on every
+screen and the person concerned sees the change live: a promotion unlocks the
+editor on the spot, a demotion locks it, a removal leaves the canvas on screen,
+read-only, with a banner and a button to download the copy.
+
+**A viewer's editor** is the whole editor with writing taken out: the tool dock
+keeps only the selector, the inspector shows every property in a disabled
+fieldset, undo/redo/delete/AI/templates/clear are greyed out in the palette
+and the menus, drags and resizes never start, the YAML panel is read-only, and
+every edit is dropped before the reducer as a last line of defence. Presence
+still works — a viewer is in the room like anyone else.
+
+`npm run audit:roles -- <baseUrl>` (with `AUDIT_DATABASE_URL` pointing at the
+same database as the running server-mode app) drives two browsers through the
+whole story and asserts each of these behaviours.
+
 ## What it does not do yet
 
-- **No roles or per-diagram permissions.** Anyone the Authentik application admits
-  can read, edit and delete every diagram. `ownerId` is informational.
+- **One workspace.** Everyone signs into the same space; there are no teams,
+  folders shared as a unit or workspace-wide roles — access is per diagram (see
+  section 6). Ownership cannot be transferred yet.
+- **Invitations reach accounts, not inboxes.** Adding someone requires that they
+  have signed in once (the identity provider is the only source of accounts);
+  nobody is e-mailed.
 - **The live layer is best effort across replicas.** Several app processes on
   one PostgreSQL share presence and events through `LISTEN/NOTIFY` (channel
   `acgraph_collab`): a viewer on replica A sees cursors and `saved` events from

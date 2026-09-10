@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DiagramModel, DiagramRecord } from '@/lib/domain';
+import type { DiagramModel, DiagramRecord, Role } from '@/lib/domain';
 import { DraftJournal } from '@/lib/store/draftJournal';
 import { acquireDraftSession, type DraftSessionLease } from '@/lib/store/draftSession';
+import { NoAccessError } from '@/lib/store/httpRepository';
 import { SaveCoordinator, type RemoteConflict, type SaveStatus } from '@/lib/store/saveCoordinator';
 import type { DiagramRepository } from '@/lib/store/types';
 import { useRepository, useRepositoryReady } from './RepositoryProvider';
@@ -13,10 +14,20 @@ export type { SaveStatus } from '@/lib/store/saveCoordinator';
 // A quick return to the same route must not load ahead of its departing writer.
 const departures = new WeakMap<DiagramRepository, Map<string, Promise<void>>>();
 
+/** The diagram exists and this person is not (or no longer) allowed in. */
+export interface NoAccess {
+  required: Role;
+  /** Whom to ask, when the server knows. */
+  ownerName: string | null;
+}
+
 export interface DiagramDocument {
   record: DiagramRecord | null;
   loading: boolean;
   notFound: boolean;
+  noAccess: NoAccess | null;
+  /** What this person may do here; `owner` in the browser-only store. */
+  role: Role;
   status: SaveStatus;
   recoveryConflict: DiagramModel | null;
   recoveryUnavailable: boolean;
@@ -36,6 +47,10 @@ export interface DiagramDocument {
   acceptRemote: () => DiagramRecord | null;
   /** The revision this editor last confirmed, to compare with live events. */
   confirmedUpdatedAt: () => string | null;
+  /** The room said this person's access changed: a new role, or none at all — and by whom. */
+  applyAccess: (role: Role | null, by: string) => void;
+  /** Who took the access away while looking; read-only from then on, the copy on screen stays. */
+  accessRevokedBy: string | null;
 }
 
 /** Browser lifecycle adapter; all write ordering and recovery live outside React. */
@@ -48,6 +63,7 @@ export function useDiagramDocument(id: string): DiagramDocument {
     record: DiagramRecord | null;
     loading: boolean;
     notFound: boolean;
+    noAccess: NoAccess | null;
     status: SaveStatus;
     recoveryConflict: DiagramModel | null;
     recoveryUnavailable: boolean;
@@ -57,11 +73,18 @@ export function useDiagramDocument(id: string): DiagramDocument {
     record: null,
     loading: true,
     notFound: false,
+    noAccess: null,
     status: 'saved',
     recoveryConflict: null,
     recoveryUnavailable: false,
     remoteConflict: null,
   });
+  // A role change announced by the room, until the next load says otherwise.
+  const [liveRole, setLiveRole] = useState<{
+    id: string;
+    role: Role;
+    revokedBy: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -84,6 +107,7 @@ export function useDiagramDocument(id: string): DiagramDocument {
         recoveryUnavailable,
         remoteConflict: coordinator.remoteConflict,
         notFound: false,
+        noAccess: null,
         loading: false,
       });
     };
@@ -117,7 +141,26 @@ export function useDiagramDocument(id: string): DiagramDocument {
           await lease?.release();
           return;
         }
-        const found = await repository.get(id);
+        let found: DiagramRecord | null;
+        try {
+          found = await repository.get(id);
+        } catch (thrown) {
+          if (!(thrown instanceof NoAccessError)) throw thrown;
+          await lease?.release();
+          if (cancelled || leftPage) return;
+          setState({
+            id,
+            record: null,
+            loading: false,
+            notFound: false,
+            noAccess: { required: thrown.required, ownerName: thrown.ownerName },
+            status: 'saved',
+            recoveryConflict: null,
+            recoveryUnavailable: false,
+            remoteConflict: null,
+          });
+          return;
+        }
         if (cancelled || leftPage) return;
         if (!found) {
           await lease?.release();
@@ -126,6 +169,7 @@ export function useDiagramDocument(id: string): DiagramDocument {
             record: null,
             loading: false,
             notFound: true,
+            noAccess: null,
             status: 'saved',
             recoveryConflict: null,
             recoveryUnavailable: false,
@@ -156,6 +200,7 @@ export function useDiagramDocument(id: string): DiagramDocument {
             record: null,
             loading: false,
             notFound: false,
+            noAccess: null,
             status: 'error',
             recoveryConflict: null,
             recoveryUnavailable,
@@ -212,10 +257,22 @@ export function useDiagramDocument(id: string): DiagramDocument {
     const coordinator = writer.current?.id === id ? writer.current.coordinator : null;
     return coordinator?.confirmedUpdatedAt ?? null;
   }, [id]);
+  const applyAccess = useCallback(
+    // Removed while looking: nothing more can be written, the screen stays.
+    (role: Role | null, by: string) =>
+      setLiveRole({ id, role: role ?? 'viewer', revokedBy: role === null ? by : null }),
+    [id],
+  );
+
+  const live = liveRole?.id === id ? liveRole : null;
+  const role: Role = live?.role ?? state.record?.role ?? 'owner';
 
   return {
     ...state,
     loading: state.id !== id || state.loading,
+    role,
+    applyAccess,
+    accessRevokedBy: live?.revokedBy ?? null,
     save,
     rename,
     snapshot,

@@ -35,7 +35,7 @@ const HANDLE = 9;
 const GLIDE_MS = 360;
 
 export function Canvas() {
-  const { doc, ui, view, dispatch, dispatchUi, collisions, t } = useEditor();
+  const { doc, ui, view, dispatch, dispatchUi, collisions, readOnly, t } = useEditor();
   const svgRef = useRef<SVGSVGElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const commands = useCommands();
@@ -62,6 +62,7 @@ export function Canvas() {
       dispatch({ type: 'resizeShape', id, w, h, viewId: ui.activeViewId }),
     onLassoSelect: (ids) => dispatchUi({ type: 'select', ids }),
     onViewportChange: (viewport) => dispatchUi({ type: 'setViewport', viewport }),
+    readOnly,
   });
 
   // Drilling re-frames on what it descended into; narrowing the canvas without
@@ -600,7 +601,7 @@ export function Canvas() {
               Sized against the zoom: as a plain canvas rectangle it shrank to
               three unclickable pixels when the diagram was zoomed out, and grew
               into a slab when it was zoomed in. */}
-            {selectedShapes.length === 1 && selectedShapes[0].type !== 'container' && (
+            {!readOnly && selectedShapes.length === 1 && selectedShapes[0].type !== 'container' && (
               <rect
                 x={selectedShapes[0].x + selectedShapes[0].w - handleSize / 2}
                 y={selectedShapes[0].y + selectedShapes[0].h - handleSize / 2}

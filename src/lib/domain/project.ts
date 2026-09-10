@@ -1,7 +1,6 @@
 /**
- * Workspace-level domain: the objects that will live in DynamoDB once the app
- * moves to AWS. They are defined now so the local IndexedDB store and the future
- * API speak exactly the same language.
+ * Workspace-level domain: the objects the browser store and the server API
+ * share, so both speak exactly the same language.
  */
 import { z } from 'zod';
 import { DiagramModelSchema } from './diagram';
@@ -16,6 +15,13 @@ export const UserSchema = z.object({
   avatarUrl: z.string().optional(),
 });
 
+/**
+ * What one person may do with one diagram. The owner is the diagram's
+ * `ownerId`, there is exactly one, and only the owner manages who else is in.
+ * Editors change the diagram; viewers read it and are present in the room.
+ */
+export const RoleSchema = z.enum(['owner', 'editor', 'viewer']);
+
 export const DiagramMetaSchema = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -26,6 +32,18 @@ export const DiagramMetaSchema = z.object({
   updatedAt: TimestampSchema,
   /** Inline SVG preview used by the library grid. */
   thumbnail: z.string().nullable().default(null),
+  /**
+   * The reader's own role. Set by the server, where diagrams have members;
+   * absent in the browser-only store, where whoever holds the data owns it.
+   */
+  role: RoleSchema.optional(),
+});
+
+/** One person's access to one diagram, as the share dialog lists it. */
+export const DiagramMemberSchema = z.object({
+  user: UserSchema,
+  role: RoleSchema,
+  addedAt: TimestampSchema,
 });
 
 export const DiagramRecordSchema = DiagramMetaSchema.extend({
@@ -51,6 +69,8 @@ export const ShareSchema = z.object({
 });
 
 export type User = z.infer<typeof UserSchema>;
+export type Role = z.infer<typeof RoleSchema>;
+export type DiagramMember = z.infer<typeof DiagramMemberSchema>;
 export type DiagramMeta = z.infer<typeof DiagramMetaSchema>;
 export type DiagramRecord = z.infer<typeof DiagramRecordSchema>;
 export type DiagramVersion = z.infer<typeof DiagramVersionSchema>;

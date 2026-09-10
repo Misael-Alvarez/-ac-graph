@@ -32,7 +32,7 @@ interface VersionPanelProps {
 export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelProps) {
   useReturnFocusToCanvas();
   const repository = useRepository();
-  const { doc, dispatch, dispatchUi, t } = useEditor();
+  const { doc, dispatch, dispatchUi, readOnly, t } = useEditor();
   const params = useParams<{ id: string }>();
   const diagramId = params?.id ?? '';
 
@@ -163,14 +163,16 @@ export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelPr
       <PanelHead
         title={t('versions.title')}
         actions={
-          <button
-            type="button"
-            className="button is-small"
-            disabled={busy}
-            onClick={() => void snapshot()}
-          >
-            {t('versions.snapshot')}
-          </button>
+          readOnly ? undefined : (
+            <button
+              type="button"
+              className="button is-small"
+              disabled={busy}
+              onClick={() => void snapshot()}
+            >
+              {t('versions.snapshot')}
+            </button>
+          )
         }
         closeLabel={t('modal.close')}
         onClose={() => dispatchUi({ type: 'toggleVersions' })}
@@ -299,14 +301,16 @@ export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelPr
                   >
                     {t('versions.compare')}
                   </button>
-                  <button
-                    type="button"
-                    className="button is-small"
-                    disabled={busy}
-                    onClick={() => void restore(version)}
-                  >
-                    {t('versions.restore')}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className="button is-small"
+                      disabled={busy}
+                      onClick={() => void restore(version)}
+                    >
+                      {t('versions.restore')}
+                    </button>
+                  )}
                 </article>
               ))}
             </section>

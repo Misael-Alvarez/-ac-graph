@@ -5,7 +5,13 @@ import { addGroup, createEmptyModel } from '@/lib/engine';
 import { DiagramConflictError, MAX_VERSIONS_PER_DIAGRAM } from '@/lib/store/localRepository';
 import { renderThumbnail } from '@/lib/store/thumbnail';
 import { createClock } from '../clock';
-import { DiagramNotFoundError, VersionNotFoundError } from './errors';
+import {
+  DiagramForbiddenError,
+  DiagramNotFoundError,
+  MembershipError,
+  UserNotFoundError,
+  VersionNotFoundError,
+} from './errors';
 import { PgDiagramRepository } from './repository';
 import { dropSchema, freshSchema, insertUser, pgAvailable, testPool } from '../testing/pg';
 
@@ -64,12 +70,119 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       expect('model' in list[0]).toBe(false);
     });
 
-    it('is one workspace: another user sees and can edit the diagram', async () => {
+    it('is private until shared: another user neither lists nor reads it', async () => {
+      const created = await repo.create({ title: 'Private', model: createEmptyModel() });
+      expect(created.role).toBe('owner');
+      expect(await asBob.list()).toEqual([]);
+      await expect(asBob.get(created.id)).rejects.toBeInstanceOf(DiagramForbiddenError);
+      await expect(asBob.get(created.id)).rejects.toMatchObject({
+        required: 'viewer',
+        ownerName: 'Ada',
+      });
+      expect(await asBob.roleOf(created.id)).toBeNull();
+      // Still a 404, not a 403, when the diagram does not exist at all.
+      expect(await asBob.get('ghost')).toBeNull();
+    });
+
+    it('an invited editor sees and edits it; the list carries each person\u2019s role', async () => {
       const created = await repo.create({ title: 'Shared', model: createEmptyModel() });
-      expect((await asBob.list()).map((d) => d.id)).toEqual([created.id]);
+      await repo.setMember(created.id, 'bob@example.com', 'editor');
+      expect((await asBob.list()).map((d) => [d.id, d.role])).toEqual([[created.id, 'editor']]);
+      expect((await repo.list())[0].role).toBe('owner');
       const saved = await asBob.save(created.id, modelWithGroups(1));
       expect(saved.ownerId).toBe(ada.id);
+      expect(saved.role).toBe('editor');
       expect(saved.model.shapes).toHaveLength(3);
+    });
+  });
+
+  describe('roles', () => {
+    it('a viewer reads, follows history and copies, but cannot write', async () => {
+      const created = await repo.create({ title: 'Read me', model: modelWithGroups(1) });
+      await repo.save(created.id, modelWithGroups(2), { snapshot: true });
+      await repo.setMember(created.id, 'Bob@Example.com', 'viewer');
+
+      expect((await asBob.get(created.id))?.role).toBe('viewer');
+      expect(await asBob.listVersions(created.id)).toHaveLength(1);
+      expect((await asBob.duplicate(created.id)).ownerId).toBe(bob.id);
+
+      await expect(asBob.save(created.id, modelWithGroups(3))).rejects.toMatchObject({
+        name: 'DiagramForbiddenError',
+        required: 'editor',
+      });
+      await expect(asBob.updateMeta(created.id, { title: 'x' })).rejects.toBeInstanceOf(
+        DiagramForbiddenError,
+      );
+      const [version] = await asBob.listVersions(created.id);
+      await expect(asBob.restoreVersion(created.id, version.id)).rejects.toBeInstanceOf(
+        DiagramForbiddenError,
+      );
+      await expect(asBob.delete(created.id)).rejects.toMatchObject({ required: 'owner' });
+      expect(await repo.get(created.id)).not.toBeNull();
+    });
+
+    it('an editor cannot delete or manage members; only the owner can', async () => {
+      const created = await repo.create({ title: 'Team', model: createEmptyModel() });
+      await repo.setMember(created.id, 'bob@example.com', 'editor');
+      await expect(asBob.delete(created.id)).rejects.toMatchObject({ required: 'owner' });
+      await expect(asBob.setMember(created.id, 'ada@example.com', 'viewer')).rejects.toMatchObject({
+        required: 'owner',
+      });
+      await expect(asBob.removeMember(created.id, ada.id)).rejects.toMatchObject({
+        required: 'owner',
+      });
+      await repo.delete(created.id);
+      expect(await repo.get(created.id)).toBeNull();
+    });
+
+    it('lists members owner first, changes roles in place and refuses touching the owner', async () => {
+      const created = await repo.create({ title: 'Team', model: createEmptyModel() });
+      const member = await repo.setMember(created.id, 'bob@example.com', 'viewer');
+      expect(member).toMatchObject({ user: { id: bob.id, name: 'Bob' }, role: 'viewer' });
+      expect(typeof member.addedAt).toBe('string');
+
+      await repo.setMember(created.id, 'bob@example.com', 'editor');
+      const members = await repo.listMembers(created.id);
+      expect(members.map((m) => [m.user.id, m.role])).toEqual([
+        [ada.id, 'owner'],
+        [bob.id, 'editor'],
+      ]);
+      // Any member may see who else is in.
+      expect(await asBob.listMembers(created.id)).toEqual(members);
+
+      await expect(repo.setMember(created.id, 'ada@example.com', 'viewer')).rejects.toBeInstanceOf(
+        MembershipError,
+      );
+      await expect(repo.removeMember(created.id, ada.id)).rejects.toBeInstanceOf(MembershipError);
+      await expect(
+        repo.setMember(created.id, 'nobody@example.com', 'viewer'),
+      ).rejects.toBeInstanceOf(UserNotFoundError);
+      await expect(repo.listMembers('ghost')).rejects.toBeInstanceOf(DiagramNotFoundError);
+    });
+
+    it('the owner removes a member, and a member may leave on their own', async () => {
+      const created = await repo.create({ title: 'Team', model: createEmptyModel() });
+      await repo.setMember(created.id, 'bob@example.com', 'editor');
+      expect(await asBob.removeMember(created.id, bob.id)).toBe(true);
+      expect(await asBob.list()).toEqual([]);
+
+      await repo.setMember(created.id, 'bob@example.com', 'viewer');
+      expect(await repo.removeMember(created.id, bob.id)).toBe(true);
+      await expect(asBob.get(created.id)).rejects.toBeInstanceOf(DiagramForbiddenError);
+      // A stranger cannot leave what they were never part of, nor learn whether it exists.
+      await expect(asBob.removeMember(created.id, bob.id)).rejects.toBeInstanceOf(
+        DiagramForbiddenError,
+      );
+    });
+
+    it('membership goes with the diagram', async () => {
+      const created = await repo.create({ title: 'Gone', model: createEmptyModel() });
+      await repo.setMember(created.id, 'bob@example.com', 'viewer');
+      await repo.delete(created.id);
+      const rows = await pool.query('select 1 from diagram_members where diagram_id = $1', [
+        created.id,
+      ]);
+      expect(rows.rowCount).toBe(0);
     });
   });
 
@@ -138,6 +251,7 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
 
     it('serialises concurrent writers so no revision is lost', async () => {
       const created = await repo.create({ title: 'A', model: createEmptyModel() });
+      await repo.setMember(created.id, 'bob@example.com', 'editor');
       const results = await Promise.allSettled([
         repo.save(created.id, modelWithGroups(1), { expectedUpdatedAt: created.updatedAt }),
         asBob.save(created.id, modelWithGroups(2), { expectedUpdatedAt: created.updatedAt }),
@@ -151,6 +265,7 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
 
     it('stamps strictly increasing timestamps even across repository instances', async () => {
       const created = await repo.create({ title: 'A', model: createEmptyModel() });
+      await repo.setMember(created.id, 'bob@example.com', 'editor');
       const other = new PgDiagramRepository(
         bob,
         pool,
@@ -178,6 +293,7 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
 
     it('duplicates under a new id owned by the duplicator', async () => {
       const created = await repo.create({ title: 'A', model: modelWithGroups(1), folder: 'f' });
+      await repo.setMember(created.id, 'bob@example.com', 'viewer');
       const copy = await asBob.duplicate(created.id);
       expect(copy.id).not.toBe(created.id);
       expect(copy.title).toBe('A copy');
@@ -192,7 +308,11 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       await repo.save(created.id, modelWithGroups(2), { snapshot: true });
       await repo.delete(created.id);
       expect(await repo.get(created.id)).toBeNull();
-      expect(await repo.listVersions(created.id)).toEqual([]);
+      await expect(repo.listVersions(created.id)).rejects.toBeInstanceOf(DiagramNotFoundError);
+      const versions = await pool.query('select 1 from diagram_versions where diagram_id = $1', [
+        created.id,
+      ]);
+      expect(versions.rowCount).toBe(0);
       await expect(repo.delete(created.id)).resolves.toBeUndefined();
     });
   });
@@ -264,7 +384,9 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
 
       const list = await asBob.list();
       expect(list.map((d) => d.title).sort()).toEqual(['A', 'B']);
-      expect(list.every((d) => d.ownerId === bob.id)).toBe(true);
+      expect(list.every((d) => d.ownerId === bob.id && d.role === 'owner')).toBe(true);
+      // The importer's copies are theirs alone until shared.
+      expect(await repo.list()).toEqual([]);
       expect(list.map((d) => d.id)).not.toContain(a.id);
 
       const importedA = list.find((d) => d.title === 'A')!;

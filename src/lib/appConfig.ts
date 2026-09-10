@@ -5,7 +5,7 @@ import { z } from 'zod';
  *
  * `local` is the browser-only editor: diagrams in IndexedDB, no accounts.
  * `server` means PostgreSQL behind the API and sign-in through the company's
- * identity provider; every diagram is shared with everyone who can sign in.
+ * identity provider; a diagram is seen by its owner and the people they let in.
  * The browser asks once at start-up and everything else follows from the answer.
  */
 export const AppConfigSchema = z.object({

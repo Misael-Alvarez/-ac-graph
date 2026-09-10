@@ -32,8 +32,10 @@ export const TOOLS: ToolDefinition[] = [
 
 /** Floating vertical tool dock. */
 export function ToolDock() {
-  const { ui, dispatchUi, t } = useEditor();
-  const activeIndex = TOOLS.findIndex((tool) => tool.mode === ui.tool);
+  const { ui, dispatchUi, readOnly, t } = useEditor();
+  // A viewer selects and looks; the tools that place things stay out of sight.
+  const tools = readOnly ? TOOLS.filter((tool) => tool.mode === 'select') : TOOLS;
+  const activeIndex = tools.findIndex((tool) => tool.mode === ui.tool);
 
   return (
     <div
@@ -48,26 +50,31 @@ export function ToolDock() {
          out here and in over there. `pan` has no button of its own, so the
          pill steps aside rather than parking on the wrong tool. */
       data-armed={activeIndex >= 0}
+      data-readonly={readOnly}
       style={{ '--tool-index': Math.max(activeIndex, 0) } as React.CSSProperties}
     >
-      <button
-        type="button"
-        data-tool="browser"
-        className={`tool-button${ui.browserOpen ? ' is-active' : ''}`}
-        aria-pressed={ui.browserOpen}
-        aria-label={t('action.browser')}
-        onClick={() => dispatchUi({ type: 'toggleBrowser' })}
-      >
-        <LayoutIcon size={18} />
-        {/* The tooltip is the visible label, and naming the button with it as
-            well made every one of them announce its own shortcut twice. */}
-        <span className="tool-tooltip" role="tooltip" aria-hidden="true">
-          {t('action.browser')}
-          <kbd>{shortcut('B')}</kbd>
-        </span>
-      </button>
-      <span className="tool-dock-divider" />
-      {TOOLS.map(({ mode, labelKey, shortcut, Icon }) => {
+      {!readOnly && (
+        <>
+          <button
+            type="button"
+            data-tool="browser"
+            className={`tool-button${ui.browserOpen ? ' is-active' : ''}`}
+            aria-pressed={ui.browserOpen}
+            aria-label={t('action.browser')}
+            onClick={() => dispatchUi({ type: 'toggleBrowser' })}
+          >
+            <LayoutIcon size={18} />
+            {/* The tooltip is the visible label, and naming the button with it as
+                well made every one of them announce its own shortcut twice. */}
+            <span className="tool-tooltip" role="tooltip" aria-hidden="true">
+              {t('action.browser')}
+              <kbd>{shortcut('B')}</kbd>
+            </span>
+          </button>
+          <span className="tool-dock-divider" />
+        </>
+      )}
+      {tools.map(({ mode, labelKey, shortcut, Icon }) => {
         const active = ui.tool === mode;
         return (
           <button

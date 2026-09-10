@@ -47,8 +47,24 @@ export interface CommandSet extends Array<Command> {
  * declared here: `shortcutFor` reads them from the registry, which is also what
  * the keyboard handler consults, so the two cannot disagree.
  */
+/** Commands that change the document; disabled for a viewer. */
+const EDITING_COMMANDS = new Set([
+  'undo',
+  'redo',
+  'delete',
+  'duplicate',
+  'autoLayout',
+  'clear',
+  'templates',
+  'switchCloud',
+  'importMarkdown',
+  'openProject',
+  'ai',
+  'icons',
+]);
+
 export function useCommands(): CommandSet {
-  const { doc, ui, view, dispatch, dispatchUi, canUndo, canRedo, t, title } = useEditor();
+  const { doc, ui, view, dispatch, dispatchUi, canUndo, canRedo, readOnly, t, title } = useEditor();
   const selectedIds = useMemo(
     () => new Set(view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id)),
     [view, ui.selectedIds],
@@ -270,9 +286,14 @@ export function useCommands(): CommandSet {
         dispatchUi({ type: 'clearSelection' });
         dispatchUi({ type: 'toast', message: t('toast.cleared') });
       }),
-    ];
+    ].map((entry) =>
+      // A viewer keeps every command that reads — export, find, zoom, panels —
+      // and sees the ones that write greyed out, in the palette and the menus alike.
+      readOnly && EDITING_COMMANDS.has(entry.id) ? { ...entry, enabled: false } : entry,
+    );
   }, [
     t,
+    readOnly,
     canUndo,
     canRedo,
     selectedIds,

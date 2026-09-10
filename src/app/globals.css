@@ -1923,6 +1923,18 @@ body {
   white-space: nowrap;
 }
 
+/* Someone else's diagram in this library, and what one may do with it. */
+.library-card-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .library-card-actions {
   position: absolute;
   top: var(--space-2);
@@ -2075,6 +2087,91 @@ body {
 }
 .share-field + .share-field {
   margin-top: var(--space-5);
+}
+.share-people {
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.share-people-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.share-person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 36px;
+}
+.share-person-avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: #fff;
+  background: var(--user-color, var(--accent));
+}
+.share-person-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.share-person-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-person-email {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-person-role {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+/* `.input` is full-width by default; in a row it takes only what its words need. */
+.share-person .input {
+  flex: none;
+  width: auto;
+  min-width: 8.5rem;
+}
+.share-invite {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.share-invite input[type='email'] {
+  flex: 1;
+  min-width: 0;
+}
+.share-invite .input.is-choice {
+  flex: none;
+  width: auto;
+  min-width: 8.5rem;
+}
+.share-people-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.share-people-note.is-error {
+  color: var(--danger);
 }
 .share-field-header {
   display: flex;
@@ -4220,6 +4317,43 @@ select.input.is-choice {
   white-space: nowrap;
   background: var(--surface);
   border: 1px solid var(--border-subtle);
+}
+
+/* A viewer's editor: where the save status would sit, the reason it is absent. */
+.readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 7px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  background: var(--accent-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Wraps the inspector for a viewer: `disabled` reaches every control inside,
+   and the fieldset itself must not be seen. */
+.inspector-lock {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.inspector-lock:disabled .input,
+.inspector-lock:disabled .button,
+.inspector-lock:disabled .fill-swatch,
+.inspector-lock:disabled .icon-picker-trigger {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tool-dock[data-readonly='true']::before {
+  top: var(--space-1);
 }
 
 .save-dot {

@@ -1,11 +1,15 @@
 import {
+  DiagramMemberSchema,
   DiagramMetaSchema,
   DiagramRecordSchema,
   DiagramVersionSchema,
+  RoleSchema,
+  type DiagramMember,
   type DiagramMeta,
   type DiagramModel,
   type DiagramRecord,
   type DiagramVersion,
+  type Role,
 } from '@/lib/domain';
 import { DiagramConflictError } from './localRepository';
 import type { CreateDiagramInput, DiagramRepository, SaveOptions, WorkspaceExport } from './types';
@@ -41,6 +45,33 @@ export class HttpRepositoryError extends Error {
   }
 }
 
+/**
+ * Signed in, but not a member of this diagram (or not with enough of a role).
+ * `ownerName` lets the interface say whom to ask.
+ */
+export class NoAccessError extends HttpRepositoryError {
+  constructor(
+    readonly required: Role,
+    readonly ownerName: string | null,
+  ) {
+    super(403, 'no_access', 'You do not have access to this diagram.');
+    this.name = 'NoAccessError';
+  }
+}
+
+/** The server-only part of the client: who has access to a diagram. */
+export interface MembersApi {
+  listMembers(diagramId: string): Promise<DiagramMember[]>;
+  /** Adds by e-mail or changes the role; the person must have signed in once. */
+  setMember(diagramId: string, email: string, role: Exclude<Role, 'owner'>): Promise<DiagramMember>;
+  setMemberRole(
+    diagramId: string,
+    userId: string,
+    role: Exclude<Role, 'owner'>,
+  ): Promise<DiagramMember>;
+  removeMember(diagramId: string, userId: string): Promise<void>;
+}
+
 /** A `DiagramConflictError` that also carries what the server has now. */
 export class RemoteConflictError extends DiagramConflictError {
   constructor(readonly current: DiagramRecord | null) {
@@ -64,11 +95,13 @@ interface ErrorPayload {
   code?: string;
   message?: string;
   current?: unknown;
+  required?: unknown;
+  owner?: { name?: unknown };
 }
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export class HttpDiagramRepository implements DiagramRepository {
+export class HttpDiagramRepository implements DiagramRepository, MembersApi {
   private readonly fetchImpl: typeof fetch;
   private readonly baseUrl: string;
 
@@ -160,6 +193,47 @@ export class HttpDiagramRepository implements DiagramRepository {
     return result.imported;
   }
 
+  async listMembers(diagramId: string): Promise<DiagramMember[]> {
+    const raw = await this.request<unknown[]>(
+      'GET',
+      `/api/diagrams/${encodeURIComponent(diagramId)}/members`,
+    );
+    return raw.map((member) => DiagramMemberSchema.parse(member));
+  }
+
+  async setMember(
+    diagramId: string,
+    email: string,
+    role: Exclude<Role, 'owner'>,
+  ): Promise<DiagramMember> {
+    const raw = await this.request<unknown>(
+      'PUT',
+      `/api/diagrams/${encodeURIComponent(diagramId)}/members`,
+      { body: { email, role } },
+    );
+    return DiagramMemberSchema.parse(raw);
+  }
+
+  async setMemberRole(
+    diagramId: string,
+    userId: string,
+    role: Exclude<Role, 'owner'>,
+  ): Promise<DiagramMember> {
+    const raw = await this.request<unknown>(
+      'PATCH',
+      `/api/diagrams/${encodeURIComponent(diagramId)}/members/${encodeURIComponent(userId)}`,
+      { body: { role } },
+    );
+    return DiagramMemberSchema.parse(raw);
+  }
+
+  async removeMember(diagramId: string, userId: string): Promise<void> {
+    await this.request<void>(
+      'DELETE',
+      `/api/diagrams/${encodeURIComponent(diagramId)}/members/${encodeURIComponent(userId)}`,
+    );
+  }
+
   private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (MUTATING.has(method)) headers[REQUESTED_WITH_HEADER] = REQUESTED_WITH_VALUE;
@@ -182,6 +256,14 @@ export class HttpDiagramRepository implements DiagramRepository {
     if (response.status === 412) {
       const current = DiagramRecordSchema.safeParse(payload.current);
       throw new RemoteConflictError(current.success ? current.data : null);
+    }
+    if (response.status === 403 && payload.code === 'no_access') {
+      const required = RoleSchema.safeParse(payload.required);
+      const owner = payload.owner?.name;
+      throw new NoAccessError(
+        required.success ? required.data : 'viewer',
+        typeof owner === 'string' ? owner : null,
+      );
     }
     throw new HttpRepositoryError(
       response.status,

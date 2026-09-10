@@ -102,6 +102,27 @@ export const MIGRATIONS: readonly Migration[] = [
         on diagram_versions (diagram_id, created_at desc);
     `,
   },
+  {
+    id: 6,
+    name: 'diagram_members',
+    // Who may do what with each diagram. The owner is `diagrams.owner_id` and
+    // has a row too, so one join answers "which diagrams can this person see".
+    // Existing diagrams get their owner as their first member.
+    sql: `
+      create table if not exists diagram_members (
+        diagram_id text not null references diagrams (id) on delete cascade,
+        user_id text not null references users (id) on delete cascade,
+        role text not null check (role in ('owner', 'editor', 'viewer')),
+        added_by text references users (id) on delete set null,
+        created_at timestamptz not null default now(),
+        primary key (diagram_id, user_id)
+      );
+      create index if not exists diagram_members_user_id_idx on diagram_members (user_id);
+      insert into diagram_members (diagram_id, user_id, role)
+        select id, owner_id, 'owner' from diagrams
+        on conflict do nothing;
+    `,
+  },
 ];
 
 /** Arbitrary but fixed: every replica must ask for the same advisory lock. */

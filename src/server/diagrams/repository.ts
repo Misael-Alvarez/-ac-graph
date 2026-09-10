@@ -1,12 +1,15 @@
 import type { Pool, PoolClient } from 'pg';
 import {
+  DiagramMemberSchema,
   DiagramMetaSchema,
   DiagramRecordSchema,
   DiagramVersionSchema,
+  type DiagramMember,
   type DiagramMeta,
   type DiagramModel,
   type DiagramRecord,
   type DiagramVersion,
+  type Role,
   type User,
 } from '@/lib/domain';
 import { uid } from '@/lib/engine';
@@ -18,22 +21,30 @@ import type {
   SaveOptions,
   WorkspaceExport,
 } from '@/lib/store/types';
+import { toUser, type UserRow } from '../auth/session';
 import { serverClock, type Clock } from '../clock';
 import { getPool, withTransaction } from '../db';
 import { log } from '../observability/log';
 import { appMetrics } from '../observability/metrics';
-import { DiagramNotFoundError, VersionNotFoundError } from './errors';
+import {
+  DiagramForbiddenError,
+  DiagramNotFoundError,
+  MembershipError,
+  UserNotFoundError,
+  VersionNotFoundError,
+} from './errors';
 
 /**
  * PostgreSQL implementation of the repository the editor already speaks.
  *
- * One instance per request, bound to the signed-in `actor`. This phase has a
- * single internal workspace: every authenticated user sees and edits every
- * diagram, and `ownerId` records who created it. Each mutation is one
- * transaction that locks the row (`select ... for update`), checks the caller's
- * `expectedUpdatedAt`, writes the model, history and thumbnail, and stamps a
- * strictly increasing `updatedAt` — the same contract as the IndexedDB store,
- * so `SaveCoordinator` needs no changes.
+ * One instance per request, bound to the signed-in `actor`. A diagram is seen
+ * by its members only: the owner (`ownerId`, who created it), the editors and
+ * the viewers the owner invited. Every read joins the actor's membership and
+ * every write reads it in the same transaction that locks the row, so there is
+ * no moment where a revoked person still has a lock. Each mutation checks the
+ * caller's `expectedUpdatedAt`, writes the model, history and thumbnail, and
+ * stamps a strictly increasing `updatedAt` — the same contract as the IndexedDB
+ * store, so `SaveCoordinator` needs no changes.
  */
 interface DiagramRow {
   id: string;
@@ -45,6 +56,9 @@ interface DiagramRow {
   updated_at: string;
   thumbnail: string | null;
   model: unknown;
+  /** The actor's role, from the membership join; null when not a member. */
+  role: Role | null;
+  owner_name: string | null;
 }
 
 type MetaRow = Omit<DiagramRow, 'model'>;
@@ -57,9 +71,26 @@ interface VersionRow {
   model: unknown;
 }
 
-const META_COLUMNS = 'id, owner_id, title, description, folder, created_at, updated_at, thumbnail';
-const RECORD_COLUMNS = `${META_COLUMNS}, model`;
+interface MemberRow extends UserRow {
+  role: Role;
+  created_at: Date;
+}
+
+const META_COLUMNS =
+  'd.id, d.owner_id, d.title, d.description, d.folder, d.created_at, d.updated_at, d.thumbnail';
+const RECORD_COLUMNS = `${META_COLUMNS}, d.model`;
+const ACCESS_COLUMNS = 'm.role, (select u.name from users u where u.id = d.owner_id) as owner_name';
 const VERSION_COLUMNS = 'id, diagram_id, created_at, label, model';
+
+/** `diagrams d` with the actor's membership (parameter `$n`) on the side. */
+const withMembership = (actorParam: string) =>
+  `from diagrams d left join diagram_members m on m.diagram_id = d.id and m.user_id = ${actorParam}`;
+
+const RANK: Record<Role, number> = { viewer: 1, editor: 2, owner: 3 };
+
+export function roleAllows(role: Role | null | undefined, required: Role): boolean {
+  return role !== null && role !== undefined && RANK[role] >= RANK[required];
+}
 
 function toMeta(row: MetaRow): DiagramMeta {
   return DiagramMetaSchema.parse({
@@ -71,6 +102,7 @@ function toMeta(row: MetaRow): DiagramMeta {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     thumbnail: row.thumbnail,
+    role: row.role ?? undefined,
   });
 }
 
@@ -89,6 +121,14 @@ function toVersion(row: VersionRow): DiagramVersion {
   });
 }
 
+function toMember(row: MemberRow): DiagramMember {
+  return DiagramMemberSchema.parse({
+    user: toUser(row),
+    role: row.role,
+    addedAt: row.created_at.toISOString(),
+  });
+}
+
 type Queryable = Pick<PoolClient, 'query'>;
 
 export class PgDiagramRepository implements DiagramRepository {
@@ -98,20 +138,36 @@ export class PgDiagramRepository implements DiagramRepository {
     private readonly clock: Clock = serverClock(),
   ) {}
 
+  /** The diagrams this person is a member of, most recently updated first. */
   async list(): Promise<DiagramMeta[]> {
     const result = await this.pool.query<MetaRow>(
-      `select ${META_COLUMNS} from diagrams order by updated_at desc`,
+      `select ${META_COLUMNS}, m.role, null as owner_name
+         from diagrams d join diagram_members m on m.diagram_id = d.id and m.user_id = $1
+        order by d.updated_at desc`,
+      [this.actor.id],
     );
     return result.rows.map(toMeta);
   }
 
+  /** Null when there is no such diagram; a `DiagramForbiddenError` when there is and the actor is not in. */
   async get(id: string): Promise<DiagramRecord | null> {
     const result = await this.pool.query<DiagramRow>(
-      `select ${RECORD_COLUMNS} from diagrams where id = $1`,
-      [id],
+      `select ${RECORD_COLUMNS}, ${ACCESS_COLUMNS} ${withMembership('$2')} where d.id = $1`,
+      [id, this.actor.id],
     );
     const row = result.rows[0];
-    return row ? toRecord(row) : null;
+    if (!row) return null;
+    this.require(row, 'viewer');
+    return toRecord(row);
+  }
+
+  /** The actor's role on a diagram, or null when not a member (or no such diagram). */
+  async roleOf(id: string): Promise<Role | null> {
+    const result = await this.pool.query<{ role: Role }>(
+      'select role from diagram_members where diagram_id = $1 and user_id = $2',
+      [id, this.actor.id],
+    );
+    return result.rows[0]?.role ?? null;
   }
 
   async create(input: CreateDiagramInput): Promise<DiagramRecord> {
@@ -126,14 +182,18 @@ export class PgDiagramRepository implements DiagramRepository {
       updatedAt: ts,
       thumbnail: null,
       model: input.model,
+      role: 'owner',
     });
-    await insertDiagram(this.pool, record);
+    await withTransaction(async (client) => {
+      await insertDiagram(client, record);
+      await insertMember(client, record.id, this.actor.id, 'owner', this.actor.id);
+    }, this.pool);
     return record;
   }
 
   async save(id: string, model: DiagramModel, options: SaveOptions = {}): Promise<DiagramRecord> {
     return this.counted('save', () =>
-      this.change(id, async (existing, client) => {
+      this.change(id, 'editor', async (existing, client) => {
         if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
           throw new DiagramConflictError();
         }
@@ -155,13 +215,14 @@ export class PgDiagramRepository implements DiagramRepository {
     id: string,
     patch: Partial<Pick<DiagramMeta, 'title' | 'description' | 'folder' | 'thumbnail'>>,
   ): Promise<DiagramRecord> {
-    return this.change(id, async (existing) => ({
+    return this.change(id, 'editor', async (existing) => ({
       ...existing,
       ...patch,
       updatedAt: this.clock(existing.updatedAt),
     }));
   }
 
+  /** Anyone who can read a diagram can take a copy of their own. */
   async duplicate(id: string): Promise<DiagramRecord> {
     const source = await this.get(id);
     if (!source) throw new DiagramNotFoundError(id);
@@ -173,12 +234,22 @@ export class PgDiagramRepository implements DiagramRepository {
     });
   }
 
-  /** Idempotent: deleting an unknown id is not an error. Versions cascade. */
+  /** Owner only. Idempotent: deleting an unknown id is not an error. Versions and members cascade. */
   async delete(id: string): Promise<void> {
-    await this.pool.query('delete from diagrams where id = $1', [id]);
+    await withTransaction(async (client) => {
+      const locked = await client.query<MetaRow>(
+        `select ${META_COLUMNS}, ${ACCESS_COLUMNS} ${withMembership('$2')} where d.id = $1 for update of d`,
+        [id, this.actor.id],
+      );
+      const row = locked.rows[0];
+      if (!row) return;
+      this.require(row, 'owner');
+      await client.query('delete from diagrams where id = $1', [id]);
+    }, this.pool);
   }
 
   async listVersions(diagramId: string): Promise<DiagramVersion[]> {
+    await this.access(diagramId, 'viewer');
     const result = await this.pool.query<VersionRow>(
       `select ${VERSION_COLUMNS} from diagram_versions
         where diagram_id = $1 order by created_at desc`,
@@ -193,7 +264,7 @@ export class PgDiagramRepository implements DiagramRepository {
     options: Pick<SaveOptions, 'expectedUpdatedAt'> = {},
   ): Promise<DiagramRecord> {
     return this.counted('restore', () =>
-      this.change(diagramId, async (existing, client) => {
+      this.change(diagramId, 'editor', async (existing, client) => {
         if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
           throw new DiagramConflictError();
         }
@@ -213,6 +284,90 @@ export class PgDiagramRepository implements DiagramRepository {
         };
       }),
     );
+  }
+
+  /** Everyone with access, the owner first. Any member may see who else is in. */
+  async listMembers(diagramId: string): Promise<DiagramMember[]> {
+    await this.access(diagramId, 'viewer');
+    const result = await this.pool.query<MemberRow>(
+      `select u.id, u.name, u.email, u.picture, m.role, m.created_at
+         from diagram_members m join users u on u.id = m.user_id
+        where m.diagram_id = $1
+        order by case m.role when 'owner' then 0 when 'editor' then 1 else 2 end, u.name, u.id`,
+      [diagramId],
+    );
+    return result.rows.map(toMember);
+  }
+
+  /**
+   * Owner only. Adds a person by e-mail, or changes their role. The person must
+   * have signed in at least once — accounts come from the identity provider,
+   * never from an invitation — and the owner's own row cannot be touched here.
+   */
+  async setMember(
+    diagramId: string,
+    email: string,
+    role: Exclude<Role, 'owner'>,
+  ): Promise<DiagramMember> {
+    const diagram = await this.access(diagramId, 'owner');
+    const found = await this.pool.query<UserRow>(
+      `select id, name, email, picture from users
+        where lower(email) = lower($1)
+        order by updated_at desc limit 1`,
+      [email.trim()],
+    );
+    const user = found.rows[0];
+    if (!user) throw new UserNotFoundError(email.trim());
+    if (user.id === diagram.owner_id) {
+      throw new MembershipError('The owner already has every permission.');
+    }
+    const written = await this.pool.query<MemberRow>(
+      `insert into diagram_members (diagram_id, user_id, role, added_by)
+       values ($1, $2, $3, $4)
+       on conflict (diagram_id, user_id) do update set role = excluded.role, added_by = excluded.added_by
+       returning role, created_at`,
+      [diagramId, user.id, role, this.actor.id],
+    );
+    return toMember({ ...user, ...written.rows[0] });
+  }
+
+  /** Owner only. Changes the role of someone already in; the owner's own row is off limits. */
+  async setMemberRole(
+    diagramId: string,
+    userId: string,
+    role: Exclude<Role, 'owner'>,
+  ): Promise<DiagramMember> {
+    const diagram = await this.access(diagramId, 'owner');
+    if (userId === diagram.owner_id) {
+      throw new MembershipError('The owner already has every permission.');
+    }
+    const written = await this.pool.query<MemberRow>(
+      `update diagram_members m set role = $3, added_by = $4
+         from users u
+        where m.diagram_id = $1 and m.user_id = $2 and u.id = m.user_id
+        returning u.id, u.name, u.email, u.picture, m.role, m.created_at`,
+      [diagramId, userId, role, this.actor.id],
+    );
+    const row = written.rows[0];
+    if (!row) throw new MembershipError('That person is not a member of this diagram.');
+    return toMember(row);
+  }
+
+  /**
+   * Removes a person. The owner may remove anyone but themself; anyone else may
+   * only leave. Returns whether a row went away.
+   */
+  async removeMember(diagramId: string, userId: string): Promise<boolean> {
+    const leaving = userId === this.actor.id;
+    const diagram = await this.access(diagramId, leaving ? 'viewer' : 'owner');
+    if (userId === diagram.owner_id) {
+      throw new MembershipError('The owner cannot be removed from their own diagram.');
+    }
+    const result = await this.pool.query(
+      'delete from diagram_members where diagram_id = $1 and user_id = $2',
+      [diagramId, userId],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   /**
@@ -236,11 +391,20 @@ export class PgDiagramRepository implements DiagramRepository {
     }
   }
 
+  /** Everything this person can read, and the history of exactly those diagrams. */
   async exportWorkspace(): Promise<WorkspaceExport> {
     const [diagrams, versions] = await Promise.all([
-      this.pool.query<DiagramRow>(`select ${RECORD_COLUMNS} from diagrams order by created_at`),
+      this.pool.query<DiagramRow>(
+        `select ${RECORD_COLUMNS}, m.role, null as owner_name
+           from diagrams d join diagram_members m on m.diagram_id = d.id and m.user_id = $1
+          order by d.created_at`,
+        [this.actor.id],
+      ),
       this.pool.query<VersionRow>(
-        `select ${VERSION_COLUMNS} from diagram_versions order by created_at`,
+        `select ${VERSION_COLUMNS} from diagram_versions
+          where diagram_id in (select diagram_id from diagram_members where user_id = $1)
+          order by created_at`,
+        [this.actor.id],
       ),
     ]);
     return {
@@ -265,11 +429,9 @@ export class PgDiagramRepository implements DiagramRepository {
 
     await withTransaction(async (client) => {
       for (const parsed of diagrams) {
-        await insertDiagram(client, {
-          ...parsed,
-          id: idMap.get(parsed.id)!,
-          ownerId: this.actor.id,
-        });
+        const id = idMap.get(parsed.id)!;
+        await insertDiagram(client, { ...parsed, id, ownerId: this.actor.id });
+        await insertMember(client, id, this.actor.id, 'owner', this.actor.id);
       }
       for (const parsed of versions) {
         const mappedDiagramId = idMap.get(parsed.diagramId);
@@ -281,18 +443,48 @@ export class PgDiagramRepository implements DiagramRepository {
     return idMap.size;
   }
 
-  /** Lock, mutate, write: the read and the commit are one transaction. */
+  /** Throws unless the row's role covers `required`. */
+  private require(row: Pick<DiagramRow, 'id' | 'role' | 'owner_name'>, required: Role): void {
+    if (!roleAllows(row.role, required)) {
+      throw new DiagramForbiddenError(row.id, required, row.owner_name);
+    }
+  }
+
+  /** The diagram's id, owner and the actor's role — or the right error. */
+  private async access(
+    id: string,
+    required: Role,
+  ): Promise<{ id: string; owner_id: string; role: Role | null; owner_name: string | null }> {
+    const result = await this.pool.query<{
+      id: string;
+      owner_id: string;
+      role: Role | null;
+      owner_name: string | null;
+    }>(`select d.id, d.owner_id, ${ACCESS_COLUMNS} ${withMembership('$2')} where d.id = $1`, [
+      id,
+      this.actor.id,
+    ]);
+    const row = result.rows[0];
+    if (!row) throw new DiagramNotFoundError(id);
+    this.require(row, required);
+    return row;
+  }
+
+  /** Lock, check the role, mutate, write: all one transaction. */
   private change(
     id: string,
+    required: Role,
     update: (record: DiagramRecord, client: PoolClient) => Promise<DiagramRecord>,
   ): Promise<DiagramRecord> {
     return withTransaction(async (client) => {
       const locked = await client.query<DiagramRow>(
-        `select ${RECORD_COLUMNS} from diagrams where id = $1 for update`,
-        [id],
+        `select ${RECORD_COLUMNS}, ${ACCESS_COLUMNS} ${withMembership('$2')}
+          where d.id = $1 for update of d`,
+        [id, this.actor.id],
       );
       const row = locked.rows[0];
       if (!row) throw new DiagramNotFoundError(id);
+      this.require(row, required);
       const updated = DiagramRecordSchema.parse(await update(toRecord(row), client));
       await client.query(
         `update diagrams
@@ -356,6 +548,20 @@ async function insertDiagram(db: Queryable, record: DiagramRecord): Promise<void
       record.thumbnail,
       JSON.stringify(record.model),
     ],
+  );
+}
+
+async function insertMember(
+  db: Queryable,
+  diagramId: string,
+  userId: string,
+  role: Role,
+  addedBy: string,
+): Promise<void> {
+  await db.query(
+    `insert into diagram_members (diagram_id, user_id, role, added_by) values ($1, $2, $3, $4)
+     on conflict (diagram_id, user_id) do update set role = excluded.role`,
+    [diagramId, userId, role, addedBy],
   );
 }
 

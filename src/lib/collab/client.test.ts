@@ -84,6 +84,34 @@ describe('subscribeToDiagram', () => {
     expect(onMeta).toHaveBeenCalledWith(expect.objectContaining({ title: 'Renamed' }));
   });
 
+  it('reports access changes, including removal, and ignores malformed ones', () => {
+    const onAccess = vi.fn();
+    subscribeToDiagram('dgm_1', { onAccess }, { EventSource: Source, heartbeatMs: 0 });
+    const [source] = FakeEventSource.instances;
+    source.emit('access', {
+      type: 'access',
+      userId: 'usr_b',
+      role: 'editor',
+      by: { id: 'usr_a', name: 'Ada' },
+    });
+    source.emit('access', {
+      type: 'access',
+      userId: 'usr_b',
+      role: null,
+      by: { id: 'usr_a', name: 'Ada' },
+    });
+    source.emit('access', { type: 'access', nope: true });
+    expect(onAccess).toHaveBeenCalledTimes(2);
+    expect(onAccess).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ userId: 'usr_b', role: 'editor' }),
+    );
+    expect(onAccess).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ userId: 'usr_b', role: null }),
+    );
+  });
+
   it('reconnects with exponential backoff after an error', () => {
     const statuses: CollabStatus[] = [];
     subscribeToDiagram(

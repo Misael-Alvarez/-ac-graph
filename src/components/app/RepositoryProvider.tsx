@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LocalDiagramRepository, type DiagramRepository } from '@/lib/store';
-import { HttpDiagramRepository } from '@/lib/store/httpRepository';
+import { HttpDiagramRepository, type MembersApi } from '@/lib/store/httpRepository';
 import { useAppConfig } from './AppConfigProvider';
 
 interface RepositoryContextValue {
@@ -27,6 +27,12 @@ export function useRepositoryReady(): boolean {
 
 export function useRepositoryMode(): 'local' | 'server' {
   return useContext(RepositoryContext)?.mode ?? 'local';
+}
+
+/** Who has access to a diagram: a server-mode question, null in the browser-only store. */
+export function useMembersApi(): MembersApi | null {
+  const repository = useContext(RepositoryContext)?.repository;
+  return repository instanceof HttpDiagramRepository ? repository : null;
 }
 
 /**

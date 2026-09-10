@@ -11,7 +11,7 @@ import { renderPreview } from '@/lib/store/preview';
 import { useLocale } from '@/lib/i18n/useLocale';
 import { relativeDay } from '@/lib/i18n/relativeDay';
 import { AcGraphLogo } from '@/components/brand/AcGraphLogo';
-import { useRepository, useRepositoryReady } from '../app/RepositoryProvider';
+import { useMembersApi, useRepository, useRepositoryReady } from '../app/RepositoryProvider';
 import { useUser } from '../app/AuthProvider';
 import { LOCAL_USER } from '@/lib/auth/user';
 import { buildStamp } from '@/lib/appConfig';
@@ -27,6 +27,7 @@ import {
   SunIcon,
   TemplateIcon,
   TrashIcon,
+  UsersIcon,
 } from '@/components/icons/ToolIcons';
 import { Glyph } from '@/components/icons/Glyph';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -44,6 +45,7 @@ const CLOUD_COUNT = new Set(
 /** The diagram library: everything stored, with a way into each one. */
 export function Library() {
   const repository = useRepository();
+  const membersApi = useMembersApi();
   const ready = useRepositoryReady();
   const router = useRouter();
   const { user, state: authState, signOut } = useUser();
@@ -415,6 +417,13 @@ export function Library() {
                           {item.folder}
                         </span>
                       )}
+                      {item.role && item.role !== 'owner' && (
+                        /* Someone else's diagram: say so, and how far one may go with it. */
+                        <span className="library-card-role" title={t('library.sharedWithYou')}>
+                          <UsersIcon size={11} />
+                          {t(item.role === 'editor' ? 'role.editor' : 'role.viewer')}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </button>
@@ -428,15 +437,27 @@ export function Library() {
                   >
                     <CopyIcon size={14} />
                   </button>
-                  <button
-                    type="button"
-                    className="icon-button is-danger"
-                    title={t('action.delete')}
-                    aria-label={`${t('action.delete')}: ${item.title}`}
-                    onClick={() => setDeleting(item)}
-                  >
-                    <TrashIcon size={14} />
-                  </button>
+                  {item.role && item.role !== 'owner' ? (
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title={t('share.leave')}
+                      aria-label={`${t('share.leave')}: ${item.title}`}
+                      onClick={() => setDeleting(item)}
+                    >
+                      <LogOutIcon size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-button is-danger"
+                      title={t('action.delete')}
+                      aria-label={`${t('action.delete')}: ${item.title}`}
+                      onClick={() => setDeleting(item)}
+                    >
+                      <TrashIcon size={14} />
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
@@ -506,13 +527,25 @@ export function Library() {
       {deleting && (
         <ConfirmDialog
           t={t}
-          message={t('library.confirmDelete', { title: deleting.title })}
-          confirmLabel={t('action.delete')}
+          message={t(
+            deleting.role && deleting.role !== 'owner'
+              ? 'library.leaveConfirm'
+              : 'library.confirmDelete',
+            { title: deleting.title },
+          )}
+          confirmLabel={t(
+            deleting.role && deleting.role !== 'owner' ? 'share.leave' : 'action.delete',
+          )}
           onCancel={() => setDeleting(null)}
           onConfirm={() => {
-            const id = deleting.id;
+            const target = deleting;
             setDeleting(null);
-            void repository.delete(id).then(refresh);
+            // Leaving a shared diagram removes only our own membership; deleting is the owner's.
+            const gone =
+              target.role && target.role !== 'owner' && membersApi
+                ? membersApi.removeMember(target.id, user.id)
+                : repository.delete(target.id);
+            void gone.then(refresh);
           }}
         />
       )}

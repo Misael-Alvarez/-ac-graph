@@ -1,0 +1,332 @@
+// Functional audit of roles per diagram, against a server-mode instance.
+//
+// Two browsers: Ada owns a diagram, Bob is a stranger, then a viewer, then an
+// editor, then removed, then a viewer who leaves. Every control the share
+// dialog, the read-only editor and the library gained for roles must change
+// something observable, and this is where that is checked.
+//
+// Usage:
+//   AUDIT_DATABASE_URL=postgres://… node scripts/audit-roles.mjs [baseUrl]
+//
+// The app must be running in server mode against that same database (see
+// docs/AUTHENTIK.md). The script seeds two users and two sessions, works, and
+// removes what it created except the users. Never point it at a real workspace.
+import { register } from 'node:module';
+import { randomBytes, createHash } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import { chromium } from '@playwright/test';
+import pg from 'pg';
+
+register('../bin/hooks.mjs', import.meta.url);
+const { createEmptyModel, addGroup } = await import('../src/lib/engine/index.ts');
+
+const base = process.argv[2] ?? 'http://127.0.0.1:3100';
+const databaseUrl = process.env.AUDIT_DATABASE_URL;
+if (!databaseUrl) {
+  console.error('Set AUDIT_DATABASE_URL to the database the server-mode app uses.');
+  process.exit(2);
+}
+const shots = process.env.AUDIT_SHOTS ?? '';
+if (shots) mkdirSync(shots, { recursive: true });
+
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok, detail });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+};
+const shot = (page, name) => (shots ? page.screenshot({ path: `${shots}/${name}.png` }) : null);
+
+/* --- Seed: two people who have "signed in once", each with a live session. --- */
+const pool = new pg.Pool({ connectionString: databaseUrl, max: 2 });
+const ISSUER = 'https://audit.invalid/application/o/ac-graph/';
+async function person(name) {
+  const email = `${name.toLowerCase()}@audit.example`;
+  const found = await pool.query('select id from users where lower(email) = $1', [email]);
+  let id = found.rows[0]?.id;
+  if (!id) {
+    id = `usr_audit_${name.toLowerCase()}_${randomBytes(4).toString('hex')}`;
+    await pool.query(
+      'insert into users (id, issuer, subject, name, email) values ($1, $2, $3, $4, $5)',
+      [id, ISSUER, `audit-${name.toLowerCase()}`, name, email],
+    );
+  }
+  const cookie = randomBytes(32).toString('base64url');
+  await pool.query(
+    `insert into sessions (id_hash, user_id, expires_at) values ($1, $2, now() + interval '1 hour')`,
+    [createHash('sha256').update(cookie).digest('hex'), id],
+  );
+  return { id, name, email, cookie };
+}
+const ada = await person('Ada');
+const bob = await person('Bob');
+
+const url = new URL(base);
+const browser = await chromium.launch();
+async function signedIn(cookie) {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+    locale: 'es',
+  });
+  await context.addCookies([
+    { name: 'acg_session', value: cookie, domain: url.hostname, path: '/', httpOnly: true },
+  ]);
+  return context.newPage();
+}
+const adaPage = await signedIn(ada.cookie);
+const bobPage = await signedIn(bob.cookie);
+
+let diagramId = null;
+try {
+  const model = createEmptyModel();
+  addGroup(model, 0, 0);
+
+  await adaPage.goto(`${base}/`);
+  await adaPage.waitForSelector('.library', { timeout: 15000 });
+  const created = await adaPage.evaluate(
+    async (body) => {
+      const r = await fetch('/api/diagrams', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-requested-with': 'ac-graph' },
+        body: JSON.stringify(body),
+      });
+      return r.json();
+    },
+    { title: 'Roles audit', model },
+  );
+  diagramId = created.id;
+  check('Ada creates a diagram and is its owner', created.role === 'owner', diagramId);
+
+  /* 1. A stranger. */
+  await bobPage.goto(`${base}/d/${diagramId}`);
+  await bobPage.waitForSelector('.page-note', { timeout: 15000 });
+  const denied = (await bobPage.locator('.page-note').innerText()).replace(/\s+/g, ' ');
+  check(
+    'Bob (stranger) sees the no-access page naming Ada',
+    /No tienes acceso/.test(denied) && /Ada/.test(denied),
+    denied.slice(0, 80),
+  );
+  await shot(bobPage, '01-stranger');
+
+  /* 2. The owner invites. */
+  await adaPage.goto(`${base}/d/${diagramId}`);
+  await adaPage.waitForSelector('.topbar', { timeout: 15000 });
+  check(
+    'The owner has no read-only badge',
+    (await adaPage.locator('.readonly-badge').count()) === 0,
+  );
+  await adaPage.locator('.topbar button[aria-label="Compartir"]').click();
+  const dialog = adaPage.getByRole('dialog', { name: 'Compartir' });
+  await dialog.locator('.share-people-list').waitFor({ timeout: 10000 });
+  check(
+    'Share: people section lists the owner only',
+    (await dialog.locator('.share-person').count()) === 1,
+  );
+
+  await dialog.locator('input[type="email"]').fill('nobody@audit.example');
+  await dialog.locator('.share-invite button[type="submit"]').click();
+  await dialog.locator('.share-people-note.is-error').waitFor({ timeout: 10000 });
+  check(
+    'Share: an unknown e-mail is explained',
+    /iniciado sesión/.test(await dialog.locator('.share-people-note.is-error').innerText()),
+  );
+
+  await dialog.locator('input[type="email"]').fill(bob.email.toUpperCase());
+  await dialog.locator('.share-invite select').selectOption('viewer');
+  await dialog.locator('.share-invite button[type="submit"]').click();
+  const bobRow = dialog.locator('.share-person').nth(1);
+  await bobRow.waitFor({ timeout: 10000 });
+  check(
+    'Share: adding by e-mail (any case) lists the person with the chosen role',
+    /Bob/.test(await bobRow.innerText()) &&
+      (await bobRow.locator('select').inputValue()) === 'viewer',
+  );
+  await shot(adaPage, '02-share-people');
+
+  /* 3. A viewer. */
+  await bobPage.goto(`${base}/d/${diagramId}`);
+  await bobPage.waitForSelector('.readonly-badge', { timeout: 15000 });
+  check(
+    'Viewer: read-only badge',
+    /Solo lectura/.test(await bobPage.locator('.readonly-badge').innerText()),
+  );
+  check(
+    'Viewer: one tool in the dock',
+    (await bobPage.locator('.tool-dock .tool-button').count()) === 1,
+  );
+  check(
+    'Viewer: title cannot be edited',
+    (await bobPage.locator('.topbar-name').getAttribute('readonly')) !== null,
+  );
+  check(
+    'Viewer: AI is disabled',
+    await bobPage.locator('.topbar button[aria-label="IA"]').isDisabled(),
+  );
+  check(
+    'Viewer: status bar says read-only',
+    /Solo lectura/.test(await bobPage.locator('.statusbar').innerText()),
+  );
+
+  const item = bobPage.locator('.canvas-surface rect[data-shape-id^="itm_"]').first();
+  await item.click({ position: { x: 30, y: 20 } });
+  await bobPage.waitForSelector('.inspector', { timeout: 5000 });
+  const enabled = await bobPage
+    .locator('.inspector input:enabled, .inspector select:enabled, .inspector button:enabled')
+    .count();
+  check(
+    'Viewer: inspector shows every property, none editable',
+    (await bobPage.locator('fieldset.inspector-lock[disabled]').count()) === 1 && enabled === 0,
+    `enabled controls: ${enabled}`,
+  );
+  check('Viewer: no resize handle', (await bobPage.locator('.resize-handle').count()) === 0);
+  await item.click({ button: 'right', position: { x: 30, y: 20 } });
+  await bobPage.waitForTimeout(250);
+  check('Viewer: no editing context menu', (await bobPage.locator('.context-menu').count()) === 0);
+
+  const shapesBefore = await bobPage.locator('.canvas-surface [data-shape-id]').count();
+  await bobPage.keyboard.press('Delete');
+  await bobPage.keyboard.press('Backspace');
+  await bobPage.keyboard.press('Meta+z');
+  await bobPage.waitForTimeout(250);
+  const shapesAfter = await bobPage.locator('.canvas-surface [data-shape-id]').count();
+  check('Viewer: delete and undo change nothing', shapesBefore === shapesAfter && shapesBefore > 0);
+
+  await bobPage.keyboard.press('Meta+k');
+  await bobPage.waitForSelector('.palette-input', { timeout: 5000 });
+  await bobPage.locator('.palette-input').fill('Vaciar');
+  await bobPage.waitForTimeout(250);
+  check(
+    'Viewer: the palette does not offer to clear the canvas',
+    (await bobPage
+      .locator('.palette-row')
+      .filter({ hasText: /Vaciar/ })
+      .count()) === 0,
+  );
+  await bobPage.keyboard.press('Escape');
+  await shot(bobPage, '03-viewer');
+
+  await adaPage.keyboard.press('Escape');
+  await adaPage
+    .waitForFunction(() => document.querySelectorAll('.presence-avatar').length >= 2, null, {
+      timeout: 15000,
+    })
+    .catch(() => {});
+  check(
+    'Presence: the owner sees the viewer in the room',
+    (await adaPage.locator('.presence-avatar').count()) >= 2,
+  );
+
+  /* 4. Promoted live. */
+  await adaPage.locator('.topbar button[aria-label="Compartir"]').click();
+  await dialog.locator('.share-person').nth(1).locator('select').waitFor({ timeout: 10000 });
+  await dialog.locator('.share-person').nth(1).locator('select').selectOption('editor');
+  await bobPage.waitForFunction(
+    () => document.querySelectorAll('.readonly-badge').length === 0,
+    null,
+    {
+      timeout: 15000,
+    },
+  );
+  check(
+    'Editor: promotion takes effect live (badge gone, tools back)',
+    (await bobPage.locator('.tool-dock .tool-button').count()) > 1,
+  );
+  const toasts = await bobPage
+    .locator('.toast')
+    .allInnerTexts()
+    .catch(() => []);
+  check(
+    'Editor: told by whom',
+    toasts.some((text) => /Ada/.test(text)),
+    toasts.join(' | ').slice(0, 60),
+  );
+  await shot(bobPage, '04-editor');
+
+  /* 5. Removed live. */
+  await dialog.locator('.share-person').nth(1).getByRole('button', { name: 'Quitar' }).click();
+  await bobPage.waitForSelector('.editor-banner.is-danger', { timeout: 15000 });
+  const banner = await bobPage.locator('.editor-banner.is-danger').innerText();
+  check(
+    'Removed: banner names who did it, copy stays downloadable',
+    /Ada te retiró/.test(banner) && /Descargar/.test(banner),
+    banner.slice(0, 60),
+  );
+  check('Removed: read-only again', (await bobPage.locator('.readonly-badge').count()) === 1);
+  await dialog
+    .locator('.share-person')
+    .nth(1)
+    .waitFor({ state: 'detached', timeout: 10000 })
+    .catch(() => {});
+  check(
+    'Share: the list follows the removal',
+    (await dialog.locator('.share-person').count()) === 1,
+  );
+  await shot(bobPage, '05-removed');
+
+  /* 6. The library of a viewer. */
+  await dialog.locator('input[type="email"]').fill(bob.email);
+  await dialog.locator('.share-invite select').selectOption('viewer');
+  await dialog.locator('.share-invite button[type="submit"]').click();
+  await dialog.locator('.share-person').nth(1).waitFor({ timeout: 10000 });
+  await bobPage.goto(`${base}/`);
+  await bobPage.waitForSelector('.library-card', { timeout: 15000 });
+  const card = bobPage.locator('.library-card').filter({ hasText: 'Roles audit' }).first();
+  check(
+    'Library: a shared diagram wears its role',
+    /Puede ver/.test(await card.locator('.library-card-role').innerText()),
+  );
+  check(
+    'Library: a non-owner can leave, not delete',
+    (await card.getByRole('button', { name: /^Salir/ }).count()) === 1 &&
+      (await card.getByRole('button', { name: /^Eliminar/ }).count()) === 0,
+  );
+  await shot(bobPage, '06-library');
+  if (shots) await card.screenshot({ path: `${shots}/06-library-card.png` });
+  const cards = await bobPage.locator('.library-card').filter({ hasText: 'Roles audit' }).count();
+  await card.getByRole('button', { name: /^Salir/ }).click();
+  await bobPage.getByRole('button', { name: 'Salir' }).last().click();
+  await bobPage
+    .waitForFunction(
+      (n) =>
+        [...document.querySelectorAll('.library-card')].filter((c) =>
+          c.textContent.includes('Roles audit'),
+        ).length < n,
+      cards,
+      { timeout: 10000 },
+    )
+    .catch(() => {});
+  const cardsAfter = await bobPage
+    .locator('.library-card')
+    .filter({ hasText: 'Roles audit' })
+    .count();
+  check(
+    'Library: leaving removes the diagram from the library',
+    cardsAfter === cards - 1,
+    `${cards} -> ${cardsAfter}`,
+  );
+  await dialog
+    .locator('.share-person')
+    .nth(1)
+    .waitFor({ state: 'detached', timeout: 10000 })
+    .catch(() => {});
+  check(
+    'Share: the owner sees the departure',
+    (await dialog.locator('.share-person').count()) === 1,
+  );
+} finally {
+  /* --- Clean up: the diagram and the two sessions; the people stay. --- */
+  if (diagramId)
+    await pool.query('delete from diagrams where id = $1', [diagramId]).catch(() => {});
+  for (const who of [ada, bob]) {
+    await pool
+      .query('delete from sessions where id_hash = $1', [
+        createHash('sha256').update(who.cookie).digest('hex'),
+      ])
+      .catch(() => {});
+  }
+  await pool.end();
+  await browser.close();
+}
+
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+process.exit(failed.length ? 1 : 0);

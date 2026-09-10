@@ -33,7 +33,7 @@ type Format = 'dsl' | 'mermaid';
  */
 export function CodePanel() {
   useReturnFocusToCanvas();
-  const { doc, ui, dispatch, dispatchUi, t } = useEditor();
+  const { doc, ui, dispatch, dispatchUi, readOnly, t } = useEditor();
   const [source, setSource] = useState(() => serializeDsl(doc.model));
   const [focused, setFocused] = useState(false);
   const [format, setFormat] = useState<Format>('dsl');
@@ -125,7 +125,7 @@ export function CodePanel() {
         }
         actions={
           <>
-            {format === 'mermaid' && (
+            {(format === 'mermaid' || readOnly) && (
               <span className="code-badge is-muted">{t('code.readOnly')}</span>
             )}
             {format === 'dsl' && errorCount > 0 && (
@@ -160,6 +160,7 @@ export function CodePanel() {
           diagnostics={diagnosticsForView}
           cloud={cloud}
           locale={ui.locale}
+          readOnly={readOnly}
         />
       </div>
 

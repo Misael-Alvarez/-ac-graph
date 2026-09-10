@@ -1,8 +1,8 @@
 /**
  * Browser side of the collaboration channel.
  *
- * One `EventSource` per open diagram receives `saved`, `meta`, `deleted` and
- * `presence` events; cursor and editing state go up through a small POST. The
+ * One `EventSource` per open diagram receives `saved`, `meta`, `deleted`,
+ * `access` and `presence` events; cursor and editing state go up through a small POST. The
  * transport is deliberately dumb — no operational transform, no CRDT — because
  * this phase only needs to tell an editor that somebody else saved, and to show
  * who else is looking.
@@ -31,6 +31,13 @@ export interface MetaEvent {
   title: string;
 }
 
+/** Someone's access to the diagram changed; `role: null` means they were removed. */
+export interface AccessEvent {
+  userId: string;
+  role: 'owner' | 'editor' | 'viewer' | null;
+  by: { id: string; name: string };
+}
+
 export type CollabStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
 
 export interface SubscriptionHandlers {
@@ -38,6 +45,7 @@ export interface SubscriptionHandlers {
   onPresence?: (users: PresenceUser[]) => void;
   onDeleted?: () => void;
   onMeta?: (event: MetaEvent) => void;
+  onAccess?: (event: AccessEvent) => void;
   onStatus?: (status: CollabStatus) => void;
 }
 
@@ -166,6 +174,10 @@ export function subscribeToDiagram(
     next.addEventListener('meta', (event) => {
       const data = parseData<MetaEvent>((event as MessageEvent).data);
       if (data) handlers.onMeta?.(data);
+    });
+    next.addEventListener('access', (event) => {
+      const data = parseData<AccessEvent>((event as MessageEvent).data);
+      if (data && typeof data.userId === 'string') handlers.onAccess?.(data);
     });
     next.addEventListener('deleted', () => {
       stop();

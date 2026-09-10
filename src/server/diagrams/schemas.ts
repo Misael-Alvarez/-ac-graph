@@ -46,6 +46,16 @@ export const PresenceBodySchema = z
   })
   .strict();
 
+/** Who to let in and how far. The owner is never set through here. */
+export const MemberBodySchema = z
+  .object({
+    email: z.string().trim().email().max(320),
+    role: z.enum(['editor', 'viewer']),
+  })
+  .strict();
+
+export const MemberRoleSchema = z.object({ role: z.enum(['editor', 'viewer']) }).strict();
+
 export const WorkspaceImportSchema = z.object({
   exportedAt: z.string(),
   diagrams: z.array(DiagramRecordSchema),

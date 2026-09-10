@@ -31,7 +31,7 @@ const TOOLS = new Set<ToolMode>([
  * to have the keyboard.
  */
 export function useKeyboard() {
-  const { ui, view, dispatch, dispatchUi, canUndo, canRedo, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, canUndo, canRedo, readOnly, t } = useEditor();
   const commands = useCommands();
 
   useEffect(() => {
@@ -111,7 +111,8 @@ export function useKeyboard() {
       if (typing || blocked) return;
 
       if (binding.scope === 'tool') {
-        if (TOOLS.has(binding.id as ToolMode)) {
+        // A viewer has one tool; the placing ones would only change the cursor.
+        if (TOOLS.has(binding.id as ToolMode) && (!readOnly || binding.id === 'select')) {
           dispatchUi({ type: 'setTool', tool: binding.id as ToolMode });
         }
         return;
@@ -206,6 +207,7 @@ export function useKeyboard() {
     dispatchUi,
     canUndo,
     canRedo,
+    readOnly,
     t,
   ]);
 }

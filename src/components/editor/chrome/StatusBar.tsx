@@ -13,7 +13,7 @@ const HINTS: Record<string, MessageKey> = {
 };
 
 export function StatusBar({ status }: { status: SaveStatus }) {
-  const { doc, ui, t } = useEditor();
+  const { doc, ui, readOnly, t } = useEditor();
 
   const hint =
     ui.tool === 'connector'
@@ -41,20 +41,24 @@ export function StatusBar({ status }: { status: SaveStatus }) {
           count: doc.model.connectors.length,
         })}
       </span>
-      <span className={`statusbar-meta save-status is-${status}`}>
-        <span className="save-dot" aria-hidden="true" />
-        {t(
-          status === 'saving'
-            ? 'status.saving'
-            : status === 'error'
-              ? 'status.error'
-              : status === 'conflict'
-                ? 'status.conflict'
-                : status === 'pending'
-                  ? 'status.pending'
-                  : 'status.saved',
-        )}
-      </span>
+      {readOnly ? (
+        <span className="statusbar-meta">{t('readonly.badge')}</span>
+      ) : (
+        <span className={`statusbar-meta save-status is-${status}`}>
+          <span className="save-dot" aria-hidden="true" />
+          {t(
+            status === 'saving'
+              ? 'status.saving'
+              : status === 'error'
+                ? 'status.error'
+                : status === 'conflict'
+                  ? 'status.conflict'
+                  : status === 'pending'
+                    ? 'status.pending'
+                    : 'status.saved',
+          )}
+        </span>
+      )}
     </footer>
   );
 }

@@ -52,6 +52,8 @@ interface Options {
   onViewportChange: (viewport: Viewport) => void;
   /** Screen coordinates relative to the canvas element. */
   toLocal: (e: { clientX: number; clientY: number }) => Point;
+  /** Drags and resizes never start; lasso and pan still do. */
+  readOnly?: boolean;
 }
 
 const MIN_SHAPE_W = 120;
@@ -72,6 +74,7 @@ export function usePointerTools({
   onLassoSelect,
   onViewportChange,
   toLocal,
+  readOnly = false,
 }: Options) {
   const [interaction, setInteraction] = useState<Interaction>(null);
 
@@ -245,6 +248,8 @@ export function usePointerTools({
 
   const startDrag = useCallback(
     (e: { clientX: number; clientY: number }, id: string) => {
+      // A viewer selects and pans; nothing on the canvas moves under their pointer.
+      if (readOnly) return;
       const shape = E.getShape(model, id);
       if (!shape) return;
       // Dragging an unselected shape moves just that shape.
@@ -262,11 +267,12 @@ export function usePointerTools({
         guides: [],
       });
     },
-    [model, selectedIds, viewport, toLocal, applyInteraction],
+    [model, selectedIds, viewport, toLocal, applyInteraction, readOnly],
   );
 
   const startResize = useCallback(
     (e: { clientX: number; clientY: number }, id: string) => {
+      if (readOnly) return;
       const shape = E.getShape(model, id);
       if (!shape) return;
       applyInteraction({
@@ -279,7 +285,7 @@ export function usePointerTools({
         h: shape.h,
       });
     },
-    [model, viewport, toLocal, applyInteraction],
+    [model, viewport, toLocal, applyInteraction, readOnly],
   );
 
   const startLasso = useCallback(

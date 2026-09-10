@@ -49,7 +49,7 @@ function useClampedPosition(x: number, y: number) {
  * which is the one place a menu can act on a position the user chose.
  */
 export function ContextMenu() {
-  const { ui, view, dispatch, dispatchUi, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, readOnly, t } = useEditor();
   const liquid = useLiquidPointer();
   const target = ui.contextMenu;
   const { ref, position } = useClampedPosition(target?.x ?? 0, target?.y ?? 0);
@@ -70,7 +70,8 @@ export function ContextMenu() {
     };
   }, [target, dispatchUi]);
 
-  if (!target) return null;
+  // Everything in here edits; a viewer gets the browser's own menu instead.
+  if (!target || readOnly) return null;
 
   const close = () => dispatchUi({ type: 'closeContextMenu' });
   const shape = target.shapeId ? E.getShape(view, target.shapeId) : undefined;

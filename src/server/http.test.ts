@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { DiagramConflictError } from '@/lib/store/localRepository';
-import { DiagramNotFoundError, VersionNotFoundError } from './diagrams/errors';
+import {
+  DiagramForbiddenError,
+  DiagramNotFoundError,
+  MembershipError,
+  UserNotFoundError,
+  VersionNotFoundError,
+} from './diagrams/errors';
 import {
   HttpError,
   error,
@@ -63,6 +69,32 @@ describe('errorResponse', () => {
   it('maps missing diagrams and versions to 404', async () => {
     expect(errorResponse(new DiagramNotFoundError('dgm_x')).status).toBe(404);
     expect(errorResponse(new VersionNotFoundError('ver_x')).status).toBe(404);
+  });
+
+  it('maps a role denial to 403 no_access with whom to ask, never the diagram', async () => {
+    const response = errorResponse(new DiagramForbiddenError('dgm_x', 'editor', 'Ada'));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: 'no_access',
+      message: 'You do not have access to this diagram.',
+      required: 'editor',
+      owner: { name: 'Ada' },
+    });
+    const anonymous = await errorResponse(new DiagramForbiddenError('dgm_x', 'viewer')).json();
+    expect(anonymous).not.toHaveProperty('owner');
+    expect(JSON.stringify(anonymous)).not.toContain('dgm_x');
+  });
+
+  it('maps an unknown invitee to 404 user_not_found and a bad member change to 400', async () => {
+    const unknown = errorResponse(new UserNotFoundError('x@example.com'));
+    expect(unknown.status).toBe(404);
+    expect((await unknown.json()).code).toBe('user_not_found');
+    const owner = errorResponse(new MembershipError('The owner cannot be removed.'));
+    expect(owner.status).toBe(400);
+    expect(await owner.json()).toEqual({
+      code: 'bad_request',
+      message: 'The owner cannot be removed.',
+    });
   });
 
   it('maps a Zod failure to 400 with the issues', async () => {

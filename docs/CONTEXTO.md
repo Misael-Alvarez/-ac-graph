@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 #5 observabilidad en `origin/main`; H1 #6 bus multi-réplica entregado, pendiente de commit).
+Última actualización: 2026-09-10 (H1 cerrado: #5 y #6 en `origin/main`; #7 roles por diagrama entregado, pendiente de commit).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -9,8 +9,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 ## 1. Qué es y dónde está
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
-- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` en `f12fdb2` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** HEAD `f12fdb2` con **H1 #6 (bus multi-réplica) sin confirmar**: `src/server/collab/{bus,collaboration}.ts` y sus tests (`bus.test.ts`, `collaboration.test.ts`, `bus.pg.test.ts`), `presence.ts` (`peek`), `stream.ts`, `events.ts`, rutas `[id]`/`restore`/`presence`, `startup.ts` (arranque del bus), métricas del bus, docs. Verificado en verde (sección 3). Commits anteriores, por tema:
+- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` en `9db935a` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
+- **Estado del árbol:** HEAD `9db935a` con **H1 #7 (roles por diagrama) sin confirmar**: dominio (`RoleSchema`, `DiagramMeta.role`, `DiagramMemberSchema`), migración 6 `diagram_members`, `repository.ts` reescrito con autorización, rutas `members`, evento `access`, `httpRepository.ts` (`NoAccessError`, `MembersApi`), `useDiagramDocument` (`noAccess`/`role`/`applyAccess`), `EditorProvider` (`readOnly` + `guardDispatch`), solo lectura en TopBar/ToolDock/Inspector/Canvas/VersionPanel/CodeEditor/commands/keyboard/StatusBar, `ShareDialog` con personas, `Library` con chip y salir, `src/lib/collab/colors.ts`, i18n, CSS, `scripts/audit-roles.mjs`, docs. Verificado en verde (sección 3). Commits anteriores, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -20,6 +20,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `69408f2` — Write down where the work stands and how to pick it up
   - `c03cf6e` — Record the checkpoint's commits in the context and the checkpoint log
   - `f12fdb2` — See what the server is doing: one id per request, one line per request, metrics and traces
+  - `9db935a` — Let replicas share the room: presence and events over LISTEN/NOTIFY
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -66,6 +67,10 @@ grep '"msg":"http request"' /tmp/acgraph-3100.log                          # lí
 # Trazas: OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 al arrancar; colector falso de prueba en
 # /var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/fake-otlp.mjs (temporal; GET /dump lista spans)
 
+# Auditoría de roles (modo servidor, dos navegadores; siembra y limpia sus propios usuarios/sesiones)
+AUDIT_DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test npm run audit:roles -- http://127.0.0.1:3100
+# (el servidor debe correr en modo servidor contra esa misma base: DATABASE_URL + OIDC_ISSUER + OIDC_CLIENT_ID + APP_URL)
+
 # PostgreSQL desechable para las pruebas *.pg.test.ts (se destruye al parar)
 docker run -d --rm --name acgraph-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=acgraph_test -p 127.0.0.1:55433:5432 postgres:17.11-bookworm
 TEST_DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test npm test
@@ -83,7 +88,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 ## 4. Estado del contenedor
 
-`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 tras H1 #5 (`/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde); **no incluye el bus de H1 #6** hasta reconstruir. El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
+`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 tras el cierre de H1 (#5, #6 y #7 incluidos; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
 
 ## 5. Decisiones que no hay que rediscutir
 
@@ -97,13 +102,14 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - **Tipografía:** Geist / Geist Mono autoalojadas. Paleta pizarra-azul (`#0b1020 / #121a2e / #1a2440`).
 - **Movimiento:** lo que abre el teclado no se anima (paleta ⌘K); popovers crecen desde su disparador; tooltips propios (instantáneos entre vecinos, nunca repiten la etiqueta visible); todo sobre transform/opacity; apagado con `prefers-reduced-motion`; materiales respetan `prefers-reduced-transparency` y `prefers-contrast`.
 - **Authentik:** el provider `ac-graph` **no existe** aún; el usuario pidió no configurarlo por ahora. Cuando toque: `docs/AUTHENTIK.md` (redirect `${APP_URL}/api/auth/callback`, PKCE, RS256, `NODE_EXTRA_CA_CERTS` + `extra_hosts` para `auth.localhost`).
+- **Roles por diagrama:** la autorización vive en `PgDiagramRepository` (nunca solo en la UI): cada lectura hace join con `diagram_members` del actor y cada escritura lee el rol con el `for update`. Extraño → `DiagramForbiddenError` (403 `no_access` con `owner.name`); inexistente → 404. El propietario es `owner_id` (una sola fila `owner`, intocable, sin transferencia). El editor de un lector es el editor completo con la escritura quitada: guarda única en `dispatch` (`guardDispatch`) **y** controles desactivados a la vista; al añadir un control que escribe, comprobar `readOnly` de `useEditor()` o `enabled` del comando. Los cambios de acceso viajan como evento `access` y el cliente reacciona en vivo. La sección «Personas» solo existe en modo servidor (`useMembersApi()`); se audita con `npm run audit:roles`, no con `audit:controls`.
 - **Bus entre réplicas:** toda publicación viva pasa por `collaboration()` (`publish`/`touch`/`leave`), nunca por `events().publish` directo (solo entrega local). Un canal `acgraph_collab`, un `origin` por proceso, presencia como estado absoluto por sesión, eco propio ignorado. `LISTEN` necesita conexión directa a PostgreSQL (o pooler en modo sesión). Best effort por diseño: sin cola ni reenvío; el TTL de 15 s cura la presencia.
 - **Observabilidad:** toda ruta API pasa por `observe(request, { route })` (`withUser`/`withServerMode` lo exigen). Al crear una ruta: declarar su plantilla (`/api/x/[id]`), nunca el path concreto; **ningún id como etiqueta de métrica** (hay prueba que lo comprueba); no registrar query string, cuerpo ni cabeceras; usar `log()` (nunca `console.*`) y `appMetrics()` para contadores nuevos, declarados en `metrics.ts`. Logger y registro Prometheus son propios (sin dependencia); el SDK de OTel solo se carga con `OTEL_EXPORTER_OTLP_ENDPOINT`. En tests, `captureLogs()` de `src/server/testing/logs.ts`; la suite arranca con `LOG_LEVEL=silent`.
 
 ## 6. Límites conocidos (no son bugs pendientes; son alcance)
 
 - Bus de colaboración best effort (mensajes perdidos mientras una réplica tiene caída la conexión de escucha; sin cola). Un solo canal para todos los diagramas.
-- Un solo workspace, sin roles (`ownerId` informativo) — H1 #7.
+- Un solo workspace: sin equipos ni roles de workspace, la propiedad no se transfiere; invitar exige que la persona haya iniciado sesión una vez (H3 #23).
 - Sin CRDT: colaboración = presencia + adopción de guardados ajenos + conflicto 412 con banner.
 - Biblioteca de iconos propios por navegador (no se sincroniza en modo servidor) — H2 #14.
 - Azure y OCI sin iconos oficiales (313/572) — H2 #15.
@@ -122,17 +128,17 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Iconos propios: `src/lib/icons/{customIcons,iconLibrary}.ts`.
 - Portada: `src/components/library/Library.tsx` (+ `CountUp`), vista previa real `src/lib/store/preview.ts`.
 - App: `src/components/app/` (providers, tooltips, ripple, tema, `PageState` para 404/error).
-- Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica).
+- Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica). Roles: `src/server/diagrams/{repository,errors,schemas}.ts`, rutas `src/app/api/diagrams/[id]/members/**`, cliente `src/lib/store/httpRepository.ts` (`MembersApi`), solo lectura `src/lib/editor/readOnly.ts` + `readOnly` en `EditorProvider`, UI `ShareDialog.tsx` (`SharePeople`) y `Library.tsx`.
 - Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
-- Herramientas: `scripts/{audit-controls,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1113; 1160 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (136 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
+- Herramientas: `scripts/{audit-controls,audit-roles,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
+- Pruebas: `src/**/*.test.ts` (1120; 1177 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (136 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **Confirmar H1 #6** en un commit y `git push`; reconstruir la imagen Docker local.
-2. H1 #7 **roles por diagrama** — L: tabla `diagram_members(diagram_id, user_id, role owner|editor|viewer)`, invitación por correo entre usuarios ya vistos por OIDC, rutas y SSE que respetan el rol, menú Compartir con personas y selector de rol, lector en solo lectura con presencia.
+1. **Confirmar H1 #7** en un commit y `git push` (la imagen Docker local ya está reconstruida).
+2. **H1 cerrado.** Seguir por `PLAN_MEJORAS.md`: victorias rápidas restantes y H1 #2 fase 2 (`Row/Tile/Field`, partir `TopBar.tsx` y `Library.tsx`), después H2 (#9 comentarios anclados, #10 presentación, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias, que ya puede apoyarse en los roles).
 3. Victorias rápidas restantes: enlaces clicables en el chip de repositorio, exportar con/sin metadatos y tema de exportación, ordenar/favoritos en la biblioteca, arrastrar archivo a la portada, salidas animadas con `@starting-style`, descripción accesible, virtualizar listas.
 4. H1 #2 fase 2: `Row/Tile/Field` como componentes y migrar las seis superficies; luego partir `TopBar.tsx` (542) y `Library.tsx` (532).
 

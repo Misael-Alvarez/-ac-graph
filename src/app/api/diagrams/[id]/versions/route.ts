@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { withUser } from '@/server/handler';
-import { HttpError, json } from '@/server/http';
+import { json } from '@/server/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,9 +10,7 @@ const ROUTE = '/api/diagrams/[id]/versions';
 export function GET(request: NextRequest, context: RouteContext<typeof ROUTE>) {
   return withUser(request, { route: ROUTE }, async ({ repository }) => {
     const { id } = await context.params;
-    if (!(await repository.get(id))) {
-      throw new HttpError(404, 'not_found', `Diagram not found: ${id}`);
-    }
+    // Unknown diagram → 404, not a member → 403: the repository decides both.
     return json(await repository.listVersions(id));
   });
 }

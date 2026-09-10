@@ -36,6 +36,7 @@ import {
   ImportIcon,
   KeyboardIcon,
   ListIcon,
+  LockIcon,
   LogOutIcon,
   MapIcon,
   MoonIcon,
@@ -88,7 +89,7 @@ function initials(name: string): string {
  * thirtieth command and a poor way to reach the fourth.
  */
 export function TopBar({ title, status, onRename, collab }: TopBarProps) {
-  const { ui, dispatchUi, canUndo, canRedo, t } = useEditor();
+  const { ui, dispatchUi, canUndo, canRedo, readOnly, t } = useEditor();
   const { user, state: authState, signOut, rename } = useUser();
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -125,6 +126,8 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
     closeMenu();
     run(id);
   };
+  /** True when the command exists and is currently disabled (a viewer, an empty selection). */
+  const off = (id: string) => commands.find((c) => c.id === id)?.enabled === false;
   const chord = (id: string) => {
     const keys = shortcutFor(id);
     return keys ? spellChord(keys) : undefined;
@@ -151,20 +154,29 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
           value={title}
           aria-label={t('inspector.label')}
           spellCheck={false}
+          readOnly={readOnly}
           onChange={(e) => onRename(e.target.value)}
         />
-        {/* Keyed on the status so the check draws itself again each time a
-            save lands: the moment work becomes safe is worth a small flourish. */}
-        <span key={status} className={`save-status is-${status}`} role="status">
-          {status === 'saved' ? (
-            <svg className="save-check" viewBox="0 0 12 12" aria-hidden="true">
-              <path d="M2.5 6.5 5 9l4.5-6" />
-            </svg>
-          ) : (
-            <span className="save-dot" aria-hidden="true" />
-          )}
-          {t(STATUS_KEY[status])}
-        </span>
+        {readOnly ? (
+          /* Nothing is ever saved from here, so the save status would only mislead. */
+          <span className="readonly-badge" role="status" title={t('readonly.hintNoOwner')}>
+            <LockIcon size={12} />
+            {t('readonly.badge')}
+          </span>
+        ) : (
+          /* Keyed on the status so the check draws itself again each time a
+             save lands: the moment work becomes safe is worth a small flourish. */
+          <span key={status} className={`save-status is-${status}`} role="status">
+            {status === 'saved' ? (
+              <svg className="save-check" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.5 6.5 5 9l4.5-6" />
+              </svg>
+            ) : (
+              <span className="save-dot" aria-hidden="true" />
+            )}
+            {t(STATUS_KEY[status])}
+          </span>
+        )}
         <PresenceStack collab={collab} />
       </div>
 
@@ -306,6 +318,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
           className="button"
           title={`${t('action.ai')} · ${chord('ai')}`}
           aria-label={t('topbar.ai')}
+          disabled={off('ai')}
           onClick={() => run('ai')}
         >
           <SparkleIcon size={15} />
@@ -341,21 +354,25 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
               <MenuItem
                 icon={<TemplateIcon size={15} />}
                 label={t('action.templates')}
+                disabled={off('templates')}
                 onSelect={() => pick('templates')}
               />
               <MenuItem
                 icon={<CloudIcon size={15} />}
                 label={t('action.switchCloud')}
+                disabled={off('switchCloud')}
                 onSelect={() => pick('switchCloud')}
               />
               <MenuItem
                 icon={<ImportIcon size={15} />}
                 label={t('action.importMarkdown')}
+                disabled={off('importMarkdown')}
                 onSelect={() => pick('importMarkdown')}
               />
               <MenuItem
                 icon={<FolderIcon size={15} />}
                 label={t('action.open')}
+                disabled={off('openProject')}
                 onSelect={() => pick('openProject')}
               />
               <MenuItem
@@ -383,6 +400,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
                 icon={<ImportIcon size={15} />}
                 label={t('action.icons')}
                 hint={t('icons.uploadHint')}
+                disabled={off('icons')}
                 onSelect={() => pick('icons')}
               />
               <MenuItem
@@ -396,6 +414,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
                 icon={<EraseIcon size={15} />}
                 label={t('action.clear')}
                 danger
+                disabled={off('clear')}
                 onSelect={() => pick('clear')}
               />
             </TopBarMenu>

@@ -53,7 +53,14 @@ export async function testPool(schema: string): Promise<Pool> {
 
 /** Drops every table the migrations create, so each file starts from nothing. */
 export async function dropSchema(pool: Pool): Promise<void> {
-  const tables = ['diagram_versions', 'diagrams', 'auth_states', 'sessions', 'users'];
+  const tables = [
+    'diagram_members',
+    'diagram_versions',
+    'diagrams',
+    'auth_states',
+    'sessions',
+    'users',
+  ];
   for (const table of tables) await pool.query(`drop table if exists ${table} cascade`);
   await pool.query('drop table if exists schema_migrations');
 }

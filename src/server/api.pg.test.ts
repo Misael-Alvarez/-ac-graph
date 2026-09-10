@@ -16,6 +16,8 @@ import { POST as duplicateDiagram } from '@/app/api/diagrams/[id]/duplicate/rout
 import { GET as listVersions } from '@/app/api/diagrams/[id]/versions/route';
 import { POST as restoreVersion } from '@/app/api/diagrams/[id]/versions/[versionId]/restore/route';
 import { GET as openEvents } from '@/app/api/diagrams/[id]/events/route';
+import { GET as listMembers, PUT as putMember } from '@/app/api/diagrams/[id]/members/route';
+import { DELETE as removeMember } from '@/app/api/diagrams/[id]/members/[userId]/route';
 import { POST as postPresence } from '@/app/api/diagrams/[id]/presence/route';
 import { GET as exportWorkspace } from '@/app/api/workspace/export/route';
 import { POST as importWorkspace } from '@/app/api/workspace/import/route';
@@ -111,6 +113,20 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
     vi.unstubAllEnvs();
   });
 
+  /** Ada lets Bob in with `role`; the way every test below gives Bob access. */
+  const share = async (id: string, role: 'editor' | 'viewer', email = 'bob@example.com') => {
+    const response = await putMember(
+      request(`/api/diagrams/${id}/members`, {
+        method: 'PUT',
+        cookie: adaCookie,
+        body: { email, role },
+      }),
+      ctx({ id }),
+    );
+    expect(response.status).toBe(200);
+    return response.json();
+  };
+
   const create = async (title = 'Arch', cookie = adaCookie): Promise<DiagramRecord> => {
     const response = await createDiagram(
       request('/api/diagrams', {
@@ -164,20 +180,38 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
   });
 
   describe('diagrams', () => {
-    it('creates, lists, reads', async () => {
+    it('creates, lists, reads — for members only', async () => {
       const created = await create('First');
       expect(created.ownerId).toBe(ada.id);
+      expect(created.role).toBe('owner');
 
+      // Bob is a stranger: he lists nothing and is told whom to ask.
+      expect(
+        await (await listDiagrams(request('/api/diagrams', { cookie: bobCookie }))).json(),
+      ).toEqual([]);
+      const denied = await getDiagram(
+        request(`/api/diagrams/${created.id}`, { cookie: bobCookie }),
+        ctx({ id: created.id }),
+      );
+      expect(denied.status).toBe(403);
+      expect(await denied.json()).toEqual({
+        code: 'no_access',
+        message: 'You do not have access to this diagram.',
+        required: 'viewer',
+        owner: { name: 'Ada' },
+      });
+
+      await share(created.id, 'viewer');
       const list = await listDiagrams(request('/api/diagrams', { cookie: bobCookie }));
       expect(await list.json()).toEqual([
-        expect.objectContaining({ id: created.id, title: 'First' }),
+        expect.objectContaining({ id: created.id, title: 'First', role: 'viewer' }),
       ]);
 
       const one = await getDiagram(
         request(`/api/diagrams/${created.id}`, { cookie: bobCookie }),
         ctx({ id: created.id }),
       );
-      expect(await one.json()).toEqual(created);
+      expect(await one.json()).toEqual({ ...created, role: 'viewer' });
 
       const missing = await getDiagram(
         request('/api/diagrams/ghost', { cookie: adaCookie }),
@@ -203,6 +237,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
 
     it('saves with If-Match and answers 412 with the current record on a stale revision', async () => {
       const created = await create();
+      await share(created.id, 'editor');
       const model = modelWithGroups(2);
       const saved = await saveDiagram(
         request(`/api/diagrams/${created.id}`, {
@@ -230,7 +265,8 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       expect(stale.status).toBe(412);
       const conflict = await stale.json();
       expect(conflict.code).toBe('conflict');
-      expect(conflict.current).toEqual(current);
+      // The current record, as Bob may see it: same content, his own role.
+      expect(conflict.current).toEqual({ ...current, role: 'editor' });
     });
 
     it('also honours expectedUpdatedAt in the body, and saves freely without either', async () => {
@@ -258,6 +294,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
 
     it('publishes saved and meta events after a commit', async () => {
       const created = await create();
+      await share(created.id, 'editor');
       const received: unknown[] = [];
       const off = events().subscribe(created.id, (event) => received.push(event));
       try {
@@ -300,6 +337,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       );
       expect(rejected.status).toBe(400);
 
+      await share(created.id, 'viewer');
       const copy = await duplicateDiagram(
         request(`/api/diagrams/${created.id}/duplicate`, { method: 'POST', cookie: bobCookie }),
         ctx({ id: created.id }),
@@ -316,11 +354,12 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       off();
       expect(gone.status).toBe(204);
       expect(received).toEqual([{ type: 'deleted' }]);
-      expect((await listDiagrams(request('/api/diagrams', { cookie: adaCookie }))).status).toBe(
-        200,
-      );
+      // Ada's diagram is gone; Bob's copy is Bob's and stays.
       expect(
         await (await listDiagrams(request('/api/diagrams', { cookie: adaCookie }))).json(),
+      ).toHaveLength(0);
+      expect(
+        await (await listDiagrams(request('/api/diagrams', { cookie: bobCookie }))).json(),
       ).toHaveLength(1);
     });
 
@@ -399,6 +438,240 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
     });
   });
 
+  describe('members', () => {
+    it('keeps a stranger out of every route about the diagram', async () => {
+      const created = await create();
+      const asBob = (path: string, init: CallOptions = {}) =>
+        request(path, { ...init, cookie: bobCookie });
+      const responses = await Promise.all([
+        getDiagram(asBob(`/api/diagrams/${created.id}`), ctx({ id: created.id })),
+        saveDiagram(
+          asBob(`/api/diagrams/${created.id}`, {
+            method: 'PUT',
+            body: { model: modelWithGroups(1) },
+          }),
+          ctx({ id: created.id }),
+        ),
+        patchDiagram(
+          asBob(`/api/diagrams/${created.id}`, { method: 'PATCH', body: { title: 'x' } }),
+          ctx({ id: created.id }),
+        ),
+        deleteDiagram(
+          asBob(`/api/diagrams/${created.id}`, { method: 'DELETE' }),
+          ctx({ id: created.id }),
+        ),
+        listVersions(asBob(`/api/diagrams/${created.id}/versions`), ctx({ id: created.id })),
+        duplicateDiagram(
+          asBob(`/api/diagrams/${created.id}/duplicate`, { method: 'POST' }),
+          ctx({ id: created.id }),
+        ),
+        openEvents(asBob(`/api/diagrams/${created.id}/events`), ctx({ id: created.id })),
+        postPresence(
+          asBob(`/api/diagrams/${created.id}/presence`, {
+            method: 'POST',
+            body: { editing: true },
+          }),
+          ctx({ id: created.id }),
+        ),
+        listMembers(asBob(`/api/diagrams/${created.id}/members`), ctx({ id: created.id })),
+        putMember(
+          asBob(`/api/diagrams/${created.id}/members`, {
+            method: 'PUT',
+            body: { email: 'bob@example.com', role: 'editor' },
+          }),
+          ctx({ id: created.id }),
+        ),
+      ]);
+      for (const response of responses) {
+        expect(response.status).toBe(403);
+        expect((await response.json()).code).toBe('no_access');
+      }
+      // Nothing changed and nobody is in the room.
+      expect(
+        await (
+          await getDiagram(
+            request(`/api/diagrams/${created.id}`, { cookie: adaCookie }),
+            ctx({ id: created.id }),
+          )
+        ).json(),
+      ).toEqual(created);
+      expect(events().subscriberCount(created.id)).toBe(0);
+    });
+
+    it('the owner invites by e-mail, everyone in the room hears it, and a viewer reads but cannot write', async () => {
+      const created = await create();
+      const received: unknown[] = [];
+      const off = events().subscribe(created.id, (event) => received.push(event));
+      try {
+        const member = await share(created.id, 'viewer', 'BOB@example.com');
+        expect(member).toMatchObject({ user: { id: bob.id, name: 'Bob' }, role: 'viewer' });
+        expect(received).toEqual([
+          { type: 'access', userId: bob.id, role: 'viewer', by: { id: ada.id, name: 'Ada' } },
+        ]);
+
+        const members = await listMembers(
+          request(`/api/diagrams/${created.id}/members`, { cookie: bobCookie }),
+          ctx({ id: created.id }),
+        );
+        expect(members.status).toBe(200);
+        expect(
+          (await members.json()).map((m: { user: User; role: string }) => [m.user.id, m.role]),
+        ).toEqual([
+          [ada.id, 'owner'],
+          [bob.id, 'viewer'],
+        ]);
+
+        const read = await getDiagram(
+          request(`/api/diagrams/${created.id}`, { cookie: bobCookie }),
+          ctx({ id: created.id }),
+        );
+        expect((await read.json()).role).toBe('viewer');
+
+        const write = await saveDiagram(
+          request(`/api/diagrams/${created.id}`, {
+            method: 'PUT',
+            cookie: bobCookie,
+            body: { model: modelWithGroups(1) },
+          }),
+          ctx({ id: created.id }),
+        );
+        expect(write.status).toBe(403);
+        expect(await write.json()).toMatchObject({ code: 'no_access', required: 'editor' });
+
+        // Presence works for a viewer: reading includes being in the room.
+        const presence = await postPresence(
+          request(`/api/diagrams/${created.id}/presence`, {
+            method: 'POST',
+            cookie: bobCookie,
+            body: { cursor: { x: 1, y: 1 } },
+          }),
+          ctx({ id: created.id }),
+        );
+        expect(presence.status).toBe(204);
+
+        // Promoted to editor: the write goes through.
+        await share(created.id, 'editor');
+        expect(received.at(-1)).toMatchObject({ type: 'access', userId: bob.id, role: 'editor' });
+        const promoted = await saveDiagram(
+          request(`/api/diagrams/${created.id}`, {
+            method: 'PUT',
+            cookie: bobCookie,
+            body: { model: modelWithGroups(1) },
+          }),
+          ctx({ id: created.id }),
+        );
+        expect(promoted.status).toBe(200);
+      } finally {
+        off();
+      }
+    });
+
+    it('removal and leaving', async () => {
+      const created = await create();
+      await share(created.id, 'editor');
+      const received: unknown[] = [];
+      const off = events().subscribe(created.id, (event) => received.push(event));
+      try {
+        // Bob leaves on his own.
+        const left = await removeMember(
+          request(`/api/diagrams/${created.id}/members/${bob.id}`, {
+            method: 'DELETE',
+            cookie: bobCookie,
+          }),
+          ctx({ id: created.id, userId: bob.id }),
+        );
+        expect(left.status).toBe(204);
+        expect(received).toEqual([
+          { type: 'access', userId: bob.id, role: null, by: { id: bob.id, name: 'Bob' } },
+        ]);
+        expect(
+          (
+            await getDiagram(
+              request(`/api/diagrams/${created.id}`, { cookie: bobCookie }),
+              ctx({ id: created.id }),
+            )
+          ).status,
+        ).toBe(403);
+
+        // The owner removes him after inviting him again; nothing published when nothing changed.
+        await share(created.id, 'viewer');
+        const removed = await removeMember(
+          request(`/api/diagrams/${created.id}/members/${bob.id}`, {
+            method: 'DELETE',
+            cookie: adaCookie,
+          }),
+          ctx({ id: created.id, userId: bob.id }),
+        );
+        expect(removed.status).toBe(204);
+        expect(received.at(-1)).toMatchObject({
+          type: 'access',
+          userId: bob.id,
+          role: null,
+          by: { id: ada.id },
+        });
+        const count = received.length;
+        const again = await removeMember(
+          request(`/api/diagrams/${created.id}/members/${bob.id}`, {
+            method: 'DELETE',
+            cookie: adaCookie,
+          }),
+          ctx({ id: created.id, userId: bob.id }),
+        );
+        expect(again.status).toBe(204);
+        expect(received).toHaveLength(count);
+      } finally {
+        off();
+      }
+    });
+
+    it('validates who can be touched and how', async () => {
+      const created = await create();
+      const put = (body: unknown, cookie = adaCookie) =>
+        putMember(
+          request(`/api/diagrams/${created.id}/members`, { method: 'PUT', cookie, body }),
+          ctx({ id: created.id }),
+        );
+      expect((await put({ email: 'not an e-mail', role: 'viewer' })).status).toBe(400);
+      expect((await put({ email: 'bob@example.com', role: 'owner' })).status).toBe(400);
+      expect((await put({ email: 'bob@example.com', role: 'viewer', extra: 1 })).status).toBe(400);
+
+      const unknown = await put({ email: 'nobody@example.com', role: 'viewer' });
+      expect(unknown.status).toBe(404);
+      expect((await unknown.json()).code).toBe('user_not_found');
+
+      const self = await put({ email: 'ada@example.com', role: 'viewer' });
+      expect(self.status).toBe(400);
+      expect((await self.json()).message).toMatch(/owner/);
+
+      const removeOwner = await removeMember(
+        request(`/api/diagrams/${created.id}/members/${ada.id}`, {
+          method: 'DELETE',
+          cookie: adaCookie,
+        }),
+        ctx({ id: created.id, userId: ada.id }),
+      );
+      expect(removeOwner.status).toBe(400);
+
+      // An editor is not an owner: no inviting, no removing others.
+      await share(created.id, 'editor');
+      expect((await put({ email: 'ada@example.com', role: 'viewer' }, bobCookie)).status).toBe(403);
+      const editorRemovesOwner = await removeMember(
+        request(`/api/diagrams/${created.id}/members/${ada.id}`, {
+          method: 'DELETE',
+          cookie: bobCookie,
+        }),
+        ctx({ id: created.id, userId: ada.id }),
+      );
+      expect(editorRemovesOwner.status).toBe(403);
+
+      const ghost = await listMembers(
+        request('/api/diagrams/ghost/members', { cookie: adaCookie }),
+        ctx({ id: 'ghost' }),
+      );
+      expect(ghost.status).toBe(404);
+    });
+  });
+
   describe('workspace', () => {
     it('exports and re-imports', async () => {
       await create('A');
@@ -412,11 +685,18 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
         request('/api/workspace/import', { method: 'POST', cookie: bobCookie, body: dump }),
       );
       expect(await imported.json()).toEqual({ imported: 2 });
-      const list = await (
+      // Ada keeps her two; Bob's copies are his alone.
+      const adas = await (
         await listDiagrams(request('/api/diagrams', { cookie: adaCookie }))
       ).json();
-      expect(list).toHaveLength(4);
-      expect(list.filter((d: DiagramRecord) => d.ownerId === bob.id)).toHaveLength(2);
+      expect(adas).toHaveLength(2);
+      const bobs = await (
+        await listDiagrams(request('/api/diagrams', { cookie: bobCookie }))
+      ).json();
+      expect(bobs).toHaveLength(2);
+      expect(bobs.every((d: DiagramRecord) => d.ownerId === bob.id && d.role === 'owner')).toBe(
+        true,
+      );
     });
 
     it('rejects a malformed dump', async () => {
@@ -434,6 +714,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
   describe('collaboration', () => {
     it('streams presence to a viewer and relays a save from another user', async () => {
       const created = await create();
+      await share(created.id, 'editor');
       const abort = new AbortController();
       const req = request(`/api/diagrams/${created.id}/events`, { cookie: adaCookie });
       Object.defineProperty(req, 'signal', { value: abort.signal });
@@ -502,6 +783,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       const logs = captureLogs();
       try {
         const created = await create();
+        await share(created.id, 'editor');
         const saved = await saveDiagram(
           request(`/api/diagrams/${created.id}`, {
             method: 'PUT',
@@ -535,8 +817,8 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
         expect(
           app.httpRequests.get({ route: '/api/diagrams/[id]', method: 'PUT', status: 412 }),
         ).toBe(1);
-        // The save commits; the stale save rolls back. Creation is a plain insert.
-        expect(app.dbTransactions.get({ result: 'commit' })).toBe(1);
+        // Creation (diagram + owner row) and the save commit; the stale save rolls back.
+        expect(app.dbTransactions.get({ result: 'commit' })).toBe(2);
         expect(app.dbTransactions.get({ result: 'rollback' })).toBe(1);
 
         const session = await createSession(ada.id, pool);

@@ -32,6 +32,7 @@ describe.skipIf(!pgAvailable())('schema migrations (PostgreSQL)', () => {
     );
     expect(rows.rows.map((r) => r.table_name)).toEqual([
       'auth_states',
+      'diagram_members',
       'diagram_versions',
       'diagrams',
       'schema_migrations',

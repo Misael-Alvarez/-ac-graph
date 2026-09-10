@@ -50,7 +50,7 @@ const DISTRIBUTIONS: {
  * is what makes an editor feel like a chore.
  */
 export function SelectionToolbar() {
-  const { ui, view, dispatch, dispatchUi, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, readOnly, t } = useEditor();
 
   const selectedIds = useMemo(
     () => view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id),
@@ -78,7 +78,7 @@ export function SelectionToolbar() {
     return { ...above, below: false };
   }, [targets, ui.viewport]);
 
-  if (!anchor || targets.length < 2) return null;
+  if (readOnly || !anchor || targets.length < 2) return null;
 
   const ids = targets.map((shape) => shape.id);
   const canDistribute = targets.length >= 3;

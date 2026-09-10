@@ -1,6 +1,12 @@
 import { ZodError } from 'zod';
 import { DiagramConflictError } from '@/lib/store/localRepository';
-import { DiagramNotFoundError, VersionNotFoundError } from './diagrams/errors';
+import {
+  DiagramForbiddenError,
+  DiagramNotFoundError,
+  MembershipError,
+  UserNotFoundError,
+  VersionNotFoundError,
+} from './diagrams/errors';
 import { annotateRequest, currentRequest } from './observability/context';
 import { log } from './observability/log';
 
@@ -13,8 +19,13 @@ import { log } from './observability/log';
  */
 export type ErrorCode =
   | 'unauthenticated'
+  /** The request itself is not allowed: a failed same-origin check. */
   | 'forbidden'
+  /** This person is signed in and may not do that with this diagram. */
+  | 'no_access'
   | 'not_found'
+  /** Inviting an e-mail nobody has signed in with. */
+  | 'user_not_found'
   | 'conflict'
   | 'bad_request'
   | 'payload_too_large'
@@ -81,6 +92,19 @@ export function errorResponse(thrown: unknown): Response {
   }
   if (thrown instanceof DiagramNotFoundError || thrown instanceof VersionNotFoundError) {
     return error(404, 'not_found', thrown.message);
+  }
+  if (thrown instanceof DiagramForbiddenError) {
+    // Enough for the interface to say "ask Ada for access", never the diagram itself.
+    return error(403, 'no_access', 'You do not have access to this diagram.', {
+      required: thrown.required,
+      ...(thrown.ownerName ? { owner: { name: thrown.ownerName } } : {}),
+    });
+  }
+  if (thrown instanceof UserNotFoundError) {
+    return error(404, 'user_not_found', thrown.message);
+  }
+  if (thrown instanceof MembershipError) {
+    return error(400, 'bad_request', thrown.message);
   }
   if (thrown instanceof ZodError) {
     return error(400, 'bad_request', 'The request body is not valid.', {

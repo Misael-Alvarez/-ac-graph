@@ -6,6 +6,7 @@ import {
   sendPresence,
   subscribeToDiagram,
   throttle,
+  type AccessEvent,
   type CollabStatus,
   type PresenceUser,
   type SavedEvent,
@@ -24,6 +25,8 @@ export interface Collaboration {
   lastRemoteSave: SavedEvent | null;
   /** Set when somebody deleted the diagram under us. */
   deletedBy: string | null;
+  /** Bumps whenever anyone's access to this diagram changes, so lists of people refresh. */
+  accessVersion: number;
 }
 
 const CURSOR_INTERVAL_MS = 80;
@@ -46,6 +49,7 @@ export function useCollaboration(
   },
   onRemoteModel: (record: DiagramRecord) => void,
   onRemoteTitle: (title: string) => void,
+  onAccess: (event: AccessEvent) => void = () => {},
 ): Collaboration {
   const mode = useRepositoryMode();
   const repository = useRepository();
@@ -56,11 +60,12 @@ export function useCollaboration(
   const [users, setUsers] = useState<PresenceUser[]>([]);
   const [lastRemoteSave, setLastRemoteSave] = useState<SavedEvent | null>(null);
   const [deletedBy, setDeletedBy] = useState<string | null>(null);
+  const [accessVersion, setAccessVersion] = useState(0);
 
   // Handlers read the latest props without re-subscribing on every render.
-  const latest = useRef({ doc, onRemoteModel, onRemoteTitle });
+  const latest = useRef({ doc, onRemoteModel, onRemoteTitle, onAccess });
   useEffect(() => {
-    latest.current = { doc, onRemoteModel, onRemoteTitle };
+    latest.current = { doc, onRemoteModel, onRemoteTitle, onAccess };
   });
 
   useEffect(() => {
@@ -93,6 +98,11 @@ export function useCollaboration(
         });
       },
       onMeta: (event) => latest.current.onRemoteTitle(event.title),
+      onAccess: (event) => {
+        if (cancelled) return;
+        setAccessVersion((n) => n + 1);
+        latest.current.onAccess(event);
+      },
       onDeleted: () => {
         if (!cancelled) setDeletedBy(users.find((u) => !u.self)?.name ?? '');
       },
@@ -161,5 +171,5 @@ export function useCollaboration(
     return () => clearTimeout(timer);
   }, [lastRemoteSave, clearRemoteSave]);
 
-  return { enabled, status, users, lastRemoteSave, deletedBy };
+  return { enabled, status, users, lastRemoteSave, deletedBy, accessVersion };
 }

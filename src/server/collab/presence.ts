@@ -1,3 +1,4 @@
+import { PRESENCE_PALETTE, colorForUser } from '@/lib/collab/colors';
 import type { User } from '@/lib/domain';
 import { singleton } from '../globals';
 
@@ -12,17 +13,7 @@ import { singleton } from '../globals';
  */
 export const PRESENCE_TTL_MS = 15_000;
 
-/** Eight distinguishable colours that read on both the light and the dark canvas. */
-export const PRESENCE_PALETTE = [
-  '#e5484d', // red
-  '#f76b15', // orange
-  '#ffb224', // amber
-  '#30a46c', // green
-  '#12a594', // teal
-  '#0090ff', // blue
-  '#6e56cf', // violet
-  '#e93d82', // pink
-] as const;
+export { PRESENCE_PALETTE, colorForUser };
 
 export interface Cursor {
   x: number;
@@ -46,15 +37,6 @@ export interface PresenceUser {
   editing: boolean;
   /** Distinguishes two tabs of the same person. */
   sessionKey: string;
-}
-
-/** Deterministic: the same person is the same colour in every tab and on every screen. */
-export function colorForUser(userId: string): string {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = (hash * 31 + userId.charCodeAt(i)) | 0;
-  }
-  return PRESENCE_PALETTE[Math.abs(hash) % PRESENCE_PALETTE.length];
 }
 
 export class PresenceRegistry {

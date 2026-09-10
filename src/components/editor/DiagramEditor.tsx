@@ -11,6 +11,7 @@ import {
   type DiagramDocument,
   type SaveStatus,
 } from '../app/useDiagramDocument';
+import { useUser } from '../app/AuthProvider';
 import { EditorProvider, useEditor } from './EditorProvider';
 import { useCollaboration } from './hooks/useCollaboration';
 import { RemoteCursors } from './chrome/Presence';
@@ -91,7 +92,7 @@ function CloudSwitchAnnouncer() {
  * autosave silently never happens.
  */
 function Autosave({ onChange }: { onChange: (model: DiagramModel) => void }) {
-  const { doc } = useEditor();
+  const { doc, readOnly } = useEditor();
   // Compared by identity rather than counting renders: a "skip the first one"
   // flag is consumed by StrictMode's double-invoked effect, which made every
   // freshly opened diagram report unsaved changes it did not have.
@@ -103,10 +104,12 @@ function Autosave({ onChange }: { onChange: (model: DiagramModel) => void }) {
     // A model adopted from another editor's save is already persisted; writing
     // it back would make two editors re-save each other's work in a loop.
     if (doc.origin === 'remote') return;
+    // A viewer's canvas only ever changes by adoption; nothing of theirs to write.
+    if (readOnly) return;
     // Journal the committed model before the next paint/navigation, not only
     // when the slower IndexedDB autosave debounce expires.
     onChange(doc.model);
-  }, [doc.model, doc.origin, onChange]);
+  }, [doc.model, doc.origin, readOnly, onChange]);
 
   return null;
 }
@@ -139,9 +142,10 @@ function EditorShell({
   revision: string;
 }) {
   useKeyboard();
-  const { doc, ui, dispatch, dispatchUi, t } = useEditor();
+  const { doc, ui, dispatch, dispatchUi, readOnly, t } = useEditor();
   const size = useCanvasSize();
   const fileInput = useRef<HTMLInputElement>(null);
+  const { user } = useUser();
 
   // Somebody else's save lands on the canvas as one undo step, so the person
   // can see exactly what moved and step back if they need to.
@@ -158,7 +162,33 @@ function EditorShell({
     },
     [title, onRename],
   );
-  const collab = useCollaboration(documentId, document_, applyRemote, applyRemoteTitle);
+  // My own access changing is the one event here the document must act on:
+  // a new role flips the editor between editing and reading on the spot.
+  const applyAccess = useCallback(
+    (event: {
+      userId: string;
+      role: 'owner' | 'editor' | 'viewer' | null;
+      by: { name: string };
+    }) => {
+      if (event.userId !== user.id) return;
+      document_.applyAccess(event.role, event.by.name);
+      if (event.role === null) return;
+      dispatchUi({
+        type: 'toast',
+        message: t(event.role === 'viewer' ? 'access.nowViewer' : 'access.nowEditor', {
+          name: event.by.name,
+        }),
+      });
+    },
+    [user.id, document_, dispatchUi, t],
+  );
+  const collab = useCollaboration(
+    documentId,
+    document_,
+    applyRemote,
+    applyRemoteTitle,
+    applyAccess,
+  );
 
   useEffect(() => {
     if (!collab.lastRemoteSave) return;
@@ -200,6 +230,20 @@ function EditorShell({
           </button>
         </div>
       )}
+      {document_.accessRevokedBy !== null && (
+        <div className="editor-banner is-danger" role="alert">
+          <span className="editor-banner-text">
+            {t('access.revoked', { name: document_.accessRevokedBy || '—' })}
+          </span>
+          <button
+            type="button"
+            className="button"
+            onClick={() => downloadProject(doc.model, 'copia-local.json')}
+          >
+            {t('live.keepMine')}
+          </button>
+        </div>
+      )}
       {collab.deletedBy !== null && (
         <div className="editor-banner is-danger" role="alert">
           <span className="editor-banner-text">
@@ -219,7 +263,7 @@ function EditorShell({
           <span className="editor-banner-text">{t('persistence.recoveryUnavailable')}</span>
         </p>
       )}
-      {status === 'error' && (
+      {status === 'error' && !readOnly && (
         <div className="editor-banner is-danger" role="alert">
           <span className="editor-banner-text">{t('persistence.failed')}</span>
           <button type="button" className="button" onClick={() => void onRetry().catch(() => {})}>
@@ -266,7 +310,7 @@ function EditorShell({
       <CommandPalette />
       <Modals />
       <AiDialog />
-      <ShareDialog />
+      <ShareDialog accessVersion={collab.accessVersion} />
       <Toast />
       <CloudSwitchAnnouncer />
 
@@ -318,6 +362,21 @@ export default function DiagramEditor({ documentId }: { documentId: string }) {
     return <div className="page-note">{t('library.loading')}</div>;
   }
 
+  if (document_.noAccess && !document_.record) {
+    const owner = document_.noAccess.ownerName;
+    return (
+      <div className="page-note" role="alert">
+        <p>
+          <b>{t('access.deniedTitle')}</b>
+        </p>
+        <p>{owner ? t('access.deniedOwner', { name: owner }) : t('access.deniedGeneric')}</p>
+        <button type="button" className="button" onClick={() => router.push('/')}>
+          {t('library.back')}
+        </button>
+      </div>
+    );
+  }
+
   if (document_.notFound || !document_.record) {
     return (
       <div className="page-note">
@@ -335,6 +394,7 @@ export default function DiagramEditor({ documentId }: { documentId: string }) {
       key={document_.record.id}
       initialModel={document_.record.model}
       title={document_.record.title}
+      readOnly={document_.role === 'viewer'}
     >
       <Autosave onChange={document_.save} />
       <EditorShell

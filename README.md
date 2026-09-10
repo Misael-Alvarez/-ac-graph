@@ -84,6 +84,11 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   editor is live: you see who is in the room, where their cursor is, and their
   saves land on your canvas as one undo step. Two people saving over each other
   is detected, never merged silently — the loser chooses whose version to keep.
+- **Decide who is in.** A diagram is the owner's until they share it: from the
+  Share dialog they add people by e-mail as editors or viewers, change roles or
+  remove them, and the change reaches the other person's screen at once. A
+  viewer gets the whole editor read-only — every property, every export, live
+  presence — and nothing that writes.
 - **Sign in with the company account.** Authentik (OpenID Connect) is the only
   identity; there are no local passwords. See [docs/AUTHENTIK.md](docs/AUTHENTIK.md).
 - **Official icons.** AWS, Google Cloud and IBM Cloud services draw with the

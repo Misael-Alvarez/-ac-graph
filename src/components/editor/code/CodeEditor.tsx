@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
@@ -26,6 +26,8 @@ interface CodeEditorProps {
   cloud?: CloudPrefix;
   /** Names the completions' descriptions. */
   locale: Locale;
+  /** The text can be read, selected and copied, never changed. */
+  readOnly?: boolean;
 }
 
 /**
@@ -42,9 +44,12 @@ export function CodeEditor({
   diagnostics,
   cloud,
   locale,
+  readOnly = false,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
+  // Reconfigured in place when the role changes, keeping cursor and history.
+  const editable = useRef(new Compartment());
 
   // Read through refs so the extensions never need rebuilding.
   const latest = useRef({ onChange, onFocusChange, diagnostics, cloud, locale });
@@ -84,6 +89,7 @@ export function CodeEditor({
       ]),
       EditorView.lineWrapping,
       editorTheme,
+      editable.current.of([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) latest.current.onChange(update.state.doc.toString());
         if (update.focusChanged) latest.current.onFocusChange(update.view.hasFocus);
@@ -120,6 +126,15 @@ export function CodeEditor({
   useEffect(() => {
     view.current?.dispatch({});
   }, [diagnostics]);
+
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: editable.current.reconfigure([
+        EditorState.readOnly.of(readOnly),
+        EditorView.editable.of(!readOnly),
+      ]),
+    });
+  }, [readOnly]);
 
   return <div ref={host} className="code-editor" />;
 }

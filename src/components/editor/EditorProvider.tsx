@@ -23,6 +23,7 @@ import {
   type UiAction,
   type UiState,
 } from '@/lib/editor/uiState';
+import { guardDispatch } from '@/lib/editor/readOnly';
 import { translate, type MessageKey } from '@/lib/i18n/messages';
 
 interface EditorContextValue {
@@ -48,6 +49,11 @@ interface EditorContextValue {
   selectedShape: Shape | null;
   canUndo: boolean;
   canRedo: boolean;
+  /**
+   * A viewer's editor: every edit is dropped before the reducer and every
+   * editing control is disabled. Remote saves still land on the canvas.
+   */
+  readOnly: boolean;
   /** The document's title, for file names and the top bar. */
   title: string;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
@@ -64,13 +70,16 @@ export function useEditor(): EditorContextValue {
 export function EditorProvider({
   initialModel,
   title = '',
+  readOnly = false,
   children,
 }: {
   initialModel: DiagramModel;
   title?: string;
+  readOnly?: boolean;
   children: ReactNode;
 }) {
-  const [doc, dispatch] = useReducer(docReducer, initialModel, initialDocState);
+  const [doc, rawDispatch] = useReducer(docReducer, initialModel, initialDocState);
+  const dispatch = useMemo(() => guardDispatch(rawDispatch, readOnly), [rawDispatch, readOnly]);
   const [ui, dispatchUi] = useReducer(uiReducer, initialUiState);
 
   // Preferences are read after mount so the server and client render the same
@@ -172,12 +181,13 @@ export function EditorProvider({
       dispatchUi,
       collisions,
       selectedShape,
-      canUndo: canUndo(doc),
-      canRedo: canRedo(doc),
+      canUndo: !readOnly && canUndo(doc),
+      canRedo: !readOnly && canRedo(doc),
+      readOnly,
       title,
       t,
     }),
-    [doc, ui, view, views, activeView, collisions, selectedShape, title, t],
+    [doc, ui, view, views, activeView, dispatch, collisions, selectedShape, readOnly, title, t],
   );
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;

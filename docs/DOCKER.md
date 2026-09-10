@@ -210,8 +210,9 @@ Current limits:
   port). `localhost` and `127.0.0.1` are different origins. Browser cleanup can
   erase that data; export workspaces for backups. Container volumes do not back
   up local-mode diagrams.
-- Server mode has one workspace and no roles; share links carry diagram data in
-  their URL and are not revocable. Treat them as sensitive.
+- Server mode has one workspace; access is per diagram (owner, editors,
+  viewers — see [AUTHENTIK.md](AUTHENTIK.md), section 6). Share links carry
+  diagram data in their URL and are not revocable. Treat them as sensitive.
 - Loopback HTTP is a local operating baseline, not an internet-ready deployment.
   Before remote exposure, add TLS and a reverse proxy, request-size/time limits
   and appropriate rate limiting. AI rate limits are process-local.

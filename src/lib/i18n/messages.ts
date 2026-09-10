@@ -515,6 +515,35 @@ const en = {
   'live.loadRemote': 'Load latest',
   'live.keepMine': 'Download my copy',
   'live.deleted': 'This diagram was deleted by {name}.',
+
+  'readonly.badge': 'Read-only',
+  'readonly.hint': 'You can look and export. Ask {name} for edit access.',
+  'readonly.hintNoOwner': 'You can look and export; only editors can change it.',
+  'access.deniedTitle': 'You do not have access to this diagram',
+  'access.deniedOwner': 'Ask {name} to share it with you.',
+  'access.deniedGeneric': 'Ask its owner to share it with you.',
+  'access.revoked':
+    '{name} removed your access. You can keep looking, but nothing more will be saved here.',
+  'access.nowEditor': '{name} gave you edit access.',
+  'access.nowViewer': '{name} made this read-only for you.',
+  'role.owner': 'Owner',
+  'role.editor': 'Can edit',
+  'role.viewer': 'Can view',
+  'share.people': 'People',
+  'share.peopleHint':
+    'Only the people listed here can open this diagram. To add someone, they must have signed in once.',
+  'share.peopleHintMember': 'Who has access to this diagram.',
+  'share.invitePlaceholder': 'name@company.com',
+  'share.invite': 'Add',
+  'share.inviteUnknown': 'Nobody with that e-mail has signed in yet.',
+  'share.inviteFailed': 'Could not add that person. Try again.',
+  'share.roleOf': 'Role of {name}',
+  'share.remove': 'Remove',
+  'share.leave': 'Leave',
+  'share.you': 'you',
+  'library.sharedWithYou': 'Shared with you',
+  'library.leaveConfirm':
+    'Leave “{title}”? It will disappear from your library until someone shares it with you again.',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1030,6 +1059,35 @@ const es: Record<MessageKey, string> = {
   'live.loadRemote': 'Cargar la última',
   'live.keepMine': 'Descargar mi copia',
   'live.deleted': '{name} eliminó este diagrama.',
+
+  'readonly.badge': 'Solo lectura',
+  'readonly.hint': 'Puedes mirar y exportar. Pide acceso de edición a {name}.',
+  'readonly.hintNoOwner': 'Puedes mirar y exportar; solo quienes editan pueden cambiarlo.',
+  'access.deniedTitle': 'No tienes acceso a este diagrama',
+  'access.deniedOwner': 'Pide a {name} que lo comparta contigo.',
+  'access.deniedGeneric': 'Pide a su propietario que lo comparta contigo.',
+  'access.revoked':
+    '{name} te retiró el acceso. Puedes seguir mirando, pero ya no se guardará nada aquí.',
+  'access.nowEditor': '{name} te dio acceso de edición.',
+  'access.nowViewer': '{name} te dejó en solo lectura.',
+  'role.owner': 'Propietario',
+  'role.editor': 'Puede editar',
+  'role.viewer': 'Puede ver',
+  'share.people': 'Personas',
+  'share.peopleHint':
+    'Solo las personas de esta lista pueden abrir este diagrama. Para añadir a alguien, tiene que haber iniciado sesión al menos una vez.',
+  'share.peopleHintMember': 'Quién tiene acceso a este diagrama.',
+  'share.invitePlaceholder': 'nombre@empresa.com',
+  'share.invite': 'Añadir',
+  'share.inviteUnknown': 'Nadie con ese correo ha iniciado sesión todavía.',
+  'share.inviteFailed': 'No se pudo añadir a esa persona. Inténtalo de nuevo.',
+  'share.roleOf': 'Rol de {name}',
+  'share.remove': 'Quitar',
+  'share.leave': 'Salir',
+  'share.you': 'tú',
+  'library.sharedWithYou': 'Compartido contigo',
+  'library.leaveConfirm':
+    '¿Salir de «{title}»? Desaparecerá de tu biblioteca hasta que alguien lo comparta contigo de nuevo.',
 };
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, es };

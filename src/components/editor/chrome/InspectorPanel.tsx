@@ -15,7 +15,7 @@ import { ShapeInspector } from './inspector/ShapeInspector';
  * and each of those is its own component under `./inspector`.
  */
 export function InspectorPanel() {
-  const { ui, view, dispatch, dispatchUi, t } = useEditor();
+  const { ui, view, dispatch, dispatchUi, readOnly, t } = useEditor();
   const selected = view.shapes.filter((s) => ui.selectedIds.has(s.id));
   const selectedShape = selected.length === 1 ? selected[0] : null;
 
@@ -37,14 +37,27 @@ export function InspectorPanel() {
 
   if (selected.length === 0 && !ui.selectedConnectorId) return null;
 
+  // A viewer reads every property; a disabled fieldset is what keeps all of
+  // them — inputs, selects, buttons — from pretending to work.
+  const lock = (panel: React.ReactElement) =>
+    readOnly ? (
+      <fieldset className="inspector-lock" disabled aria-label={t('readonly.badge')}>
+        {panel}
+      </fieldset>
+    ) : (
+      panel
+    );
+
   if (ui.selectedConnectorId) {
     const connector = view.connectors.find((c) => c.id === ui.selectedConnectorId);
     if (!connector) return null;
-    return <ConnectorInspector connector={connector} stepKey={stepKey} nextBurst={nextBurst} />;
+    return lock(
+      <ConnectorInspector connector={connector} stepKey={stepKey} nextBurst={nextBurst} />,
+    );
   }
 
   if (!selectedShape) {
-    return (
+    return lock(
       <aside className="inspector" aria-label={t('inspector.title')}>
         <header className="inspector-header">{t('inspector.title')}</header>
         <p className="inspector-note">{t('inspector.multi', { count: selected.length })}</p>
@@ -60,16 +73,16 @@ export function InspectorPanel() {
             <TrashIcon size={14} /> {t('action.delete')}
           </button>
         </div>
-      </aside>
+      </aside>,
     );
   }
 
-  return (
+  return lock(
     <ShapeInspector
       shape={selectedShape}
       selectedIds={selected.map((s) => s.id)}
       stepKey={stepKey}
       nextBurst={nextBurst}
-    />
+    />,
   );
 }

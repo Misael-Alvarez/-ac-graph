@@ -1,3 +1,4 @@
+import type { Role } from '@/lib/domain';
 import { singleton } from '../globals';
 import { appMetrics } from '../observability/metrics';
 import type { PresenceUser } from './presence';
@@ -14,7 +15,9 @@ export type DiagramEvent =
   | { type: 'saved'; updatedAt: string; by: { id: string; name: string } }
   | { type: 'presence'; users: PresenceUser[] }
   | { type: 'deleted' }
-  | { type: 'meta'; title: string };
+  | { type: 'meta'; title: string }
+  /** Someone's access changed: a new role, or `null` when they were removed. */
+  | { type: 'access'; userId: string; role: Role | null; by: { id: string; name: string } };
 
 export type Subscriber = (event: DiagramEvent) => void;
 
