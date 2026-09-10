@@ -2,8 +2,9 @@ import { performance } from 'node:perf_hooks';
 import type { User } from '@/lib/domain';
 import { log } from '../observability/log';
 import { appMetrics } from '../observability/metrics';
+import { collaboration } from './collaboration';
 import { events, formatSse, type DiagramEvent } from './events';
-import { presence, type PresenceUser } from './presence';
+import type { PresenceUser } from './presence';
 
 /**
  * One SSE connection for one viewer of one diagram.
@@ -56,7 +57,7 @@ export function openDiagramStream(options: StreamOptions): Response {
   const { diagramId, user, sessionKey, signal } = options;
   const heartbeatMs = options.heartbeatMs ?? HEARTBEAT_MS;
   const hub = events();
-  const registry = presence();
+  const room = collaboration();
   const encoder = new TextEncoder();
   const { sseConnections, sseConnectionsTotal } = appMetrics();
   // The request's logger, captured now: the stream outlives the request context.
@@ -83,12 +84,13 @@ export function openDiagramStream(options: StreamOptions): Response {
 
       const heartbeat = setInterval(() => {
         write(': ping\n\n');
-        registry.touch(diagramId, sessionKey, user);
+        // Refreshes this viewer here and on every other replica; nothing visible changed.
+        room.touch(diagramId, sessionKey, user);
       }, heartbeatMs);
 
       sseConnections.inc();
       sseConnectionsTotal.inc();
-      logger.debug('stream opened', { viewers: registry.list(diagramId).length + 1 });
+      logger.debug('stream opened', { viewers: room.roster(diagramId).length + 1 });
 
       cleanup = () => {
         if (closed) return;
@@ -100,9 +102,7 @@ export function openDiagramStream(options: StreamOptions): Response {
         logger.debug('stream closed', {
           durationMs: Math.round(performance.now() - openedAt),
         });
-        if (registry.leave(diagramId, sessionKey)) {
-          hub.publish(diagramId, { type: 'presence', users: registry.list(diagramId) });
-        }
+        room.leave(diagramId, sessionKey);
         try {
           controller.close();
         } catch {
@@ -116,8 +116,7 @@ export function openDiagramStream(options: StreamOptions): Response {
       }
       signal.addEventListener('abort', cleanup);
 
-      registry.touch(diagramId, sessionKey, user);
-      hub.publish(diagramId, { type: 'presence', users: registry.list(diagramId) });
+      room.touch(diagramId, sessionKey, user, {}, { announce: true });
     },
     cancel() {
       cleanup();

@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 del `PLAN_MEJORAS.md` cerrado en 7 de 8 puntos (#5 observabilidad entregado hoy, pendiente de commit). Base `c03cf6e` (`main`, 13 commits por delante de `origin/main`; nunca se ha hecho push desde esta maquina). Contenedor local en http://127.0.0.1:3080 reconstruido con esta entrega. Para retomar: `docs/CONTEXTO.md`. Siguiente paso recomendado: H1 #6 bus multi-replica, #7 roles.
+> **Checkpoint vigente (2026-09-10):** H1 del `PLAN_MEJORAS.md` cerrado en 7 de 8 puntos; solo queda #7 roles por diagrama. `f12fdb2` (H1 #5 observabilidad) esta en `origin/main`; H1 #6 (bus multi-replica) entregado hoy, pendiente de commit y push. Contenedor local en http://127.0.0.1:3080 con la imagen de H1 #5 (reconstruir para incluir el bus). Para retomar: `docs/CONTEXTO.md`.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -326,13 +326,44 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 - No hay metricas de negocio del lado del cliente (tiempo hasta interactivo, errores del navegador) ni alertas; que un colector reciba los datos es decision del operador.
 - Las trazas cubren los spans de Next; no hay spans propios por consulta SQL ni por render de miniatura (el histograma de transaccion cubre lo primero en agregado).
 
+## H1 del plan de mejoras / presencia multi-replica (cerrado, 2026-09-10)
+
+**Base:** `f12fdb2` (`main`). H1 #6 del `PLAN_MEJORAS.md`: bus `LISTEN/NOTIFY` de PostgreSQL para difundir `saved`/`meta`/`deleted`/presencia entre procesos, con la memoria como respaldo cuando no hay base.
+
+### Entregado
+
+**Bus** (`src/server/collab/bus.ts`): contrato `Bus` (`publish`/`subscribe`/`close`) con dos transportes. `MemoryBus` entrega dentro del proceso (modo local, y tests que levantan dos replicas en un solo proceso). `PgBus` hace `LISTEN acgraph_collab` en una conexion dedicada (`pg.Client` con `keepAlive`, `application_name` `ac-graph-bus`; un cliente del pool no puede reservarse de por vida) y `NOTIFY` por el pool con `pg_notify`. Si la conexion se cae, vuelve con retardo creciente (0,5 s → 30 s) y se anota `bus disconnected` / `bus connected`; mientras esta caida se pierden los mensajes ajenos, nunca los locales. Los mensajes van como JSON validado con Zod (`v: 1`, `origin`, `diagramId`, `kind`), se descartan los ajenos al formato y los mayores de 7.900 bytes (`pg_notify` rechaza 8.000), y un fallo al publicar se registra y cuenta sin lanzar.
+
+**Coordinador** (`src/server/collab/collaboration.ts`): `Collaboration` con un `origin` por proceso aplica cada cosa primero en local (hub → streams; registro → roster) y despues la cuenta al bus; lo que llega del bus se aplica igual sin reenviarlo; el eco propio (`NOTIFY` devuelve el mensaje al emisor) se reconoce por `origin` y se ignora. La presencia viaja como **estado absoluto por sesion** (`touch` con usuario `{id, name}`, cursor y `editing` tras la fusion local; `leave`), de modo que cada replica mantiene el roster fusionado, un mensaje perdido lo corrige el siguiente heartbeat y una replica que muere se lleva a sus viewers al vencer el TTL de 15 s sin necesidad de despedida. Un heartbeat remoto refresca el TTL sin anunciar nada; un cursor, un `editing` o un `leave` remoto si anuncian el roster a los streams locales. `collaboration()` es el singleton del proceso (PgBus en modo servidor, memoria si no) y `startup.ts` lo arranca al iniciar el servidor, asi que la primera persona que entra ya oye a las demas. Las rutas (`PUT`/`PATCH`/`DELETE`, `restore`, `presence`) y el stream publican a traves de el; `events.ts` queda como fan-out local y `presence.ts` gana `peek()`.
+
+**Metricas**: `acgraph_collab_bus_messages_total{direction=sent|received|echo,kind}`, `acgraph_collab_bus_dropped_total{reason=invalid|too_large|publish_failed}`, `acgraph_collab_bus_connected`, `acgraph_collab_bus_reconnects_total`.
+
+**Documentacion**: `docs/AUTHENTIK.md` (la capa viva entre replicas, la conexion de `LISTEN` debe llegar directa a PostgreSQL o a un pooler en modo sesion — PgBouncer en modo transaccion la rompe), `docs/DOCKER.md` (limites: varias replicas sobre una base, sin sesiones pegajosas), `README.md`.
+
+### Pruebas ejecutadas
+
+| Comprobacion                                                                                 | Resultado                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                                                                   | 1113 pruebas (antes 1094): `decode`, `MemoryBus`, `PgBus` con cliente falso (LISTEN, entrega, descarte de payloads invalidos y grandes, fallo al publicar, reintentos con backoff bajo temporizadores falsos, reconexion tras `error`/`end`, `close`, `start` idempotente); dos replicas virtuales sobre un `MemoryBus` (relevo unico de eventos, roster fusionado, heartbeat sin anuncio, cursor/`editing`/`leave` remotos, eco ignorado, `touch` de una replica desconocida, cierre) |
+| `npm test` con `TEST_DATABASE_URL` (PostgreSQL 17 desechable)                                | 1160 pruebas en 80 archivos; `bus.pg.test.ts`: dos conexiones `LISTEN` reales (entrega a todos, emisor incluido; capa viva entre dos `Collaboration`; **vuelta tras `pg_terminate_backend`** de la conexion que escucha)                                                                                                                                                                                                                                                               |
+| `npm run typecheck`, `lint`, `format:check`, `build`                                         | Correctos                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Dos procesos reales** (`npm start` en 3100 y 3101, misma base, sesiones sembradas por SQL) | Ambos `bus connected` al arrancar; Bob (stream en B) recibe la presencia con cursor de Ada (POST en A), su `saved` y su `meta`; Ada (stream en A) ve a Bob como remoto y lo ve salir al cerrar Bob su stream en B; metricas `sent`/`received`/`leave` coherentes en ambos; 0 avisos en los logs                                                                                                                                                                                        |
+| Playwright funcional (servidor externo 3100)                                                 | 136 de 136                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+### Limites conocidos
+
+- Best effort: un mensaje se pierde si la replica receptora tiene la conexion de escucha caida; la presencia se cura en ≤ 15 s y los guardados no dependen del bus (la base decide). No hay cola ni reenvio.
+- `LISTEN` exige conexion directa a PostgreSQL o pooler en modo sesion.
+- Un solo canal para todos los diagramas: cada replica recibe todos los mensajes y filtra en memoria; suficiente para decenas de replicas y cientos de mensajes por segundo, no disenado para miles.
+- El roster remoto lleva solo `id` y `name` (el color se deriva del id); correo y avatar quedan en la replica que tiene la sesion.
+
 ## CP2, CP4 a CP9: pendientes
 
 Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comentarios, publicaciones), F5, F6, F7 (CRDT y offline) y F8 (AWS). Ver `PLAN_MAESTRO.md`, seccion 9.
 
 ## Siguiente tarea exacta
 
-1. Confirmar la observabilidad (H1 #5) en un commit (la imagen Docker local ya esta reconstruida); `git push` cuando el usuario lo pida (1094 unitarias, 1138 con PostgreSQL, 136 E2E, 24 visuales, tipos/lint/formato/build).
-2. `PLAN_MEJORAS.md` H1 #6 bus LISTEN/NOTIFY para presencia multi-replica (las metricas `acgraph_sse_*` ya permiten ver el efecto); #7 roles por diagrama.
+1. Confirmar H1 #6 (bus multi-replica) en un commit y `git push`; reconstruir la imagen Docker local (`docker compose -p acgraph-foundation build app` y `up`).
+2. `PLAN_MEJORAS.md` H1 #7 roles por diagrama (`diagram_members`, invitaciones, rutas y SSE por rol, menu Compartir con personas, lector en solo lectura con presencia).
 3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
 4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { publish } from '@/server/collab/events';
+import { collaboration } from '@/server/collab/collaboration';
 import { expectedRevision, parseBody, withConflict } from '@/server/diagrams/routes';
 import { MetaPatchSchema, SaveBodySchema } from '@/server/diagrams/schemas';
 import { withUser } from '@/server/handler';
@@ -33,12 +33,13 @@ export function PUT(request: NextRequest, context: Context) {
     };
     return withConflict(repository, id, async () => {
       const saved = await repository.save(id, body.model, options);
-      publish(id, {
+      collaboration().publish(id, {
         type: 'saved',
         updatedAt: saved.updatedAt,
         by: { id: user.id, name: user.name },
       });
-      if (options.metadata?.title !== undefined) publish(id, { type: 'meta', title: saved.title });
+      if (options.metadata?.title !== undefined)
+        collaboration().publish(id, { type: 'meta', title: saved.title });
       return json(saved);
     });
   });
@@ -50,12 +51,13 @@ export function PATCH(request: NextRequest, context: Context) {
     const { id } = await context.params;
     const patch = await parseBody(request, MetaPatchSchema);
     const updated = await repository.updateMeta(id, patch);
-    publish(id, {
+    collaboration().publish(id, {
       type: 'saved',
       updatedAt: updated.updatedAt,
       by: { id: user.id, name: user.name },
     });
-    if (patch.title !== undefined) publish(id, { type: 'meta', title: updated.title });
+    if (patch.title !== undefined)
+      collaboration().publish(id, { type: 'meta', title: updated.title });
     return json(updated);
   });
 }
@@ -65,7 +67,7 @@ export function DELETE(request: NextRequest, context: Context) {
   return withUser(request, { route: ROUTE, mutating: true }, async ({ repository }) => {
     const { id } = await context.params;
     await repository.delete(id);
-    publish(id, { type: 'deleted' });
+    collaboration().publish(id, { type: 'deleted' });
     return noContent();
   });
 }

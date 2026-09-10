@@ -328,6 +328,10 @@ export interface AppMetrics {
   dbTransactions: Counter;
   dbTransactionDuration: Histogram;
   unhandledErrors: Counter;
+  busMessages: Counter;
+  busDropped: Counter;
+  busConnected: Gauge;
+  busReconnects: Counter;
 }
 
 const APP_METRICS_KEY = 'appMetrics';
@@ -345,6 +349,8 @@ function defineAppMetrics(registry: Registry): AppMetrics {
   defined.sessionsEnded.inc({}, 0);
   defined.sseConnections.set(0);
   defined.sseConnectionsTotal.inc({}, 0);
+  defined.busConnected.set(0);
+  defined.busReconnects.inc({}, 0);
   return defined;
 }
 
@@ -409,6 +415,24 @@ function declareAppMetrics(registry: Registry): AppMetrics {
       'acgraph_unhandled_errors_total',
       'Errors that escaped a handler, by where Next.js caught them.',
       ['source'],
+    ),
+    busMessages: registry.counter(
+      'acgraph_collab_bus_messages_total',
+      'Collaboration bus traffic: sent, received from another replica, or echo of our own.',
+      ['direction', 'kind'],
+    ),
+    busDropped: registry.counter(
+      'acgraph_collab_bus_dropped_total',
+      'Bus messages not delivered, by reason.',
+      ['reason'],
+    ),
+    busConnected: registry.gauge(
+      'acgraph_collab_bus_connected',
+      '1 while this process listens to the collaboration bus.',
+    ),
+    busReconnects: registry.counter(
+      'acgraph_collab_bus_reconnects_total',
+      'Times the listening connection was re-established after a loss.',
     ),
   };
 }

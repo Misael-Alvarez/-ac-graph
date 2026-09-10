@@ -1,3 +1,4 @@
+import { collaboration } from '../collab/collaboration';
 import { readObservabilityEnv, serverMode } from '../env';
 import { rootLogger } from './log';
 import { appMetrics } from './metrics';
@@ -6,8 +7,9 @@ import { startTracing } from './tracing';
 /**
  * What happens once, when the Node.js server starts: the logger takes its
  * configuration, the metrics exist with zero values so a first scrape sees
- * every series, traces start if a collector is configured, and one record says
- * which build is running in which mode with which settings.
+ * every series, the collaboration bus starts listening in server mode, traces
+ * start if a collector is configured, and one record says which build is
+ * running in which mode with which settings.
  *
  * Called from `src/instrumentation.ts`; safe to call more than once.
  */
@@ -15,6 +17,8 @@ export async function startObservability(): Promise<void> {
   const env = readObservabilityEnv();
   const logger = rootLogger();
   appMetrics();
+  // Server mode: open the replica bus now, so the first viewer already hears the others.
+  if (serverMode()) collaboration();
 
   const tracing = await startTracing(env, logger).catch((thrown: unknown) => {
     logger.error('tracing did not start', { err: thrown });

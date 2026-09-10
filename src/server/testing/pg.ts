@@ -78,6 +78,7 @@ export function resetServerSingletons(): void {
     'metrics',
     'appMetrics',
     'logger',
+    'collaboration',
   ]) {
     resetSingleton(key);
   }

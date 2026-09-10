@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { publish } from '@/server/collab/events';
+import { collaboration } from '@/server/collab/collaboration';
 import { expectedRevision, withConflict } from '@/server/diagrams/routes';
 import { withUser } from '@/server/handler';
 import { json } from '@/server/http';
@@ -18,7 +18,7 @@ export function POST(request: NextRequest, context: RouteContext<typeof ROUTE>) 
     const expectedUpdatedAt = expectedRevision(request);
     return withConflict(repository, id, async () => {
       const restored = await repository.restoreVersion(id, versionId, { expectedUpdatedAt });
-      publish(id, {
+      collaboration().publish(id, {
         type: 'saved',
         updatedAt: restored.updatedAt,
         by: { id: user.id, name: user.name },

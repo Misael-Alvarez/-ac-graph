@@ -22,6 +22,7 @@ import { POST as importWorkspace } from '@/app/api/workspace/import/route';
 import { GET as scrapeMetrics } from '@/app/api/metrics/route';
 import { createSession, hashSessionId } from './auth/session';
 import { closePool, getPool } from './db';
+import { closeCollaboration } from './collab/collaboration';
 import { events } from './collab/events';
 import { appMetrics } from './observability/metrics';
 import { captureLogs } from './testing/logs';
@@ -102,6 +103,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
   });
 
   afterAll(async () => {
+    await closeCollaboration();
     await closePool();
     await dropSchema(pool);
     await pool.end();

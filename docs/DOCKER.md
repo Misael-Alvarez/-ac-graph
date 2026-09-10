@@ -215,8 +215,11 @@ Current limits:
 - Loopback HTTP is a local operating baseline, not an internet-ready deployment.
   Before remote exposure, add TLS and a reverse proxy, request-size/time limits
   and appropriate rate limiting. AI rate limits are process-local.
-- Next's runtime cache, presence and event fan-out are per process. Shared
-  caching and multi-instance coordination are not configured.
+- Several app replicas can share one PostgreSQL: saves are decided by the
+  database, and presence and live events cross replicas over `LISTEN/NOTIFY`
+  (see [AUTHENTIK.md](AUTHENTIK.md), "What it does not do yet"). Sticky
+  sessions are not required. Next's runtime cache stays per process, and this
+  Compose file runs a single `app` container; a load balancer is yours to add.
 - Metrics and logs stay inside the container's stdout and `/api/metrics`;
   shipping them somewhere (Prometheus, Loki, a collector) is the operator's
   choice. There is no alerting.

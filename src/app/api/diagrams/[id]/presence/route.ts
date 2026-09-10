@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { publish } from '@/server/collab/events';
-import { presence } from '@/server/collab/presence';
+import { collaboration } from '@/server/collab/collaboration';
 import { parseBody } from '@/server/diagrams/routes';
 import { PresenceBodySchema } from '@/server/diagrams/schemas';
 import { withUser } from '@/server/handler';
@@ -18,9 +17,7 @@ export function POST(request: NextRequest, context: RouteContext<typeof ROUTE>) 
   return withUser(request, { route: ROUTE, mutating: true }, async ({ user, sessionKey }) => {
     const { id } = await context.params;
     const patch = await parseBody(request, PresenceBodySchema);
-    const registry = presence();
-    registry.touch(id, sessionKey, user, patch);
-    publish(id, { type: 'presence', users: registry.list(id) });
+    collaboration().touch(id, sessionKey, user, patch, { announce: true });
     return noContent();
   });
 }

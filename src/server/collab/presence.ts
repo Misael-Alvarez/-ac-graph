@@ -5,8 +5,10 @@ import { singleton } from '../globals';
  * Who is looking at which diagram, right now.
  *
  * Kept in process memory: presence is ephemeral by nature and a restart losing
- * it costs nothing. With several replicas each one only knows its own viewers,
- * which is documented as a known limit of this phase.
+ * it costs nothing. Every replica holds the merged roster — its own viewers and
+ * the ones other replicas announce over the bus (`collaboration.ts`) — and the
+ * TTL retires whoever stops being heard from, including everyone behind a
+ * replica that died.
  */
 export const PRESENCE_TTL_MS = 15_000;
 
@@ -81,6 +83,13 @@ export class PresenceRegistry {
     };
     room.set(sessionKey, entry);
     return entry;
+  }
+
+  /** One viewer's current entry, or nothing when unknown or expired. */
+  peek(diagramId: string, sessionKey: string): PresenceEntry | undefined {
+    const entry = this.rooms.get(diagramId)?.get(sessionKey);
+    if (!entry) return undefined;
+    return entry.lastSeen < this.now() - this.ttlMs ? undefined : entry;
   }
 
   leave(diagramId: string, sessionKey: string): boolean {

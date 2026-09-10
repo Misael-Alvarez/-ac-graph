@@ -168,11 +168,16 @@ against the Compose stack):
 
 - **No roles or per-diagram permissions.** Anyone the Authentik application admits
   can read, edit and delete every diagram. `ownerId` is informational.
-- **Presence and events are per process.** With several app replicas, a viewer
-  connected to replica A does not see cursors or `saved` events from replica B.
-  Persistence and optimistic concurrency are still correct across replicas
-  (row locks and `expectedUpdatedAt` live in PostgreSQL); only the live layer
-  is local. A shared bus (PostgreSQL `LISTEN/NOTIFY`, Redis) is the next step.
+- **The live layer is best effort across replicas.** Several app processes on
+  one PostgreSQL share presence and events through `LISTEN/NOTIFY` (channel
+  `acgraph_collab`): a viewer on replica A sees cursors and `saved` events from
+  replica B. The listening connection is opened at start-up and reconnects with
+  a growing delay if the server drops it; while it is down, that replica misses
+  what the others say, and presence heals through heartbeats within 15 s.
+  Persistence and optimistic concurrency never depend on the bus. The listening
+  connection must reach PostgreSQL directly (or through a pooler in _session_
+  mode) — `LISTEN` does not survive transaction-mode pooling such as PgBouncer's
+  default. Metrics: `acgraph_collab_bus_*`.
 - **No simultaneous merge.** Two people editing the same diagram at once get
   last-writer-wins with conflict detection (`412 conflict` carrying the current
   record), not a CRDT merge. The editor reloads on a conflict; it does not merge.

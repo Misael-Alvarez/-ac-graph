@@ -3,11 +3,12 @@ import { appMetrics } from '../observability/metrics';
 import type { PresenceUser } from './presence';
 
 /**
- * Per-diagram fan-out for the SSE stream.
+ * Per-diagram fan-out for the SSE stream, inside one process.
  *
- * A saved commit, a title change, a deletion or a presence update is published
- * once and delivered to every open `/events` connection for that diagram in
- * this process. Cross-replica delivery is a known limit of this phase.
+ * A saved commit, a title change, a deletion or a presence update is delivered
+ * to every open `/events` connection for that diagram here. Reaching the other
+ * replicas is `collaboration.ts`'s job: routes publish through it, and it
+ * feeds this hub with what arrives from the bus.
  */
 export type DiagramEvent =
   | { type: 'saved'; updatedAt: string; by: { id: string; name: string } }
@@ -61,6 +62,7 @@ export function events(): EventHub {
   return singleton('events', () => new EventHub());
 }
 
+/** Local delivery only — this process's streams. Routes use `collaboration().publish`. */
 export function publish(diagramId: string, event: DiagramEvent): number {
   return events().publish(diagramId, event);
 }

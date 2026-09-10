@@ -38,6 +38,7 @@ function parseFrame(frame: string): { event: string; data: unknown } {
 beforeEach(() => {
   resetSingleton('events');
   resetSingleton('presence');
+  resetSingleton('collaboration');
 });
 
 afterEach(() => {

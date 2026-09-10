@@ -270,7 +270,8 @@ src/components/   The editor: canvas, floating chrome, code panel
 src/app/api/      Route handlers: AI (the only place the API key exists), the
                   server-rendered embed, and in server mode the diagram API,
                   sessions and live events; /api/health and /api/metrics
-src/server/       Server mode: PostgreSQL repository, OIDC sessions, presence,
+src/server/       Server mode: PostgreSQL repository, OIDC sessions, presence
+                  and live events shared between replicas over LISTEN/NOTIFY,
                   and observability (JSON logs, Prometheus metrics, optional
                   OpenTelemetry traces) behind one request wrapper
 src/instrumentation.ts  Next.js start-up hook: logger, metrics, traces
