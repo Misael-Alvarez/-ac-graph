@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 cerrado del todo, incluida la fase 2 de componentes de sistema, pendiente de commit; victorias rápidas en `origin/main`).
+Última actualización: 2026-09-10 (H1 cerrado del todo y en `origin/main` hasta `315baaf`; árbol limpio).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` en `b195b01` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** HEAD `e2fcc1d` con **H1 #2 fase 2 sin confirmar**: `src/components/ui/{Kbd,SearchField,Chip,GroupHeader,Tile,Row,Field,Section}.tsx` + `ui.test.ts`; explorador, selector (+`CustomIcons`), paleta, historial, análisis, menús, contextual, atajos, dock, estado vacío, biblioteca e inspector migrados; `TopBar.tsx` partido en `ExportMenu/MoreMenu/AccountMenu` (+`menuProps.ts`); `Library.tsx` partido en `LibraryHeader/LibraryHero/LibraryToolbar/DiagramCard/TemplateGallery`. `styles:compare` = 0 diferencias. Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio en `315baaf`. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -24,6 +24,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `c3afefa` — Decide who is in: owners, editors and viewers per diagram
   - `b195b01` — Seven small things the plan had waiting
   - `e2fcc1d` — Record where the work stands after the quick wins
+  - `315baaf` — Give the anatomy a home in code: Row, Tile, Field and the rest as components
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -91,7 +92,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 ## 4. Estado del contenedor
 
-`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 en `b195b01` (H1 completo y victorias rápidas; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
+`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 en `315baaf` (H1 completo, victorias rápidas y componentes de sistema; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
 
 ## 5. Decisiones que no hay que rediscutir
 
@@ -144,7 +145,6 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **Confirmar H1 #2 fase 2** en un commit y `git push`; reconstruir la imagen Docker local.
-2. **H1 cerrado del todo.** Seguir por `PLAN_MEJORAS.md` con H2: #10 presentación (M), #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
+1. **H1 cerrado del todo.** Seguir por `PLAN_MEJORAS.md` con H2: #10 presentación (M), #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.
