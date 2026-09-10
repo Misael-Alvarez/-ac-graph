@@ -307,6 +307,15 @@ textarea:focus-visible {
   user-select: none;
   -webkit-user-select: none;
 }
+/* A repository chip that points somewhere says so on hover, like any link. */
+.badge-link:hover text,
+.badge-link:focus-visible text {
+  text-decoration: underline;
+}
+.badge-link:focus-visible rect {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
 .topbar-identity {
   display: flex;
   align-items: center;
@@ -1003,6 +1012,31 @@ textarea:focus-visible {
   }
 }
 
+/* Leaving the way it came, shorter: the eye follows what arrives, and only
+   needs to be told that what leaves is gone. `data-closing` is worn while the
+   component waits for `animationend` (see `usePresence`). */
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.dialog-backdrop[data-closing] {
+  animation: backdrop-out 140ms var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+.dialog-backdrop[data-closing] .dialog {
+  animation: dialog-out 140ms var(--ease-out) forwards;
+}
+
 /*
   Cascade-pinned: must stay before @supports (backdrop-filter: blur(1px)) :: .palette, .dialog, .context-menu, .icon-picker and @supports (backdrop-filter: blur(1px)) :: .palette, .dialog, .context-menu, .icon-picker, .selection-toolbar, .tool-dock, .zoom-controls, .minimap, .side-panel, .code-panel; the rest of this selector is further down.
 */
@@ -1349,6 +1383,17 @@ textarea:focus-visible {
 /*
   Cascade-pinned: must stay before .tool-dock, .zoom-controls, .view-bar, .minimap, .breadcrumb, .selection-toolbar, .inspector, .context-menu, .palette, .dialog, .icon-picker, .toast, .topbar-menu; the rest of this selector is further down.
 */
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.toast[data-closing] {
+  animation: toast-out 180ms var(--ease-out) forwards;
+}
 
 .toast {
   background: var(--surface-raised);
@@ -1727,6 +1772,56 @@ body {
   flex-wrap: wrap;
 }
 
+/* The order is a small choice next to the search, not a field of its own. */
+.library-sort .input {
+  width: auto;
+  min-width: 11rem;
+}
+
+/* A file held over the page: the whole page says where it can go. */
+.library.is-dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+}
+.library-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+.library-drop-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 32rem;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--elevation-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.library-notice {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  z-index: 41;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--elevation-1);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
 /*
   Cascade-pinned: must stay before .filter-field and .palette-search, .browser-search, .icon-picker-search, .library-search and .template-card, .cloud-card, .empty-state-action, .icon-picker-trigger, .library-search, .browser-search, .icon-picker-search; the rest of this selector is further down.
 */
@@ -1960,6 +2055,23 @@ body {
   box-shadow: var(--elevation-1);
 }
 
+/* A starred card shows its star without waiting for the hover. */
+.library-card:has(.library-star.is-on) .library-card-actions {
+  opacity: 1;
+  transform: none;
+}
+.library-card:has(.library-star.is-on) .library-card-actions .icon-button:not(.library-star) {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.library-card:hover .library-card-actions .icon-button:not(.library-star),
+.library-card:focus-within .library-card-actions .icon-button:not(.library-star) {
+  opacity: 1;
+}
+.library-star.is-on {
+  color: var(--accent);
+}
+
 .icon-button.is-danger:hover {
   color: var(--danger);
   background: var(--danger-subtle);
@@ -2002,6 +2114,19 @@ body {
 .skeleton-line.is-short {
   width: 45%;
 }
+/* Present for assistive technology, absent for the eye. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .page-note {
   display: flex;
   flex-direction: column;
@@ -4459,6 +4584,20 @@ select.input.is-choice {
     opacity: 1;
     transform: none;
   }
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+.topbar-menu[data-closing],
+.context-menu[data-closing],
+.icon-picker[data-closing] {
+  animation: menu-out 120ms var(--ease-out) forwards;
+  pointer-events: none;
 }
 .topbar-menu-group {
   margin: var(--space-2) var(--space-3) var(--space-1);

@@ -78,12 +78,19 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
 - **Generate with AI.** Describe a system and get a diagram, or ask what the one
   on screen is missing. A generated diagram is one undo step away from gone.
 - **Export** from the top bar to PNG, SVG, PDF, Markdown, Mermaid, YAML and
-  JSON. Image and document exports show the current view; the JSON is the whole
-  model. Files are self-contained — icons and the logo are inlined.
+  JSON. Image and document exports show the current view, on the editor's theme
+  or one chosen for paper, with or without the metadata chips; the JSON is the
+  whole model. Files are self-contained — icons and the logo are inlined — and
+  the SVG carries a spoken description of the diagram, as the canvas does for
+  screen readers. A repository chip that names a host is a link, in the editor
+  and in the export.
 - **Work together.** In server mode every diagram lives in PostgreSQL and every
   editor is live: you see who is in the room, where their cursor is, and their
   saves land on your canvas as one undo step. Two people saving over each other
   is detected, never merged silently — the loser chooses whose version to keep.
+- **A library that keeps up.** Sort by recent edit, name or creation, star what
+  matters, and drop any file on the page — a project export, YAML, Mermaid,
+  Terraform, a Kubernetes manifest, OpenAPI or a Markdown outline — to import it.
 - **Decide who is in.** A diagram is the owner's until they share it: from the
   Share dialog they add people by e-mail as editors or viewers, change roles or
   remove them, and the change reaches the other person's screen at once. A

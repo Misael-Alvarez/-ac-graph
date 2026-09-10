@@ -9,7 +9,7 @@ Fecha: 2026-09-09 · Base analizada: estado del repositorio tras las entregas "A
 | **H1 · Consolidar**         | **8 de 8 cerrados** | ✅ #1 consolidación CSS (fase 1, exacta) · ✅ #2 componentes (`PanelHead`, inspector partido; falta `Row/Tile/Field`) · ✅ #3 E2E estables + auditoría en CI · ✅ #4 regresión visual (24 estados) · ✅ #5 observabilidad (logs JSON, `/api/metrics`, OTel opcional) · ✅ #6 bus multi-réplica (`LISTEN/NOTIFY`) · ✅ #7 roles por diagrama · ✅ #8 páginas de error/404 (esqueletos pendientes) |
 | **H2 · Producto de equipo** | pendiente           | Solo adelantado ⌘F (#13).                                                                                                                                                                                                                                                                                                                                                                        |
 | **H3 · Plataforma**         | pendiente           | —                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Victorias rápidas**       | 3 de 10             | Hechas: E2E/CI, `error.tsx`/`not-found.tsx`, ⌘F.                                                                                                                                                                                                                                                                                                                                                 |
+| **Victorias rápidas**       | 10 de 10            | Cerradas el 2026-09-10 (la #10 por medición: no hay nada que virtualizar).                                                                                                                                                                                                                                                                                                                       |
 
 Cómo retomar: `docs/CONTEXTO.md` (entorno, comandos, decisiones, límites, siguiente paso). Registro detallado de cada entrega: `docs/CHECKPOINTS.md`.
 
@@ -221,13 +221,13 @@ Este documento parte de una lectura completa del código, no de la lista de dese
 1. ~~Estabilizar E2E y añadir la auditoría funcional a CI.~~ **Hecho** (2026-09-09).
 2. ~~`error.tsx` / `not-found.tsx` con la anatomía Aurora.~~ **Hecho.**
 3. ~~⌘F buscar en el lienzo.~~ **Hecho.**
-4. Enlaces clicables en el chip de repositorio (exportación incluida).
-5. Exportar con/sin metadatos y tema de exportación.
-6. Ordenar y favoritos en la biblioteca.
-7. Arrastrar un archivo a la portada para importar.
-8. Transiciones de salida en diálogos con `@starting-style`.
-9. Descripción accesible del diagrama con el Markdown generado.
-10. Virtualizar explorador y selector.
+4. ~~Enlaces clicables en el chip de repositorio (exportación incluida).~~ **Hecho** (2026-09-10): el chip es un `<a>` en el lienzo y en el SVG exportado cuando el valor nombra un host (URL, `host/org/repo`, remoto SSH); `org/repo` sigue siendo etiqueta. El PDF es ráster y no lleva enlaces.
+5. ~~Exportar con/sin metadatos y tema de exportación.~~ **Hecho**: menú Exportar con «Tema de exportación» (como el editor · claro · oscuro) e «Incluir metadatos»; preferencias persistidas.
+6. ~~Ordenar y favoritos en la biblioteca.~~ **Hecho**: orden (reciente · nombre · más nuevos), estrella por tarjeta, filtro «Favoritos»; por navegador (`aion-studio-library`).
+7. ~~Arrastrar un archivo a la portada para importar.~~ **Hecho**: JSON de proyecto o registro, volcado de workspace, YAML DSL, Mermaid, Terraform, Kubernetes, OpenAPI y Markdown, reconocidos por contenido.
+8. ~~Transiciones de salida en diálogos.~~ **Hecho** con `usePresence` (desmontaje al `animationend`, tope de 260 ms) y keyframes `*-out`; se usaron keyframes y no `@starting-style` para ser coherentes con las entradas existentes. La paleta sigue sin animar.
+9. ~~Descripción accesible del diagrama.~~ **Hecho**: `describeDiagram` localizado, `aria-describedby` en el lienzo y `<title>`/`<desc>` en el SVG exportado.
+10. ~~Virtualizar explorador y selector.~~ **Cerrado por medición** (2026-09-10): el explorador y el selector muestran una nube a la vez (máximo 128 filas, Azure) y la búsqueda se limita a 120; `content-visibility: auto` se probó y se retiró porque cambiaba el alto de las secciones fuera de pantalla (884 → 240 px) y haría saltar el scroll. No hay nada que virtualizar.
 
 ## 4b. Herramientas de verificación de estilos (añadidas el 2026-09-09)
 

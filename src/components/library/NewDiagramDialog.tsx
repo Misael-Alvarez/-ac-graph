@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { exitProps } from '@/lib/editor/usePresence';
 import type { DiagramModel } from '@/lib/domain';
 import { createEmptyModel } from '@/lib/engine';
 import { TEMPLATES } from '@/lib/editor/templates';
@@ -14,6 +15,8 @@ interface NewDiagramDialogProps {
   onPick: (title: string, model: DiagramModel) => void;
   onClose: () => void;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
+  closing?: boolean;
+  onExited?: () => void;
 }
 
 /**
@@ -23,7 +26,13 @@ interface NewDiagramDialogProps {
  * disappears the moment there is one diagram — which left starting from a
  * template unreachable for everyone but a brand new user.
  */
-export function NewDiagramDialog({ onPick, onClose, t }: NewDiagramDialogProps) {
+export function NewDiagramDialog({
+  onPick,
+  onClose,
+  t,
+  closing = false,
+  onExited = () => {},
+}: NewDiagramDialogProps) {
   const { locale } = useLocale();
   const liquid = useLiquidPointer();
   const ref = useRef<HTMLDivElement>(null);
@@ -38,7 +47,7 @@ export function NewDiagramDialog({ onPick, onClose, t }: NewDiagramDialogProps) 
   }, [onClose]);
 
   return (
-    <div className="dialog-backdrop" onPointerDown={onClose}>
+    <div className="dialog-backdrop" onPointerDown={onClose} {...exitProps(closing, onExited)}>
       <div
         ref={ref}
         tabIndex={-1}

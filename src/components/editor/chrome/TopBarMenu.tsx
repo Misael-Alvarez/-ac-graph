@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { exitProps } from '@/lib/editor/usePresence';
 
 /**
  * A menu hanging from a top bar control.
@@ -13,11 +14,16 @@ export function TopBarMenu({
   label,
   onClose,
   align = 'right',
+  closing = false,
+  onExited = () => {},
   children,
 }: {
   label: string;
   onClose: () => void;
   align?: 'left' | 'right';
+  /** Playing its exit: inert, and gone when the animation ends. */
+  closing?: boolean;
+  onExited?: () => void;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -65,6 +71,8 @@ export function TopBarMenu({
       role="menu"
       aria-label={label}
       className={`topbar-menu${align === 'left' ? ' is-left' : ''}`}
+      inert={closing || undefined}
+      {...exitProps(closing, onExited)}
     >
       {children}
     </div>

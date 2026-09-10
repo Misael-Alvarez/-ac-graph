@@ -99,6 +99,10 @@ export function EditorProvider({
       dispatchUi({ type: 'toggleCode' });
     }
     if (stored.brand) dispatchUi({ type: 'setBrand', brand: stored.brand });
+    if (stored.exportTheme && ['editor', 'light', 'dark'].includes(stored.exportTheme)) {
+      dispatchUi({ type: 'setExportTheme', theme: stored.exportTheme });
+    }
+    if (stored.exportMeta === false) dispatchUi({ type: 'toggleExportMeta' });
     if (stored.accent && ACCENTS.includes(stored.accent)) {
       dispatchUi({ type: 'setAccent', accent: stored.accent });
     }

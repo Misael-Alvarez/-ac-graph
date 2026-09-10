@@ -83,6 +83,8 @@ describe('preferences', () => {
       accent: 'violet',
       gridSnap: true,
       brand: 'aion',
+      exportTheme: 'editor',
+      exportMeta: true,
       locale: 'es',
       minimapOpen: true,
       codeOpen: false,

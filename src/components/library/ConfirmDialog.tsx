@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { exitProps } from '@/lib/editor/usePresence';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 
@@ -18,12 +19,16 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   t,
+  closing = false,
+  onExited = () => {},
 }: {
   message: string;
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
+  closing?: boolean;
+  onExited?: () => void;
 }) {
   const liquid = useLiquidPointer();
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -44,7 +49,7 @@ export function ConfirmDialog({
   }, [onCancel]);
 
   return (
-    <div className="dialog-backdrop" onPointerDown={onCancel}>
+    <div className="dialog-backdrop" onPointerDown={onCancel} {...exitProps(closing, onExited)}>
       <div
         className="dialog is-narrow"
         onPointerMove={liquid}

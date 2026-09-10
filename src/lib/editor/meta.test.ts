@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { darkCanvas, lightCanvas } from '@/lib/design/tokens';
+import { addGroup, createEmptyModel } from '@/lib/engine';
 import {
   connectorLabel,
   connectorTags,
@@ -7,7 +8,9 @@ import {
   itemBadges,
   lifecycleStyle,
   repositoryName,
+  repositoryUrl,
   strokeFor,
+  stripMetadata,
   toneColors,
 } from './meta';
 
@@ -47,6 +50,52 @@ describe('itemBadges', () => {
     expect(repositoryName('github/payments-api')).toBe('payments-api');
     expect(repositoryName('https://github.com/aion/x.git/')).toBe('x');
     expect(repositoryName('mono')).toBe('mono');
+  });
+
+  it('links a repository only when it names a host', () => {
+    expect(repositoryUrl('https://github.com/aion/x')).toBe('https://github.com/aion/x');
+    expect(repositoryUrl('http://gitea.local:3000/aion/x.git')).toBe(
+      'http://gitea.local:3000/aion/x.git',
+    );
+    expect(repositoryUrl('github.com/aion/payments-api.git')).toBe(
+      'https://github.com/aion/payments-api',
+    );
+    expect(repositoryUrl('gitlab.example.com/team/repo')).toBe(
+      'https://gitlab.example.com/team/repo',
+    );
+    expect(repositoryUrl('git@github.com:aion/payments-api.git')).toBe(
+      'https://github.com/aion/payments-api',
+    );
+    expect(repositoryUrl('ssh://git@bitbucket.org/aion/x')).toBe('https://bitbucket.org/aion/x');
+    // No host, no link: a forge would be a guess.
+    expect(repositoryUrl('aion/payments-api')).toBeNull();
+    expect(repositoryUrl('mono')).toBeNull();
+    expect(repositoryUrl('   ')).toBeNull();
+
+    const [chip] = itemBadges({ meta: { repository: 'github.com/aion/x' } });
+    expect(chip).toMatchObject({
+      kind: 'repository',
+      text: 'x',
+      href: 'https://github.com/aion/x',
+    });
+    expect(itemBadges({ meta: { repository: 'aion/x' } })[0].href).toBeUndefined();
+  });
+
+  it('strips every piece of metadata for a clean export, nothing else', () => {
+    const model = createEmptyModel();
+    addGroup(model, 0, 0);
+    const item = model.shapes.find((shape) => shape.type === 'item')!;
+    item.meta = { environment: 'prod', repository: 'github.com/a/b', tags: ['x'] };
+    item.title = 'Kept';
+    const stripped = stripMetadata(model);
+    expect(stripped.shapes.find((shape) => shape.id === item.id)).toMatchObject({
+      title: 'Kept',
+      meta: undefined,
+    });
+    // The original is untouched and untouched shapes keep their identity.
+    expect(item.meta?.environment).toBe('prod');
+    const group = model.shapes.find((shape) => shape.type === 'group')!;
+    expect(stripped.shapes.find((shape) => shape.id === group.id)).toBe(group);
   });
 
   it('flags the lifecycles that change how a service should be read', () => {

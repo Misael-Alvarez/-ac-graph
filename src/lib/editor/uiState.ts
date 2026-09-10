@@ -1,6 +1,6 @@
 import type { Locale } from '@/lib/i18n/messages';
 import { DEFAULT_VIEWPORT, type Viewport } from './viewport';
-import type { BrandMode, ToolMode } from './types';
+import type { BrandMode, ExportTheme, ToolMode } from './types';
 
 /**
  * The interface's tone: which colour every accent, selection and focus ring
@@ -41,6 +41,9 @@ export interface UiState {
   dark: boolean;
   accent: Accent;
   brand: BrandMode;
+  /** Exports: which theme to draw on, and whether metadata chips travel along. */
+  exportTheme: ExportTheme;
+  exportMeta: boolean;
   locale: Locale;
   minimapOpen: boolean;
   paletteOpen: boolean;
@@ -85,6 +88,8 @@ export const initialUiState: UiState = {
   dark: true,
   accent: 'violet',
   brand: 'aion',
+  exportTheme: 'editor',
+  exportMeta: true,
   locale: 'es',
   minimapOpen: true,
   paletteOpen: false,
@@ -119,6 +124,8 @@ export type UiAction =
   | { type: 'toggleDark' }
   | { type: 'setAccent'; accent: Accent }
   | { type: 'setBrand'; brand: BrandMode }
+  | { type: 'setExportTheme'; theme: ExportTheme }
+  | { type: 'toggleExportMeta' }
   | { type: 'setLocale'; locale: Locale }
   | { type: 'toggleMinimap' }
   | { type: 'toggleCode' }
@@ -211,6 +218,12 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
     case 'setBrand':
       return { ...state, brand: action.brand };
 
+    case 'setExportTheme':
+      return { ...state, exportTheme: action.theme };
+
+    case 'toggleExportMeta':
+      return { ...state, exportMeta: !state.exportMeta };
+
     case 'setLocale':
       return { ...state, locale: action.locale };
 
@@ -269,6 +282,8 @@ export interface StoredPreferences {
   accent: Accent;
   gridSnap: boolean;
   brand: BrandMode;
+  exportTheme: ExportTheme;
+  exportMeta: boolean;
   locale: Locale;
   minimapOpen: boolean;
   codeOpen: boolean;
@@ -293,6 +308,8 @@ export function toPreferences(state: UiState): StoredPreferences {
     accent: state.accent,
     gridSnap: state.gridSnap,
     brand: state.brand,
+    exportTheme: state.exportTheme,
+    exportMeta: state.exportMeta,
     locale: state.locale,
     minimapOpen: state.minimapOpen,
     codeOpen: state.codeOpen,

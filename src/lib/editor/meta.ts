@@ -1,4 +1,4 @@
-import type { Connector, EdgeMeta, NodeMeta, Shape } from '@/lib/domain';
+import type { Connector, DiagramModel, EdgeMeta, NodeMeta, Shape } from '@/lib/domain';
 import { isDarkCanvas, mixHex, type CanvasTheme } from '@/lib/design/tokens';
 
 /**
@@ -26,6 +26,8 @@ export interface Badge {
   tone: Tone;
   /** What the badge stands for, for a tooltip or a screen reader. */
   kind: 'environment' | 'criticality' | 'lifecycle' | 'technology' | 'owner' | 'repository' | 'tag';
+  /** Where the chip points when it names a place one can go to. */
+  href?: string;
 }
 
 export interface ToneColors {
@@ -98,6 +100,26 @@ export function repositoryName(repository: string): string {
 }
 
 /**
+ * Where a repository field points, when it points somewhere.
+ *
+ * A full URL is taken as written; an SSH remote (`git@host:org/repo.git`) and
+ * a bare `host/org/repo` become the https page of the same repository. A short
+ * `org/repo` names no host, so it is a label and not a link — guessing a forge
+ * would send people to the wrong place more often than the right one.
+ */
+export function repositoryUrl(repository: string): string | null {
+  const trimmed = repository.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const ssh = /^(?:ssh:\/\/)?git@([^:/]+)[:/](.+)$/.exec(trimmed);
+  if (ssh) return `https://${ssh[1]}/${ssh[2].replace(/\.git$/, '')}`;
+  if (/^[\w.-]+\.[a-z]{2,}(?:[/:]|$)/i.test(trimmed)) {
+    return `https://${trimmed.replace(/\.git$/, '')}`;
+  }
+  return null;
+}
+
+/**
  * The chips a service card shows, in reading order.
  *
  * Environment first because it is the question asked most often of a diagram
@@ -132,7 +154,12 @@ export function itemBadges(shape: Pick<Shape, 'meta'>): Badge[] {
   if (meta.technology) badges.push({ text: meta.technology, tone: 'neutral', kind: 'technology' });
   if (meta.owner) badges.push({ text: `@${meta.owner}`, tone: 'neutral', kind: 'owner' });
   if (meta.repository) {
-    badges.push({ text: repositoryName(meta.repository), tone: 'accent', kind: 'repository' });
+    badges.push({
+      text: repositoryName(meta.repository),
+      tone: 'accent',
+      kind: 'repository',
+      href: repositoryUrl(meta.repository) ?? undefined,
+    });
   }
   for (const tag of meta.tags ?? []) {
     if (tag.trim()) badges.push({ text: `#${tag.trim()}`, tone: 'info', kind: 'tag' });
@@ -303,4 +330,18 @@ export function connectorTags(connector: Pick<Connector, 'label' | 'meta'>): Edg
     tags.push({ text: dataClass, tone: DATA_CLASS_TONE[dataClass], kind: 'dataClass' });
   if (connector.meta?.auth) tags.push({ text: connector.meta.auth, tone: 'info', kind: 'auth' });
   return tags;
+}
+
+/**
+ * The same diagram with nothing but its shapes and calls: no chips, no tags,
+ * no lifecycle dashes. For an export meant to be read without the legend.
+ */
+export function stripMetadata(model: DiagramModel): DiagramModel {
+  return {
+    ...model,
+    shapes: model.shapes.map((shape) => (shape.meta ? { ...shape, meta: undefined } : shape)),
+    connectors: model.connectors.map((connector) =>
+      connector.meta ? { ...connector, meta: undefined } : connector,
+    ),
+  };
 }

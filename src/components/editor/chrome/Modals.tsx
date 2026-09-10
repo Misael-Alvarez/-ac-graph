@@ -16,9 +16,13 @@ import { CloseIcon } from '@/components/icons/ToolIcons';
 import { Glyph } from '@/components/icons/Glyph';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { spellChord } from '@/lib/editor/platform';
+import { exitProps, usePresence, type Presence } from '@/lib/editor/usePresence';
 import { MineSection, UploadForm, useIconLibrary } from './CustomIcons';
 import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
 import { useCommands } from '../hooks/useCommands';
+
+/** What a dialog needs to leave the way it came: see `usePresence`. */
+export type ExitProps = Pick<Presence<unknown>, 'closing' | 'onExited'>;
 
 function Dialog({
   title,
@@ -26,13 +30,15 @@ function Dialog({
   onClose,
   closeLabel,
   wide,
+  closing = false,
+  onExited = () => {},
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
   closeLabel: string;
   wide?: boolean;
-}) {
+} & Partial<ExitProps>) {
   const ref = useRef<HTMLDivElement>(null);
   const liquid = useLiquidPointer();
   useEffect(() => {
@@ -44,7 +50,7 @@ function Dialog({
   }, []);
 
   return (
-    <div className="dialog-backdrop" onPointerDown={onClose}>
+    <div className="dialog-backdrop" onPointerDown={onClose} {...exitProps(closing, onExited)}>
       <div
         ref={ref}
         tabIndex={-1}
@@ -94,13 +100,26 @@ function Dialog({
   );
 }
 
+/** The modals this component owns; the share and AI dialogs are their own components. */
+const OWNED = new Set(['templates', 'markdown', 'switchCloud', 'icons', 'shortcuts']);
+
 export function Modals() {
   const { ui, dispatch, dispatchUi, t } = useEditor();
   const close = () => dispatchUi({ type: 'setModal', modal: null });
+  // The last open modal stays for its exit; `modal` is what to draw, not what is set.
+  const presence = usePresence(ui.modal && OWNED.has(ui.modal) ? ui.modal : null);
+  const modal = presence.shown;
+  // `key` makes a reopening start afresh even while the last one is leaving.
+  const exit = { key: presence.key, closing: presence.closing, onExited: presence.onExited };
 
-  if (ui.modal === 'templates') {
+  if (modal === 'templates') {
     return (
-      <Dialog title={t('modal.templates.title')} onClose={close} closeLabel={t('modal.close')}>
+      <Dialog
+        title={t('modal.templates.title')}
+        onClose={close}
+        closeLabel={t('modal.close')}
+        {...exit}
+      >
         <p className="dialog-subtitle">{t('modal.templates.subtitle')}</p>
         <div className="template-grid">
           {TEMPLATES.map((template, index) => (
@@ -129,11 +148,16 @@ export function Modals() {
     );
   }
 
-  if (ui.modal === 'markdown') return <MarkdownDialog onClose={close} />;
+  if (modal === 'markdown') return <MarkdownDialog onClose={close} {...exit} />;
 
-  if (ui.modal === 'switchCloud') {
+  if (modal === 'switchCloud') {
     return (
-      <Dialog title={t('action.switchCloud')} onClose={close} closeLabel={t('modal.close')}>
+      <Dialog
+        title={t('action.switchCloud')}
+        onClose={close}
+        closeLabel={t('modal.close')}
+        {...exit}
+      >
         <div className="cloud-grid">
           {/* Read from the equivalence table rather than listed here: it has
               known five clouds since the catalogue grew, and this dialog went
@@ -157,18 +181,30 @@ export function Modals() {
     );
   }
 
-  if (ui.modal === 'icons') {
+  if (modal === 'icons') {
     return (
-      <Dialog title={t('icons.mineTitle')} onClose={close} closeLabel={t('modal.close')} wide>
+      <Dialog
+        title={t('icons.mineTitle')}
+        onClose={close}
+        closeLabel={t('modal.close')}
+        wide
+        {...exit}
+      >
         <p className="dialog-subtitle">{t('icons.dialogSubtitle')}</p>
         <IconLibraryManager />
       </Dialog>
     );
   }
 
-  if (ui.modal === 'shortcuts') {
+  if (modal === 'shortcuts') {
     return (
-      <Dialog title={t('modal.shortcuts.title')} onClose={close} closeLabel={t('modal.close')} wide>
+      <Dialog
+        title={t('modal.shortcuts.title')}
+        onClose={close}
+        closeLabel={t('modal.close')}
+        wide
+        {...exit}
+      >
         <p className="dialog-subtitle">{t('modal.shortcuts.subtitle')}</p>
         <div className="shortcut-groups">
           {SHORTCUT_GROUPS.map((group) => (
@@ -194,7 +230,7 @@ export function Modals() {
   return null;
 }
 
-function MarkdownDialog({ onClose }: { onClose: () => void }) {
+function MarkdownDialog({ onClose, ...exit }: { onClose: () => void } & ExitProps) {
   const { ui, dispatch, dispatchUi, t } = useEditor();
   const [text, setText] = useState('');
 
@@ -236,7 +272,13 @@ Lambda -> DynamoDB : R/W`;
   const nodes = read?.model?.shapes.filter((s) => s.type === 'group').length ?? 0;
 
   return (
-    <Dialog title={t('import.title')} onClose={onClose} closeLabel={t('modal.close')} wide>
+    <Dialog
+      title={t('import.title')}
+      onClose={onClose}
+      closeLabel={t('modal.close')}
+      wide
+      {...exit}
+    >
       <p className="dialog-subtitle">{t('import.subtitle')}</p>
       <textarea
         className="dialog-textarea"

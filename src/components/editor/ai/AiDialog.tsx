@@ -5,6 +5,7 @@ import { AiError, requestDiagram, requestReview } from '@/lib/ai/requests';
 import { useEditor } from '../EditorProvider';
 import { CloseIcon } from '@/components/icons/ToolIcons';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
+import { exitProps, usePresence } from '@/lib/editor/usePresence';
 
 type Mode = 'build' | 'review';
 
@@ -28,6 +29,7 @@ const REVIEW_QUESTIONS = ['ai.question.missing', 'ai.question.spof', 'ai.questio
 export function AiDialog() {
   const liquid = useLiquidPointer();
   const { doc, ui, dispatch, dispatchUi, t } = useEditor();
+  const presence = usePresence(ui.modal === 'ai');
   const [mode, setMode] = useState<Mode>('build');
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
@@ -97,13 +99,17 @@ export function AiDialog() {
     }
   }, [prompt, busy, mode, doc.model, hasDiagram, ui.locale, dispatch, dispatchUi, t]);
 
-  if (ui.modal !== 'ai') return null;
+  if (!presence.shown) return null;
 
   const examples = (mode === 'build' ? BUILD_EXAMPLES : REVIEW_QUESTIONS).map((key) => t(key));
   const canRun = prompt.trim().length > 2 && !busy && (mode === 'build' || hasDiagram);
 
   return (
-    <div className="dialog-backdrop" onPointerDown={close}>
+    <div
+      className="dialog-backdrop"
+      onPointerDown={close}
+      {...exitProps(presence.closing, presence.onExited)}
+    >
       <div
         className="dialog is-wide"
         onPointerMove={liquid}

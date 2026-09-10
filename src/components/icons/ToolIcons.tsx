@@ -428,6 +428,16 @@ export const LogOutIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** A bookmark's star: outlined until it is set, then filled with the current colour. */
+export const StarIcon = ({ filled = false, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon {...p}>
+    <path
+      d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"
+      fill={filled ? 'currentColor' : 'none'}
+    />
+  </Icon>
+);
+
 export const LockIcon = (p: IconProps) => (
   <Icon {...p}>
     <rect x="5" y="10.5" width="14" height="10" rx="2" />

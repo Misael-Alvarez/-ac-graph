@@ -182,8 +182,8 @@ export function ItemShape({ shape, theme, lookup, interaction }: ShapeRenderProp
           // "where the code is" before the word is.
           const glyphX = x + 7;
           const glyphY = chipY + CHIP_H / 2;
-          return (
-            <g key={`${badge.kind}-${index}`} data-badge={badge.kind}>
+          const chip = (
+            <>
               <rect
                 x={x}
                 y={chipY}
@@ -216,6 +216,29 @@ export function ItemShape({ shape, theme, lookup, interaction }: ShapeRenderProp
               >
                 {spelled ? badge.text : badge.text.toUpperCase()}
               </text>
+            </>
+          );
+          return (
+            <g key={`${badge.kind}-${index}`} data-badge={badge.kind}>
+              {badge.href ? (
+                /* The one chip that names a place: a real link, in the editor and
+                   in the exported SVG alike. It takes the pointer back from the
+                   card so a click opens the repository instead of selecting. */
+                <a
+                  href={badge.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="badge-link"
+                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <title>{badge.href}</title>
+                  {chip}
+                </a>
+              ) : (
+                chip
+              )}
             </g>
           );
         })}

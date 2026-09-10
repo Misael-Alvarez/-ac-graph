@@ -10,6 +10,7 @@ import { HttpRepositoryError } from '@/lib/store/httpRepository';
 import { useEditor } from '../EditorProvider';
 import { CloseIcon } from '@/components/icons/ToolIcons';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
+import { exitProps, usePresence } from '@/lib/editor/usePresence';
 import { useMembersApi } from '@/components/app/RepositoryProvider';
 import { useUser } from '@/components/app/AuthProvider';
 import { colorForUser } from '@/lib/collab/colors';
@@ -73,8 +74,17 @@ function CopyField({
  */
 export function ShareDialog({ accessVersion = 0 }: { accessVersion?: number }) {
   const { ui } = useEditor();
-  // Unmounting resets consent to the narrower scope on every opening.
-  return ui.modal === 'share' ? <ShareContents accessVersion={accessVersion} /> : null;
+  // Unmounting resets consent to the narrower scope on every opening; the
+  // exit keeps the contents just long enough to leave.
+  const presence = usePresence(ui.modal === 'share');
+  return presence.shown ? (
+    <ShareContents
+      key={presence.key}
+      accessVersion={accessVersion}
+      closing={presence.closing}
+      onExited={presence.onExited}
+    />
+  ) : null;
 }
 
 const ROLE_KEY = { owner: 'role.owner', editor: 'role.editor', viewer: 'role.viewer' } as const;
@@ -290,7 +300,15 @@ function SharePeople({ accessVersion }: { accessVersion: number }) {
   );
 }
 
-function ShareContents({ accessVersion }: { accessVersion: number }) {
+function ShareContents({
+  accessVersion,
+  closing,
+  onExited,
+}: {
+  accessVersion: number;
+  closing: boolean;
+  onExited: () => void;
+}) {
   const liquid = useLiquidPointer();
   const { doc, ui, view, dispatchUi, t } = useEditor();
   const [scope, setScope] = useState<'view' | 'model'>('view');
@@ -337,7 +355,7 @@ function ShareContents({ accessVersion }: { accessVersion: number }) {
   const close = () => dispatchUi({ type: 'setModal', modal: null });
 
   return (
-    <div className="dialog-backdrop" onPointerDown={close}>
+    <div className="dialog-backdrop" onPointerDown={close} {...exitProps(closing, onExited)}>
       <div
         className="dialog is-wide"
         onPointerMove={liquid}

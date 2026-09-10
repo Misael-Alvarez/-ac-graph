@@ -4,6 +4,8 @@ import { useCallback, useMemo } from 'react';
 import { contentBBox, cloneShapes, projectView } from '@/lib/engine';
 import type { ServiceIcon } from '@/lib/editor';
 import type { CustomIcon } from '@/lib/domain';
+import { describeDiagram } from '@/lib/editor/describe';
+import { stripMetadata } from '@/lib/editor/meta';
 import { spellChord } from '@/lib/editor/platform';
 import { shortcutFor } from '@/lib/editor/shortcuts';
 import {
@@ -128,11 +130,21 @@ export function useCommands(): CommandSet {
     [dispatch, ui.viewport, viewportSize],
   );
 
-  /** What an image or document export draws: the current reading, projected. */
-  const exportOptions = useCallback(
-    () => ({ model: projectView(view), dark: ui.dark, brand: ui.brand }),
-    [view, ui.dark, ui.brand],
-  );
+  /**
+   * What an image or document export draws: the current reading, projected,
+   * on the theme chosen for exports (the editor's own unless said otherwise),
+   * with or without the metadata chips, and described for whoever cannot see it.
+   */
+  const exportOptions = useCallback(() => {
+    const projected = projectView(view);
+    return {
+      model: ui.exportMeta ? projected : stripMetadata(projected),
+      dark: ui.exportTheme === 'editor' ? ui.dark : ui.exportTheme === 'dark',
+      brand: ui.brand,
+      title,
+      description: describeDiagram(projected, t),
+    };
+  }, [view, ui.dark, ui.brand, ui.exportTheme, ui.exportMeta, title, t]);
   const stem = fileStem(title);
 
   const commands = useMemo<Command[]>(() => {

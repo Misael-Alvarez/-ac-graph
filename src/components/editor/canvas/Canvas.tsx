@@ -16,6 +16,7 @@ import {
   zoomAt,
   type Viewport,
 } from '@/lib/editor/viewport';
+import { describeDiagram } from '@/lib/editor/describe';
 import { isTextEntryTarget } from '@/lib/editor/domFocus';
 import { useEditor } from '../EditorProvider';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
@@ -44,6 +45,7 @@ export function Canvas() {
   // The sheet follows the chrome, so what is on screen is what an export from
   // this editor will look like.
   const theme = canvasTheme(ui.dark);
+  const description = useMemo(() => describeDiagram(view, t), [view, t]);
 
   const toLocal = useCallback((e: { clientX: number; clientY: number }) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -440,6 +442,7 @@ export function Canvas() {
         onPointerDown={onBackgroundPointerDown}
         role="application"
         aria-label={t('app.title')}
+        aria-describedby="canvas-description"
         tabIndex={-1}
       >
         <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={doc.model.customIcons} />
@@ -619,6 +622,11 @@ export function Canvas() {
         )}
       </svg>
 
+      {/* What the picture says, for whoever cannot see it. Read from `view`, so it
+          describes the reading on screen, and it is what the SVG export carries. */}
+      <p id="canvas-description" className="sr-only">
+        {description}
+      </p>
       {doc.model.shapes.length === 0 && <EmptyState />}
       <SelectionToolbar />
       <ContextMenu />

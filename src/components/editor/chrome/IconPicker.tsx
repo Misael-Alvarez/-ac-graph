@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { exitProps, usePresence } from '@/lib/editor/usePresence';
 import {
   CATEGORY_COLORS,
   CATEGORY_LABELS,
@@ -103,6 +104,7 @@ export function IconPicker({
   locale,
 }: IconPickerProps) {
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const current = useMemo(() => SERVICE_ICONS.find((s) => s.key === value), [value]);
@@ -156,9 +158,11 @@ export function IconPicker({
           the panel, not the window, and this one used to be pushed off screen
           the moment the inspector turned to glass. Out here it is free of the
           panel's overflow, stacking and filters alike. */}
-      {open &&
+      {presence.shown &&
         createPortal(
           <Popover
+            closing={presence.closing}
+            onExited={presence.onExited}
             value={value}
             startCloud={currentCustom ? MINE : (current?.category ?? 'aws')}
             triggerRef={triggerRef}
@@ -196,6 +200,8 @@ function Popover({
   onPick,
   onPickCustom,
   onClose,
+  closing,
+  onExited,
 }: {
   value?: string;
   startCloud: string;
@@ -206,6 +212,8 @@ function Popover({
   onPick: (key: string) => void;
   onPickCustom: (icon: CustomIcon) => void;
   onClose: () => void;
+  closing: boolean;
+  onExited: () => void;
 }) {
   const [cloud, setCloud] = useState(startCloud);
   const [query, setQuery] = useState('');
@@ -302,6 +310,8 @@ function Popover({
       aria-label={t('inspector.iconPicker')}
       style={style}
       onPointerMove={liquid}
+      inert={closing || undefined}
+      {...exitProps(closing, onExited)}
     >
       <div className="icon-picker-search filter-field">
         <SearchIcon size={14} />

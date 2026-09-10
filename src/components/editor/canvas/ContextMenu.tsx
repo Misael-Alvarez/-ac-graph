@@ -6,6 +6,7 @@ import type { MessageKey } from '@/lib/i18n/messages';
 import { shortcut } from '@/lib/editor/platform';
 import { useEditor } from '../EditorProvider';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
+import { exitProps, usePresence } from '@/lib/editor/usePresence';
 
 interface Entry {
   id: string;
@@ -51,11 +52,13 @@ function useClampedPosition(x: number, y: number) {
 export function ContextMenu() {
   const { ui, view, dispatch, dispatchUi, readOnly, t } = useEditor();
   const liquid = useLiquidPointer();
-  const target = ui.contextMenu;
+  // The last target stays for the exit; listeners follow the real state.
+  const presence = usePresence(ui.contextMenu);
+  const target = presence.shown;
   const { ref, position } = useClampedPosition(target?.x ?? 0, target?.y ?? 0);
 
   useEffect(() => {
-    if (!target) return;
+    if (!ui.contextMenu) return;
     const close = () => dispatchUi({ type: 'closeContextMenu' });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
@@ -68,7 +71,7 @@ export function ContextMenu() {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('blur', close);
     };
-  }, [target, dispatchUi]);
+  }, [ui.contextMenu, dispatchUi]);
 
   // Everything in here edits; a viewer gets the browser's own menu instead.
   if (!target || readOnly) return null;
@@ -221,6 +224,8 @@ export function ContextMenu() {
       style={{ left: position.left, top: position.top }}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerMove={liquid}
+      inert={presence.closing || undefined}
+      {...exitProps(presence.closing, presence.onExited)}
     >
       {rows.map((row, index) =>
         row === SEPARATOR ? (

@@ -11,6 +11,7 @@ import { ACCENTS } from '@/lib/editor/uiState';
 import type { SaveStatus } from '@/components/app/useDiagramDocument';
 import { spellChord } from '@/lib/editor/platform';
 import { shortcutFor } from '@/lib/editor/shortcuts';
+import { usePresence } from '@/lib/editor/usePresence';
 import { useEditor } from '../EditorProvider';
 import { useCommands } from '../hooks/useCommands';
 import type { Collaboration } from '../hooks/useCollaboration';
@@ -62,6 +63,12 @@ interface TopBarProps {
   collab: Collaboration;
 }
 
+const EXPORT_THEME_KEY = {
+  editor: 'export.themeEditor',
+  light: 'export.themeLight',
+  dark: 'export.themeDark',
+} as const;
+
 const STATUS_KEY = {
   saved: 'status.saved',
   pending: 'status.pending',
@@ -100,6 +107,9 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
   const stamp = buildStamp(ui.locale);
   const run = (id: string) => commands.find((c) => c.id === id)?.run();
   const closeMenu = useCallback(() => dispatchUi({ type: 'setMenu', menu: null }), [dispatchUi]);
+  // The menu that is closing stays for its exit; the buttons report the real state.
+  const menu = usePresence(ui.menu);
+  const menuExit = { closing: menu.closing, onExited: menu.onExited };
   const toggleMenu = (menu: 'export' | 'account' | 'more') =>
     dispatchUi({ type: 'setMenu', menu: ui.menu === menu ? null : menu });
   /** An icon button that runs a command and shows its shortcut on hover. */
@@ -258,8 +268,8 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
             <span className="button-label">{t('export.title')}</span>
             <ChevronDownIcon size={12} />
           </button>
-          {ui.menu === 'export' && (
-            <TopBarMenu label={t('export.title')} onClose={closeMenu}>
+          {menu.shown === 'export' && (
+            <TopBarMenu label={t('export.title')} onClose={closeMenu} {...menuExit}>
               <p className="topbar-menu-note">{t('export.subtitle')}</p>
               <MenuGroup label={t('export.image')} />
               <MenuItem
@@ -309,6 +319,35 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
                 shortcut={chord('saveProject')}
                 onSelect={() => pick('saveProject')}
               />
+              <MenuSeparator />
+              {/* Settings, not actions: the menu stays open so the effect of a
+                  choice can be seen next to the export it will apply to. */}
+              <MenuGroup label={t('export.theme')} />
+              {(['editor', 'light', 'dark'] as const).map((theme) => (
+                <MenuItem
+                  key={theme}
+                  icon={
+                    theme === 'editor' ? (
+                      <GridIcon size={15} />
+                    ) : theme === 'light' ? (
+                      <SunIcon size={15} />
+                    ) : (
+                      <MoonIcon size={15} />
+                    )
+                  }
+                  label={t(EXPORT_THEME_KEY[theme])}
+                  active={ui.exportTheme === theme}
+                  onSelect={() => dispatchUi({ type: 'setExportTheme', theme })}
+                />
+              ))}
+              <MenuSeparator />
+              <MenuItem
+                icon={<ListIcon size={15} />}
+                label={t('export.meta')}
+                hint={t('export.metaHint')}
+                active={ui.exportMeta}
+                onSelect={() => dispatchUi({ type: 'toggleExportMeta' })}
+              />
             </TopBarMenu>
           )}
         </div>
@@ -348,8 +387,8 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
           >
             <MoreIcon size={16} />
           </button>
-          {ui.menu === 'more' && (
-            <TopBarMenu label={t('topbar.more')} onClose={closeMenu}>
+          {menu.shown === 'more' && (
+            <TopBarMenu label={t('topbar.more')} onClose={closeMenu} {...menuExit}>
               <MenuGroup label={t('topbar.document')} />
               <MenuItem
                 icon={<TemplateIcon size={15} />}
@@ -441,8 +480,8 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
             </span>
             <ChevronDownIcon size={12} />
           </button>
-          {ui.menu === 'account' && (
-            <TopBarMenu label={t('account.title')} onClose={closeMenu}>
+          {menu.shown === 'account' && (
+            <TopBarMenu label={t('account.title')} onClose={closeMenu} {...menuExit}>
               <p className="topbar-menu-note">
                 {authState === 'authenticated'
                   ? `${t('account.signedInAs')} ${user.name}${user.email ? ` · ${user.email}` : ''}`

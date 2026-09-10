@@ -13,6 +13,10 @@ export interface DiagramDocumentProps {
   padding?: number;
   /** Multiplies the pixel dimensions; the viewBox is unchanged. */
   scale?: number;
+  /** The document's name, as the SVG's `<title>`. */
+  title?: string;
+  /** What the picture says, as the SVG's `<desc>`, for readers who cannot see it. */
+  description?: string;
 }
 
 const FOOTER_H = 56;
@@ -30,6 +34,8 @@ export function DiagramDocument({
   brand = 'none',
   padding = 48,
   scale = 1,
+  title,
+  description,
 }: DiagramDocumentProps) {
   const theme = canvasTheme(dark);
   const box = contentBBox(model);
@@ -47,7 +53,10 @@ export function DiagramDocument({
       width={Math.round(width * scale)}
       height={Math.round(height * scale)}
       fontFamily="-apple-system, 'Segoe UI', Roboto, Arial, sans-serif"
+      role={description ? 'img' : undefined}
     >
+      {title && <title>{title}</title>}
+      {description && <desc>{description}</desc>}
       <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={model.customIcons} />
       <rect x={originX} y={originY} width={width} height={height} fill={theme.sheet} />
       <DiagramScene model={model} theme={theme} />

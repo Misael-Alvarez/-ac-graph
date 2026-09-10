@@ -12,6 +12,9 @@ import { useLocale } from '@/lib/i18n/useLocale';
 import { relativeDay } from '@/lib/i18n/relativeDay';
 import { AcGraphLogo } from '@/components/brand/AcGraphLogo';
 import { useMembersApi, useRepository, useRepositoryReady } from '../app/RepositoryProvider';
+import { DropImportError, readDroppedFile } from '@/lib/library/dropImport';
+import { usePresence } from '@/lib/editor/usePresence';
+import { sortDiagrams, useLibraryPrefs, type LibrarySort } from '@/lib/library/prefs';
 import { useUser } from '../app/AuthProvider';
 import { LOCAL_USER } from '@/lib/auth/user';
 import { buildStamp } from '@/lib/appConfig';
@@ -20,10 +23,12 @@ import {
   CloseIcon,
   CopyIcon,
   FolderIcon,
+  ImportIcon,
   LogOutIcon,
   MoonIcon,
   PlusIcon,
   SearchIcon,
+  StarIcon,
   SunIcon,
   TemplateIcon,
   TrashIcon,
@@ -36,6 +41,8 @@ import { NewDiagramDialog } from './NewDiagramDialog';
 import { CountUp } from './CountUp';
 
 const NO_FOLDER = '__none__';
+/** A filter value, not a folder: the starred diagrams. */
+const FAVOURITES = '__favourites__';
 const SERVICE_COUNT = SERVICE_ICONS.length;
 /** The public clouds in the catalogue; AION and the generic set are not clouds. */
 const CLOUD_COUNT = new Set(
@@ -58,6 +65,10 @@ export function Library() {
   const [picking, setPicking] = useState(false);
   const [deleting, setDeleting] = useState<DiagramMeta | null>(null);
   const { t, locale } = useLocale();
+  const { sort, favourites, setSort, toggleFavourite } = useLibraryPrefs();
+  const confirm = usePresence(deleting);
+  const pick = usePresence(picking);
+  const starred = useMemo(() => new Set(favourites), [favourites]);
   // The default local profile is called "You" in the model, which is the
   // right name for presence in another language's browser and the wrong one
   // in a Spanish header; the interface says it in its own language.
@@ -89,15 +100,23 @@ export function Library() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return items.filter((item) => {
+    const filtered = items.filter((item) => {
+      if (folder === FAVOURITES && !starred.has(item.id)) return false;
       if (folder === NO_FOLDER && item.folder) return false;
-      if (folder && folder !== NO_FOLDER && item.folder !== folder) return false;
+      if (folder && folder !== NO_FOLDER && folder !== FAVOURITES && item.folder !== folder) {
+        return false;
+      }
       if (!needle) return true;
       return (
         item.title.toLowerCase().includes(needle) || item.description.toLowerCase().includes(needle)
       );
     });
-  }, [items, query, folder]);
+    return sortDiagrams(filtered, sort, favourites);
+  }, [items, query, folder, sort, favourites, starred]);
+  const starredCount = useMemo(
+    () => items.filter((item) => starred.has(item.id)).length,
+    [items, starred],
+  );
 
   const create = useCallback(
     async (title: string, model = createEmptyModel()) => {
@@ -106,6 +125,59 @@ export function Library() {
     },
     [repository, router],
   );
+
+  /*
+   * A file dropped anywhere on the page becomes a diagram — or, for a
+   * workspace dump, several. Counted rather than toggled, because dragging
+   * over child elements fires enter/leave in pairs and a plain boolean flickers.
+   */
+  const [dragDepth, setDragDepth] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
+  const onDragEnter = (e: React.DragEvent) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragDepth((depth) => depth + 1);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    if (!hasFiles(e)) return;
+    setDragDepth((depth) => Math.max(0, depth - 1));
+  };
+  const onDragOver = (e: React.DragEvent) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+  const onDrop = async (e: React.DragEvent) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragDepth(0);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    try {
+      const read = readDroppedFile(file.name, await file.text(), locale);
+      if (read.kind === 'workspace') {
+        const count = await repository.importWorkspace(read.data);
+        setNotice(t('library.imported', { count }));
+        await refresh();
+        return;
+      }
+      await create(read.title, read.model);
+    } catch (thrown) {
+      setNotice(
+        t(
+          thrown instanceof DropImportError
+            ? (`import.${thrown.code}` as const)
+            : 'toast.invalidFile',
+        ),
+      );
+    }
+  };
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // Each template drawn for real, small: a starting point shown as the diagram
   // it produces says more than an icon and a line of text ever did. Six models
@@ -144,7 +216,26 @@ export function Library() {
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <div className="library">
+    <div
+      className={`library${dragDepth > 0 ? ' is-dropping' : ''}`}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={(e) => void onDrop(e)}
+    >
+      {dragDepth > 0 && (
+        <div className="library-drop" aria-hidden="true">
+          <span className="library-drop-card">
+            <ImportIcon size={22} />
+            {t('library.dropHint')}
+          </span>
+        </div>
+      )}
+      {notice && (
+        <p className="library-notice" role="status">
+          {notice}
+        </p>
+      )}
       <header className="library-header">
         <div className="library-identity">
           <AcGraphLogo size={22} animate />
@@ -327,8 +418,22 @@ export function Library() {
             {t('browser.showing', { count: visible.length, total: items.length })}
           </span>
         )}
+        {items.length > 1 && (
+          <label className="library-sort">
+            <span className="sr-only">{t('library.sort')}</span>
+            <select
+              className="input is-choice"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as LibrarySort)}
+            >
+              <option value="recent">{t('library.sortRecent')}</option>
+              <option value="name">{t('library.sortName')}</option>
+              <option value="created">{t('library.sortCreated')}</option>
+            </select>
+          </label>
+        )}
 
-        {folders.length > 0 && (
+        {(folders.length > 0 || starredCount > 0) && (
           <div className="library-folders chip-row">
             <button
               type="button"
@@ -338,6 +443,17 @@ export function Library() {
               {t('library.all')}
               <span className="chip-count">{items.length}</span>
             </button>
+            {starredCount > 0 && (
+              <button
+                type="button"
+                className={`library-folder chip${folder === FAVOURITES ? ' is-active' : ''}`}
+                onClick={() => setFolder(folder === FAVOURITES ? null : FAVOURITES)}
+              >
+                <StarIcon size={13} filled />
+                {t('library.favourites')}
+                <span className="chip-count">{starredCount}</span>
+              </button>
+            )}
             {folders.map(([name, count]) => (
               <button
                 key={name}
@@ -428,6 +544,23 @@ export function Library() {
                   </span>
                 </button>
                 <div className="library-card-actions">
+                  <button
+                    type="button"
+                    className={`icon-button library-star${starred.has(item.id) ? ' is-on' : ''}`}
+                    title={t(starred.has(item.id) ? 'library.unfavourite' : 'library.favourite')}
+                    aria-label={`${t(starred.has(item.id) ? 'library.unfavourite' : 'library.favourite')}: ${item.title}`}
+                    aria-pressed={starred.has(item.id)}
+                    onClick={() => {
+                      // Un-starring the last favourite while looking at favourites
+                      // would leave an empty page with no chip to leave it by.
+                      if (folder === FAVOURITES && starred.has(item.id) && starredCount === 1) {
+                        setFolder(null);
+                      }
+                      toggleFavourite(item.id);
+                    }}
+                  >
+                    <StarIcon size={14} filled={starred.has(item.id)} />
+                  </button>
                   <button
                     type="button"
                     className="icon-button"
@@ -524,21 +657,23 @@ export function Library() {
         {buildStamp(locale) && <span>{t('app.build', { when: buildStamp(locale) })}</span>}
       </footer>
 
-      {deleting && (
+      {confirm.shown && (
         <ConfirmDialog
           t={t}
+          closing={confirm.closing}
+          onExited={confirm.onExited}
           message={t(
-            deleting.role && deleting.role !== 'owner'
+            confirm.shown.role && confirm.shown.role !== 'owner'
               ? 'library.leaveConfirm'
               : 'library.confirmDelete',
-            { title: deleting.title },
+            { title: confirm.shown.title },
           )}
           confirmLabel={t(
-            deleting.role && deleting.role !== 'owner' ? 'share.leave' : 'action.delete',
+            confirm.shown.role && confirm.shown.role !== 'owner' ? 'share.leave' : 'action.delete',
           )}
           onCancel={() => setDeleting(null)}
           onConfirm={() => {
-            const target = deleting;
+            const target = confirm.shown!;
             setDeleting(null);
             // Leaving a shared diagram removes only our own membership; deleting is the owner's.
             const gone =
@@ -550,9 +685,11 @@ export function Library() {
         />
       )}
 
-      {picking && (
+      {pick.shown && (
         <NewDiagramDialog
           t={t}
+          closing={pick.closing}
+          onExited={pick.onExited}
           onClose={() => setPicking(false)}
           onPick={(title, model) => {
             setPicking(false);

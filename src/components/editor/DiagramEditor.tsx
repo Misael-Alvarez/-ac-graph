@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useRouter } from 'next/navigation';
 import { safeParseDiagramModel, type DiagramModel, type DiagramRecord } from '@/lib/domain';
 import { downloadProject } from '@/lib/editor/export';
+import { exitProps, usePresence } from '@/lib/editor/usePresence';
 import { useLocale } from '@/lib/i18n/useLocale';
 import type { RemoteConflict } from '@/lib/store/saveCoordinator';
 import {
@@ -52,10 +53,16 @@ function useCanvasSize() {
 
 function Toast() {
   const { ui } = useEditor();
-  if (!ui.toast) return null;
+  const presence = usePresence(ui.toast);
+  if (!presence.shown) return null;
   return (
-    <div className="toast" role="status" aria-live="polite">
-      {ui.toast}
+    <div
+      className="toast"
+      role="status"
+      aria-live="polite"
+      {...exitProps(presence.closing, presence.onExited)}
+    >
+      {presence.shown}
     </div>
   );
 }

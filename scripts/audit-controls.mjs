@@ -148,6 +148,53 @@ for (const item of ['PNG', 'SVG', 'PDF', 'Markdown', 'Mermaid', 'YAML']) {
   await settle(200);
   check(`exportar: ${item} descarga`, !!dl, dl ? await dl.suggestedFilename() : 'sin descarga');
 }
+// export options: the theme rows and the metadata toggle change what is exported
+{
+  const svgOf = async () => {
+    await page.locator('.topbar button[aria-label="Exportar"]').click();
+    await settle(200);
+    const [dl] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8000 }).catch(() => null),
+      page.getByRole('menuitem', { name: /^SVG/ }).click(),
+    ]);
+    await settle(200);
+    if (!dl) return '';
+    const stream = await dl.createReadStream();
+    return await new Promise((resolve) => {
+      let text = '';
+      stream.on('data', (chunk) => (text += chunk));
+      stream.on('end', () => resolve(text));
+    });
+  };
+  const pick = async (name) => {
+    await page.locator('.topbar button[aria-label="Exportar"]').click();
+    await settle(200);
+    await page.getByRole('menuitem', { name }).click();
+    await settle(150);
+    const active = await page
+      .getByRole('menuitem', { name })
+      .evaluate((el) => el.classList.contains('is-active'));
+    await page.keyboard.press('Escape');
+    await settle(200);
+    return active;
+  };
+  const before = await svgOf();
+  check('exportar: tema Claro se marca', await pick('Claro'));
+  const light = await svgOf();
+  check(
+    'exportar: tema Claro cambia el fondo del SVG',
+    before !== light && /fill="#ffffff"/i.test(light),
+  );
+  await pick('Como el editor');
+  check('exportar: metadatos se desmarcan', !(await pick('Incluir metadatos')));
+  const bare = await svgOf();
+  check(
+    'exportar: sin metadatos no hay chips en el SVG',
+    !/data-badge=/.test(bare) && /data-badge=/.test(before),
+  );
+  await pick('Incluir metadatos');
+  check('exportar: SVG lleva <desc> accesible', /<desc>/.test(before));
+}
 // share dialog opens
 await page.locator('.topbar button[aria-label="Compartir"]').click();
 await settle();
@@ -608,6 +655,110 @@ for (const [tool, prefix] of [
   check(
     'biblioteca: ver puntos de partida desplaza',
     (await page.evaluate(() => window.scrollY)) > 100,
+  );
+}
+// Library: favourites, sort, and a file dropped on the page
+{
+  await page.goto(base + '/');
+  await page.waitForSelector('.library');
+  await settle(500);
+  // A second diagram, so there is an order to change.
+  await page
+    .locator('.library-card .icon-button[aria-label^="Duplicar"]')
+    .first()
+    .click({ force: true });
+  await settle(500);
+  const titles = () => page.locator('.library-card-title').allInnerTexts();
+  const recent = await titles();
+  await page.locator('.library-sort select').selectOption('name');
+  await settle(300);
+  const byName = await titles();
+  check(
+    'biblioteca: ordenar por nombre reordena',
+    byName.join('|') === [...recent].sort((a, b) => a.localeCompare(b)).join('|') &&
+      byName.length === recent.length,
+    `${recent.join('|')} -> ${byName.join('|')}`,
+  );
+  await page.locator('.library-sort select').selectOption('recent');
+  await settle(300);
+  const last = page.locator('.library-card').last();
+  const lastTitle = await last.locator('.library-card-title').innerText();
+  await last.locator('.library-star').click({ force: true });
+  await settle(300);
+  check(
+    'biblioteca: favorito sube la tarjeta y muestra el filtro',
+    (await titles())[0] === lastTitle &&
+      (await page.locator('.library-folder', { hasText: 'Favoritos' }).count()) === 1,
+  );
+  await page.locator('.library-folder', { hasText: 'Favoritos' }).click();
+  await settle(300);
+  check(
+    'biblioteca: filtro Favoritos deja solo los marcados',
+    (await page.locator('.library-card').count()) === 1,
+  );
+  await page.locator('.library-card .library-star').first().click({ force: true });
+  await settle(300);
+  check(
+    'biblioteca: quitar favorito retira el filtro',
+    (await page.locator('.library-folder', { hasText: 'Favoritos' }).count()) === 0,
+  );
+  // Drop a DSL document on the page: it opens as a new diagram.
+  const cardsBefore = await page.locator('.library-card').count();
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.items.add(
+      new File(
+        ['cloud: aws\nnodes:\n  fn: lambda\n  db: dynamodb\nedges:\n  - fn -> db: R/W\n'],
+        'soltado.yaml',
+        {
+          type: 'application/yaml',
+        },
+      ),
+    );
+    const target = document.querySelector('.library');
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      target.dispatchEvent(
+        new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }),
+      );
+    }
+  });
+  await page.waitForURL(/\/d\//, { timeout: 8000 }).catch(() => {});
+  check('biblioteca: soltar un archivo abre el diagrama importado', /\/d\//.test(page.url()));
+  await page.waitForSelector('.canvas-surface');
+  await settle(500);
+  check(
+    'biblioteca: el archivo soltado se dibujó',
+    (await shapes()) >= 2 && (await page.locator('.topbar-name').inputValue()) === 'soltado',
+  );
+  await page.goto(base + '/');
+  await page.waitForSelector('.library-card');
+  await settle(500);
+  const cardsAfter = await page.locator('.library-card').count();
+  check(
+    'biblioteca: el diagrama soltado está en la lista',
+    cardsAfter === cardsBefore + 1,
+    `${cardsBefore} -> ${cardsAfter}`,
+  );
+}
+// Repository chip: a hosted repository is a link on the canvas
+{
+  await openTemplate();
+  await selectItem(0);
+  const field = page.locator('.inspector').getByLabel('Repositorio', { exact: true });
+  await field.fill('github.com/aion/payments-api');
+  await settle(400);
+  const link = page.locator('.canvas-surface a.badge-link');
+  check(
+    'inspector: repositorio con host es un enlace en el lienzo',
+    (await link.count()) === 1 &&
+      (await link.getAttribute('href')) === 'https://github.com/aion/payments-api',
+  );
+  await field.fill('aion/payments-api');
+  await settle(400);
+  check(
+    'inspector: repositorio sin host no enlaza',
+    (await page.locator('.canvas-surface a.badge-link').count()) === 0 &&
+      (await page.locator('.canvas-surface [data-badge="repository"]').count()) === 1,
   );
 }
 

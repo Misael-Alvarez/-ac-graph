@@ -18,6 +18,9 @@ export type ToolMode =
  */
 export type BrandMode = 'aion' | 'none';
 
+/** What an exported image is drawn on: the editor's current theme, or one chosen for paper. */
+export type ExportTheme = 'editor' | 'light' | 'dark';
+
 export interface EditorState {
   tool: ToolMode;
   selectedIds: Set<string>;

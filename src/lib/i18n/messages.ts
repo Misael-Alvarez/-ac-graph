@@ -468,6 +468,12 @@ const en = {
   'export.yamlHint': 'The DSL; compiles back into this diagram',
   'export.json': 'JSON (full model)',
   'export.jsonHint': 'Every view, rule and metadata; reopens exactly',
+  'export.theme': 'Export theme',
+  'export.themeEditor': 'As the editor',
+  'export.themeLight': 'Light',
+  'export.themeDark': 'Dark',
+  'export.meta': 'Include metadata',
+  'export.metaHint': 'Chips, tags and call kinds',
   'export.failed': 'The export could not be produced.',
   'export.done': '{name} exported',
 
@@ -542,8 +548,27 @@ const en = {
   'share.leave': 'Leave',
   'share.you': 'you',
   'library.sharedWithYou': 'Shared with you',
+  'library.dropHint':
+    'Drop to import: a diagram, YAML, Mermaid, Terraform, Kubernetes, OpenAPI or Markdown',
+  'library.sort': 'Sort by',
+  'library.sortRecent': 'Recently edited',
+  'library.sortName': 'Name',
+  'library.sortCreated': 'Newest first',
+  'library.favourites': 'Favourites',
+  'library.favourite': 'Add to favourites',
+  'library.unfavourite': 'Remove from favourites',
   'library.leaveConfirm':
     'Leave “{title}”? It will disappear from your library until someone shares it with you again.',
+
+  'a11y.empty': 'Empty canvas.',
+  'a11y.summary':
+    'Diagram with {groups} groups, {services} services and {connections} connections.',
+  'a11y.groups': 'Groups: {list}.',
+  'a11y.connections': 'Connections: {list}.',
+  'a11y.call': '{from} to {to}',
+  'a11y.callLabelled': '{from} to {to} ({label})',
+  'a11y.more': 'and {count} more',
+  'a11y.untitled': 'untitled',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1010,6 +1035,12 @@ const es: Record<MessageKey, string> = {
   'export.yamlHint': 'El DSL; vuelve a compilar en este diagrama',
   'export.json': 'JSON (modelo completo)',
   'export.jsonHint': 'Todas las vistas, reglas y metadatos; se reabre exacto',
+  'export.theme': 'Tema de exportación',
+  'export.themeEditor': 'Como el editor',
+  'export.themeLight': 'Claro',
+  'export.themeDark': 'Oscuro',
+  'export.meta': 'Incluir metadatos',
+  'export.metaHint': 'Chips, etiquetas y tipos de llamada',
   'export.failed': 'No se pudo generar la exportación.',
   'export.done': '{name} exportado',
 
@@ -1086,8 +1117,26 @@ const es: Record<MessageKey, string> = {
   'share.leave': 'Salir',
   'share.you': 'tú',
   'library.sharedWithYou': 'Compartido contigo',
+  'library.dropHint':
+    'Suelta para importar: un diagrama, YAML, Mermaid, Terraform, Kubernetes, OpenAPI o Markdown',
+  'library.sort': 'Ordenar por',
+  'library.sortRecent': 'Editados recientemente',
+  'library.sortName': 'Nombre',
+  'library.sortCreated': 'Más nuevos primero',
+  'library.favourites': 'Favoritos',
+  'library.favourite': 'Añadir a favoritos',
+  'library.unfavourite': 'Quitar de favoritos',
   'library.leaveConfirm':
     '¿Salir de «{title}»? Desaparecerá de tu biblioteca hasta que alguien lo comparta contigo de nuevo.',
+
+  'a11y.empty': 'Lienzo vacío.',
+  'a11y.summary': 'Diagrama con {groups} grupos, {services} servicios y {connections} conexiones.',
+  'a11y.groups': 'Grupos: {list}.',
+  'a11y.connections': 'Conexiones: {list}.',
+  'a11y.call': '{from} a {to}',
+  'a11y.callLabelled': '{from} a {to} ({label})',
+  'a11y.more': 'y {count} más',
+  'a11y.untitled': 'sin título',
 };
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, es };
