@@ -19,7 +19,22 @@ const tokens = (label) =>
       .replace(/[^a-z0-9]+/g, ' ')
       .trim()
       .split(' ')
-      .filter((w) => w.length > 2 && !['amazon', 'aws', 'azure', 'google', 'cloud', 'oci', 'oracle', 'ibm', 'for', 'the'].includes(w)),
+      .filter(
+        (w) =>
+          w.length > 2 &&
+          ![
+            'amazon',
+            'aws',
+            'azure',
+            'google',
+            'cloud',
+            'oci',
+            'oracle',
+            'ibm',
+            'for',
+            'the',
+          ].includes(w),
+      ),
   );
 
 let found = 0;

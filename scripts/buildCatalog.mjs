@@ -17,8 +17,20 @@ const CLOUD_BY_PREFIX = { aws: 'aws', az: 'azure', gcp: 'gcp', oci: 'oci', ibm: 
 
 /** Vendor and filler words that carry no meaning inside a key. */
 const NOISE = new Set([
-  'amazon', 'aws', 'azure', 'google', 'cloud', 'oci', 'oracle', 'ibm', 'microsoft',
-  'for', 'and', 'the', 'service', 'services',
+  'amazon',
+  'aws',
+  'azure',
+  'google',
+  'cloud',
+  'oci',
+  'oracle',
+  'ibm',
+  'microsoft',
+  'for',
+  'and',
+  'the',
+  'service',
+  'services',
 ]);
 
 export function slugify(label) {
@@ -137,7 +149,8 @@ export function buildCatalog(masterListPath) {
     let best = null;
     for (const [normal, key] of bucket) {
       if (normal.length < 5) continue;
-      const [shorter, longer] = normal.length <= target.length ? [normal, target] : [target, normal];
+      const [shorter, longer] =
+        normal.length <= target.length ? [normal, target] : [target, normal];
       if (!longer.startsWith(shorter)) continue;
       const delta = longer.length - shorter.length;
       if (delta > NEAR) continue;
@@ -213,7 +226,14 @@ export function buildCatalog(masterListPath) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const { services, equivalences, stats } = buildCatalog(process.argv[2]);
   console.log('total services:', services.length);
-  console.log('  from the app:', stats.existing, '· added:', stats.added, '· merged:', stats.merged);
+  console.log(
+    '  from the app:',
+    stats.existing,
+    '· added:',
+    stats.added,
+    '· merged:',
+    stats.merged,
+  );
   console.log('equivalence rows:', equivalences.length);
   console.log(
     `role names matched: ${stats.matched}/${stats.attempted} (${Math.round((stats.matched / stats.attempted) * 100)}%)`,

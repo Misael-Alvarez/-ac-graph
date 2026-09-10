@@ -40,7 +40,7 @@ describe('GET /api/embed', () => {
     const light = await (await GET(request(`?d=${payload}`))).text();
     const dark = await (await GET(request(`?d=${payload}&theme=dark`))).text();
     expect(light).toContain('#ffffff');
-    expect(dark).toContain('#161920');
+    expect(dark).toContain('#0e1526');
   });
 
   it('caches immutably, because the diagram is in the URL', async () => {

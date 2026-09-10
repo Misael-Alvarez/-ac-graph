@@ -24,8 +24,10 @@ test('the icon field opens a picker grouped by cloud and by area', async ({ page
   await page.locator('.icon-picker-trigger').click();
   await expect(page.locator('.icon-picker')).toBeVisible();
 
-  // One tab per cloud, and functional areas as sections inside the chosen one.
-  await expect(page.locator('.icon-picker-cloud')).toHaveCount(7);
+  // One tab per cloud plus the author's own, and functional areas as sections
+  // inside the chosen one.
+  await expect(page.locator('.icon-picker-cloud')).toHaveCount(8);
+  await expect(page.locator('.icon-picker-cloud.is-mine')).toContainText('Propios');
   // It opens on the cloud the icon in use belongs to — a new item defaults to
   // Cloud Run, so that is GCP, not the first tab.
   await expect(page.locator('.icon-picker-cloud.is-active')).toContainText('GCP');
@@ -108,4 +110,43 @@ test('escape closes the picker without clearing the selection', async ({ page })
   // The shape stays selected — otherwise Escape would take the inspector,
   // and the picker's own trigger, away with it.
   await expect(page.locator('.inspector')).toBeVisible();
+});
+
+test('an icon of your own: uploaded once, drawn on the card, kept by the document', async ({
+  page,
+}) => {
+  await selectAnItem(page);
+  await page.locator('.icon-picker-trigger').click();
+  await page.getByRole('tab', { name: /Propios/ }).click();
+  await expect(page.locator('.icon-picker-tile.is-upload')).toBeVisible();
+  await page.getByRole('button', { name: /Subir un icono/ }).click();
+
+  await page.locator('.icon-upload-drop input[type=file]').setInputFiles({
+    name: 'vault.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><script>alert(1)</script><rect width="24" height="24" rx="6" fill="#111"/></svg>',
+    ),
+  });
+  await page.getByLabel('Nombre').fill('Vault');
+  await page.getByLabel('Qué es').fill('Secretos y certificados');
+  await page.getByLabel('Origen').fill('HashiCorp');
+  await page.getByRole('button', { name: /Guardar y usar/ }).click();
+
+  // Named in the field, drawn by the card, and free of what the file smuggled.
+  await expect(page.locator('.icon-picker-trigger')).toContainText('Vault');
+  await expect(page.locator('.icon-picker-trigger')).toContainText('HashiCorp');
+  const symbol = page.locator('.canvas-surface symbol[id^="i-custom-vault"]');
+  await expect(symbol).toHaveCount(1);
+  expect(await symbol.innerHTML()).not.toContain('script');
+
+  // The document carries it: a reload still draws it, and the picker lists it.
+  await expect(page.locator('.topbar .save-status')).toContainText('Guardado');
+  await page.reload();
+  await page.waitForSelector('.canvas-surface');
+  await expect(page.locator('.canvas-surface symbol[id^="i-custom-vault"]')).toHaveCount(1);
+  await page.locator('[data-shape-id^="itm_"]').first().click({ force: true });
+  await page.locator('.icon-picker-trigger').click();
+  await page.getByRole('tab', { name: /Propios/ }).click();
+  await expect(page.locator('.icon-picker-tile.is-current')).toContainText('Vault');
 });

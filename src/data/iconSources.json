@@ -1,0 +1,2031 @@
+{
+  "aws-forecast": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonForecast.svg"
+  },
+  "aws-frauddetector": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonFraudDetector.svg"
+  },
+  "aws-kendra": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonKendra.svg"
+  },
+  "aws-personalize": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonPersonalize.svg"
+  },
+  "aws-polly": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonPolly.svg"
+  },
+  "aws-q": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonQ.svg"
+  },
+  "aws-transcribe": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonTranscribe.svg"
+  },
+  "aws-translate": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonTranslate.svg"
+  },
+  "aws-deepracerecosystem": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSDeepRacer.svg"
+  },
+  "aws-bedrock": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonBedrock.svg"
+  },
+  "aws-comprehend": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonComprehend.svg"
+  },
+  "aws-lex": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonLex.svg"
+  },
+  "aws-rekognition": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonRekognition.svg"
+  },
+  "aws-sagemaker": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSageMaker.svg"
+  },
+  "aws-textract": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonTextract.svg"
+  },
+  "aws-datazone": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonDataZone.svg"
+  },
+  "aws-opensearch": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonOpenSearchService.svg"
+  },
+  "aws-athena": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonAthena.svg"
+  },
+  "aws-cleanrooms": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCleanRooms.svg"
+  },
+  "aws-dataexchange": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSDataExchange.svg"
+  },
+  "aws-emr": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonEMR.svg"
+  },
+  "aws-glue": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSGlue.svg"
+  },
+  "aws-kinesis": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonKinesis.svg"
+  },
+  "aws-lakeformation": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSLakeFormation.svg"
+  },
+  "aws-quicksight": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonQuickSuite.svg"
+  },
+  "aws-redshift": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonRedshift.svg"
+  },
+  "aws-amplify": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSAmplify.svg"
+  },
+  "aws-apprunner": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSAppRunner.svg"
+  },
+  "aws-localzones": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSLocalZones.svg"
+  },
+  "aws-outposts": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSOutpostsfamily.svg"
+  },
+  "aws-parallelcomputing": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSParallelComputingService.svg"
+  },
+  "aws-parallelcluster": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSParallelCluster.svg"
+  },
+  "aws-wavelength": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSWavelength.svg"
+  },
+  "aws-batch": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSBatch.svg"
+  },
+  "aws-ec2": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonEC2.svg"
+  },
+  "aws-ec2autoscaling": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonEC2AutoScaling.svg"
+  },
+  "aws-elasticbeanstalk": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSElasticBeanstalk.svg"
+  },
+  "aws-lambda": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSLambda.svg"
+  },
+  "aws-stepfunctions": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSStepFunctions.svg"
+  },
+  "aws-vmwareon": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonElasticVMwareService.svg"
+  },
+  "aws-appmesh": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSAppMesh.svg"
+  },
+  "aws-ecr": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonElasticContainerRegistry.svg"
+  },
+  "aws-ecs": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonElasticContainerService.svg"
+  },
+  "aws-eks": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonElasticKubernetesService.svg"
+  },
+  "aws-fargate": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSFargate.svg"
+  },
+  "aws-redhatopenshifton": {
+    "source": "pack",
+    "file": "aws/architecture-service/RedHatOpenShiftServiceonAWS.svg"
+  },
+  "aws-keyspaces": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonKeyspaces.svg"
+  },
+  "aws-memorydb": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonMemoryDB.svg"
+  },
+  "aws-qldb": {
+    "source": "existing"
+  },
+  "aws-timestream": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonTimestream.svg"
+  },
+  "aws-aurora": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonAurora.svg"
+  },
+  "aws-documentdb": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonDocumentDB.svg"
+  },
+  "aws-dynamodb": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonDynamoDB.svg"
+  },
+  "aws-elasticache": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonElastiCache.svg"
+  },
+  "aws-neptune": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonNeptune.svg"
+  },
+  "aws-rds": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonRDS.svg"
+  },
+  "aws-cdk": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCloudDevelopmentKit.svg"
+  },
+  "aws-cli": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCommandLineInterface.svg"
+  },
+  "aws-cloudformation": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCloudFormation.svg"
+  },
+  "aws-cloudshell": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCloudShell.svg"
+  },
+  "aws-codeartifact": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCodeArtifact.svg"
+  },
+  "aws-codebuild": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCodeBuild.svg"
+  },
+  "aws-codedeploy": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCodeDeploy.svg"
+  },
+  "aws-sdks": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSToolsandSDKs.svg"
+  },
+  "aws-codepipeline": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCodePipeline.svg"
+  },
+  "aws-appflow": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonAppFlow.svg"
+  },
+  "aws-mq": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonMQ.svg"
+  },
+  "aws-appsync": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSAppSync.svg"
+  },
+  "aws-eventbridge": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonEventBridge.svg"
+  },
+  "aws-msk": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonManagedStreamingforApacheKafka.svg"
+  },
+  "aws-pinpoint": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonPinpoint.svg"
+  },
+  "aws-ses": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSimpleEmailService.svg"
+  },
+  "aws-sns": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSimpleNotificationService.svg"
+  },
+  "aws-sqs": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSimpleQueueService.svg"
+  },
+  "aws-budgets": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSBudgets.svg"
+  },
+  "aws-computeoptimizer": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSComputeOptimizer.svg"
+  },
+  "aws-controltower": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSControlTower.svg"
+  },
+  "aws-costexplorer": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCostExplorer.svg"
+  },
+  "aws-healthdashboard": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSHealthDashboard.svg"
+  },
+  "aws-organizations": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSOrganizations.svg"
+  },
+  "aws-catalog": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSServiceCatalog.svg"
+  },
+  "aws-systemsmanager": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSSystemsManager.svg"
+  },
+  "aws-trustedadvisor": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSTrustedAdvisor.svg"
+  },
+  "aws-cloudwatch": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonCloudWatch.svg"
+  },
+  "aws-apigateway": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonAPIGateway.svg"
+  },
+  "aws-map": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCloudMap.svg"
+  },
+  "aws-globalaccelerator": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSGlobalAccelerator.svg"
+  },
+  "aws-networkfirewall": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSNetworkFirewall.svg"
+  },
+  "aws-privatelink": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSPrivateLink.svg"
+  },
+  "aws-vpn": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSSitetoSiteVPN.svg"
+  },
+  "aws-cloudfront": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonCloudFront.svg"
+  },
+  "aws-directconnect": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSDirectConnect.svg"
+  },
+  "aws-elasticloadbalancing": {
+    "source": "pack",
+    "file": "aws/architecture-service/ElasticLoadBalancing.svg"
+  },
+  "aws-elb": {
+    "source": "pack",
+    "file": "aws/architecture-service/ElasticLoadBalancing.svg"
+  },
+  "aws-route53": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonRoute53.svg"
+  },
+  "aws-transitgateway": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSTransitGateway.svg"
+  },
+  "aws-vpc": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonVirtualPrivateCloud.svg"
+  },
+  "aws-detective": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonDetective.svg"
+  },
+  "aws-guardduty": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonGuardDuty.svg"
+  },
+  "aws-artifact": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSArtifact.svg"
+  },
+  "aws-auditmanager": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSAuditManager.svg"
+  },
+  "aws-certificatemanager": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCertificateManager.svg"
+  },
+  "aws-cloudhsm": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCloudHSM.svg"
+  },
+  "aws-firewallmanager": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSFirewallManager.svg"
+  },
+  "aws-kms": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSKeyManagementService.svg"
+  },
+  "aws-securityhub": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSSecurityHub.svg"
+  },
+  "aws-securitylake": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSecurityLake.svg"
+  },
+  "aws-cloudtrail": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSCloudTrail.svg"
+  },
+  "aws-cognito": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonCognito.svg"
+  },
+  "aws-config": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSConfig.svg"
+  },
+  "aws-iam": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSIdentityandAccessManagement.svg"
+  },
+  "aws-iamidentitycenter": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSIAMIdentityCenter.svg"
+  },
+  "aws-inspector": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonInspector.svg"
+  },
+  "aws-macie": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonMacie.svg"
+  },
+  "aws-secretsmanager": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSSecretsManager.svg"
+  },
+  "aws-shield": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSShield.svg"
+  },
+  "aws-waf": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSWAF.svg"
+  },
+  "aws-ebs": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonElasticBlockStore.svg"
+  },
+  "aws-datasync": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSDataSync.svg"
+  },
+  "aws-snowfamily": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSSnowball.svg"
+  },
+  "aws-storagegateway": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSStorageGateway.svg"
+  },
+  "aws-transferfamily": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSTransferFamily.svg"
+  },
+  "aws-backup": {
+    "source": "pack",
+    "file": "aws/architecture-service/AWSBackup.svg"
+  },
+  "aws-efs": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonEFS.svg"
+  },
+  "aws-fsx": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonFSx.svg"
+  },
+  "aws-s3": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSimpleStorageService.svg"
+  },
+  "aws-s3glacier": {
+    "source": "pack",
+    "file": "aws/architecture-service/AmazonSimpleStorageServiceGlacier.svg"
+  },
+  "az-search": {
+    "source": "existing"
+  },
+  "az-aicontentsafety": {
+    "source": "existing"
+  },
+  "az-aidocumentintelligence": {
+    "source": "existing"
+  },
+  "az-aifoundry": {
+    "source": "existing"
+  },
+  "az-aifoundryagent": {
+    "source": "existing"
+  },
+  "az-ailanguage": {
+    "source": "existing"
+  },
+  "az-aispeech": {
+    "source": "existing"
+  },
+  "az-aitranslator": {
+    "source": "existing"
+  },
+  "az-aivision": {
+    "source": "existing"
+  },
+  "az-machinelearning": {
+    "source": "existing"
+  },
+  "az-ml": {
+    "source": "existing"
+  },
+  "az-openai": {
+    "source": "existing"
+  },
+  "az-openai2": {
+    "source": "existing"
+  },
+  "az-botservice": {
+    "source": "existing"
+  },
+  "az-cognitiveservices": {
+    "source": "existing"
+  },
+  "az-copilotstudio": {
+    "source": "existing"
+  },
+  "az-formrecognizer": {
+    "source": "existing"
+  },
+  "az-semantickernel": {
+    "source": "existing"
+  },
+  "az-speechservice": {
+    "source": "existing"
+  },
+  "az-hdinsight": {
+    "source": "existing"
+  },
+  "az-synapseanalytics": {
+    "source": "existing"
+  },
+  "az-datafactory": {
+    "source": "existing"
+  },
+  "az-databricks": {
+    "source": "existing"
+  },
+  "az-fabric2": {
+    "source": "existing"
+  },
+  "az-powerbi": {
+    "source": "existing"
+  },
+  "az-purview": {
+    "source": "existing"
+  },
+  "az-streamanalytics": {
+    "source": "existing"
+  },
+  "az-synapse": {
+    "source": "existing"
+  },
+  "az-appservice": {
+    "source": "existing"
+  },
+  "az-batch": {
+    "source": "existing"
+  },
+  "az-cyclecloud": {
+    "source": "existing"
+  },
+  "az-dedicatedhost": {
+    "source": "existing"
+  },
+  "az-functions": {
+    "source": "existing"
+  },
+  "az-fabric": {
+    "source": "existing"
+  },
+  "az-spotvirtualmachines": {
+    "source": "existing"
+  },
+  "az-virtualdesktop": {
+    "source": "existing"
+  },
+  "az-vmwaresolution": {
+    "source": "existing"
+  },
+  "az-staticwebapps": {
+    "source": "existing"
+  },
+  "az-virtualmachinescalesets": {
+    "source": "existing"
+  },
+  "az-vm": {
+    "source": "existing"
+  },
+  "az-aks": {
+    "source": "existing"
+  },
+  "az-arcenabledkubernetes": {
+    "source": "existing"
+  },
+  "az-containerregistry": {
+    "source": "existing"
+  },
+  "az-kubernetes": {
+    "source": "existing"
+  },
+  "az-redhatopenshift": {
+    "source": "existing"
+  },
+  "az-containerapps": {
+    "source": "existing"
+  },
+  "az-dataexplorer": {
+    "source": "existing"
+  },
+  "az-databasemysql": {
+    "source": "existing"
+  },
+  "az-databasepostgresql": {
+    "source": "existing"
+  },
+  "az-managedredis": {
+    "source": "existing"
+  },
+  "az-sqlmanagedinstance": {
+    "source": "existing"
+  },
+  "az-cosmosdb": {
+    "source": "existing"
+  },
+  "az-cosmosdb-mongo": {
+    "source": "existing"
+  },
+  "az-mysql": {
+    "source": "existing"
+  },
+  "az-database": {
+    "source": "existing"
+  },
+  "az-postgresql": {
+    "source": "existing"
+  },
+  "az-redis": {
+    "source": "existing"
+  },
+  "az-sqldb": {
+    "source": "existing"
+  },
+  "az-sqlserveronvms": {
+    "source": "existing"
+  },
+  "az-armtemplates": {
+    "source": "existing"
+  },
+  "az-artifacts": {
+    "source": "existing"
+  },
+  "az-cli": {
+    "source": "existing"
+  },
+  "az-shell": {
+    "source": "existing"
+  },
+  "az-pipelines": {
+    "source": "existing"
+  },
+  "az-repos": {
+    "source": "existing"
+  },
+  "az-testplans": {
+    "source": "existing"
+  },
+  "az-bicep": {
+    "source": "existing"
+  },
+  "az-devops": {
+    "source": "existing"
+  },
+  "az-github": {
+    "source": "existing"
+  },
+  "az-githubactions": {
+    "source": "existing"
+  },
+  "az-githubcodespaces": {
+    "source": "existing"
+  },
+  "az-communication": {
+    "source": "existing"
+  },
+  "az-eventgrid": {
+    "source": "existing"
+  },
+  "az-eventhub": {
+    "source": "existing"
+  },
+  "az-logicapps": {
+    "source": "existing"
+  },
+  "az-notificationhubs": {
+    "source": "existing"
+  },
+  "az-servicebus": {
+    "source": "existing"
+  },
+  "az-signalr": {
+    "source": "existing"
+  },
+  "az-iothub": {
+    "source": "existing"
+  },
+  "az-applicationinsights": {
+    "source": "existing"
+  },
+  "az-advisor": {
+    "source": "existing"
+  },
+  "az-arc": {
+    "source": "existing"
+  },
+  "az-automation": {
+    "source": "existing"
+  },
+  "az-costmanagement": {
+    "source": "existing"
+  },
+  "az-lighthouse": {
+    "source": "existing"
+  },
+  "az-policy": {
+    "source": "existing"
+  },
+  "az-resourcemanager": {
+    "source": "existing"
+  },
+  "az-loganalytics": {
+    "source": "existing"
+  },
+  "az-managementgroups": {
+    "source": "existing"
+  },
+  "az-monitor": {
+    "source": "existing"
+  },
+  "az-apim": {
+    "source": "existing"
+  },
+  "az-appgateway": {
+    "source": "existing"
+  },
+  "az-applicationgateway": {
+    "source": "existing"
+  },
+  "az-cdn": {
+    "source": "existing"
+  },
+  "az-ddosprotection": {
+    "source": "existing"
+  },
+  "az-dns": {
+    "source": "existing"
+  },
+  "az-natgateway": {
+    "source": "existing"
+  },
+  "az-networkwatcher": {
+    "source": "existing"
+  },
+  "az-privatelink": {
+    "source": "existing"
+  },
+  "az-trafficmanager": {
+    "source": "existing"
+  },
+  "az-virtualwan": {
+    "source": "existing"
+  },
+  "az-vpngateway": {
+    "source": "existing"
+  },
+  "az-dnszone": {
+    "source": "existing"
+  },
+  "az-expressroute": {
+    "source": "existing"
+  },
+  "az-frontdoor": {
+    "source": "existing"
+  },
+  "az-loadbalancer": {
+    "source": "existing"
+  },
+  "az-vnet": {
+    "source": "existing"
+  },
+  "az-firewall": {
+    "source": "existing"
+  },
+  "az-managedhsm": {
+    "source": "existing"
+  },
+  "az-rbac": {
+    "source": "existing"
+  },
+  "az-webapplicationfirewall": {
+    "source": "existing"
+  },
+  "az-bastion": {
+    "source": "existing"
+  },
+  "az-defender": {
+    "source": "existing"
+  },
+  "az-entraid": {
+    "source": "existing"
+  },
+  "az-keyvault": {
+    "source": "existing"
+  },
+  "az-entraexternalid": {
+    "source": "existing"
+  },
+  "az-sentinel": {
+    "source": "existing"
+  },
+  "az-archivestorage": {
+    "source": "existing"
+  },
+  "az-backup": {
+    "source": "existing"
+  },
+  "az-databox": {
+    "source": "existing"
+  },
+  "az-datalakestoragegen2": {
+    "source": "existing"
+  },
+  "az-files": {
+    "source": "existing"
+  },
+  "az-managedlustre": {
+    "source": "existing"
+  },
+  "az-netappfiles": {
+    "source": "existing"
+  },
+  "az-storagemover": {
+    "source": "existing"
+  },
+  "az-blobindexer": {
+    "source": "existing"
+  },
+  "az-blob": {
+    "source": "existing"
+  },
+  "az-disks": {
+    "source": "existing"
+  },
+  "gcp-automl": {
+    "source": "pack",
+    "file": "gcp/automl.svg"
+  },
+  "gcp-translate": {
+    "source": "pack",
+    "file": "gcp/cloud-translation-api.svg"
+  },
+  "gcp-translation": {
+    "source": "pack",
+    "file": "gcp/cloud-translation-api.svg"
+  },
+  "gcp-vision": {
+    "source": "pack",
+    "file": "gcp/cloud-vision-api.svg"
+  },
+  "gcp-contactcenterai": {
+    "source": "pack",
+    "file": "gcp/contact-center-ai.svg"
+  },
+  "gcp-dialogflow": {
+    "source": "pack",
+    "file": "gcp/dialogflow.svg"
+  },
+  "gcp-documentai": {
+    "source": "pack",
+    "file": "gcp/document-ai.svg"
+  },
+  "gcp-geminionvertexai": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-modelarmor": {
+    "source": "pack",
+    "file": "gcp/security.svg"
+  },
+  "gcp-naturallanguageapi": {
+    "source": "pack",
+    "file": "gcp/cloud-natural-language-api.svg"
+  },
+  "gcp-speechtotext": {
+    "source": "pack",
+    "file": "gcp/speech-to-text.svg"
+  },
+  "gcp-texttospeech": {
+    "source": "pack",
+    "file": "gcp/text-to-speech.svg"
+  },
+  "gcp-vertexai": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaiagentbuilder": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaiagentengine": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaifeaturestore": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaimodelmonitoring": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaimodelregistry": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaipipelines": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexairagengine": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaisearch": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaistudio": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaivectorsearch": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-vertexaiworkbench": {
+    "source": "pack",
+    "file": "gcp/vertexai.svg"
+  },
+  "gcp-biglake": {
+    "source": "pack",
+    "file": "gcp/bigquery.svg"
+  },
+  "gcp-bigquery": {
+    "source": "pack",
+    "file": "gcp/bigquery.svg"
+  },
+  "gcp-composer": {
+    "source": "pack",
+    "file": "gcp/cloud-composer.svg"
+  },
+  "gcp-dataflow": {
+    "source": "pack",
+    "file": "gcp/dataflow.svg"
+  },
+  "gcp-dataplex": {
+    "source": "pack",
+    "file": "gcp/dataplex.svg"
+  },
+  "gcp-dataproc": {
+    "source": "pack",
+    "file": "gcp/dataproc.svg"
+  },
+  "gcp-datastream": {
+    "source": "pack",
+    "file": "gcp/datastream.svg"
+  },
+  "gcp-looker": {
+    "source": "pack",
+    "file": "gcp/looker.svg"
+  },
+  "gcp-lookerstudio": {
+    "source": "pack",
+    "file": "gcp/looker.svg"
+  },
+  "gcp-appengine": {
+    "source": "pack",
+    "file": "gcp/app-engine.svg"
+  },
+  "gcp-baremetalsolution": {
+    "source": "pack",
+    "file": "gcp/bare-metal-solutions.svg"
+  },
+  "gcp-batch": {
+    "source": "pack",
+    "file": "gcp/batch.svg"
+  },
+  "gcp-cloudfunctions": {
+    "source": "pack",
+    "file": "gcp/cloud-functions.svg"
+  },
+  "gcp-cloudrun": {
+    "source": "pack",
+    "file": "gcp/cloud-run.svg"
+  },
+  "gcp-computeengine": {
+    "source": "pack",
+    "file": "gcp/compute-engine.svg"
+  },
+  "gcp-vmwareengine": {
+    "source": "pack",
+    "file": "gcp/vmware-engine.svg"
+  },
+  "gcp-managedinstancegroups": {
+    "source": "pack",
+    "file": "gcp/compute-engine.svg"
+  },
+  "gcp-soletenantnodes": {
+    "source": "pack",
+    "file": "gcp/compute-engine.svg"
+  },
+  "gcp-spotvms": {
+    "source": "pack",
+    "file": "gcp/compute-engine.svg"
+  },
+  "gcp-workflows": {
+    "source": "pack",
+    "file": "gcp/workflows.svg"
+  },
+  "gcp-anthos": {
+    "source": "pack",
+    "file": "gcp/anthos.svg"
+  },
+  "gcp-mesh": {
+    "source": "pack",
+    "file": "gcp/anthos-service-mesh.svg"
+  },
+  "gcp-gke": {
+    "source": "pack",
+    "file": "gcp/google-kubernetes-engine.svg"
+  },
+  "gcp-gkeenterprise": {
+    "source": "pack",
+    "file": "gcp/google-kubernetes-engine.svg"
+  },
+  "gcp-kubernetesengine": {
+    "source": "pack",
+    "file": "gcp/google-kubernetes-engine.svg"
+  },
+  "gcp-alloydb": {
+    "source": "pack",
+    "file": "gcp/cloud-sql.svg"
+  },
+  "gcp-bigtable": {
+    "source": "pack",
+    "file": "gcp/bigtable.svg"
+  },
+  "gcp-cloudspanner": {
+    "source": "pack",
+    "file": "gcp/cloud-spanner.svg"
+  },
+  "gcp-cloudsql": {
+    "source": "pack",
+    "file": "gcp/cloud-sql.svg"
+  },
+  "gcp-firestore": {
+    "source": "pack",
+    "file": "gcp/firestore.svg"
+  },
+  "gcp-memorystore": {
+    "source": "pack",
+    "file": "gcp/memorystore.svg"
+  },
+  "gcp-artifactregistry": {
+    "source": "pack",
+    "file": "gcp/artifact-registry.svg"
+  },
+  "gcp-cloudbuild": {
+    "source": "pack",
+    "file": "gcp/cloud-build.svg"
+  },
+  "gcp-deploy": {
+    "source": "pack",
+    "file": "gcp/cloud-deploy.svg"
+  },
+  "gcp-shell": {
+    "source": "pack",
+    "file": "gcp/cloud-shell.svg"
+  },
+  "gcp-workstations": {
+    "source": "pack",
+    "file": "gcp/cloud-code.svg"
+  },
+  "gcp-cli": {
+    "source": "pack",
+    "file": "gcp/cloud-shell.svg"
+  },
+  "gcp-infrastructuremanager": {
+    "source": "pack",
+    "file": "gcp/cloud-deployment-manager.svg"
+  },
+  "gcp-securesourcemanager": {
+    "source": "pack",
+    "file": "gcp/cloud-code.svg"
+  },
+  "gcp-apigateway": {
+    "source": "pack",
+    "file": "gcp/cloud-api-gateway.svg"
+  },
+  "gcp-applicationintegration": {
+    "source": "pack",
+    "file": "gcp/connectors.svg"
+  },
+  "gcp-scheduler": {
+    "source": "pack",
+    "file": "gcp/cloud-scheduler.svg"
+  },
+  "gcp-cloudtasks": {
+    "source": "pack",
+    "file": "gcp/cloud-tasks.svg"
+  },
+  "gcp-eventarc": {
+    "source": "pack",
+    "file": "gcp/eventarc.svg"
+  },
+  "gcp-pubsub": {
+    "source": "pack",
+    "file": "gcp/pubsub.svg"
+  },
+  "gcp-auditlogs": {
+    "source": "pack",
+    "file": "gcp/cloud-audit-logs.svg"
+  },
+  "gcp-billing": {
+    "source": "pack",
+    "file": "gcp/billing.svg"
+  },
+  "gcp-cloudlogging": {
+    "source": "pack",
+    "file": "gcp/cloud-logging.svg"
+  },
+  "gcp-monitoring": {
+    "source": "pack",
+    "file": "gcp/cloud-monitoring.svg"
+  },
+  "gcp-profiler": {
+    "source": "pack",
+    "file": "gcp/profiler.svg"
+  },
+  "gcp-trace": {
+    "source": "pack",
+    "file": "gcp/trace.svg"
+  },
+  "gcp-configcontroller": {
+    "source": "pack",
+    "file": "gcp/anthos-config-management.svg"
+  },
+  "gcp-errorreporting": {
+    "source": "pack",
+    "file": "gcp/error-reporting.svg"
+  },
+  "gcp-organizationpolicy": {
+    "source": "pack",
+    "file": "gcp/policy-analyzer.svg"
+  },
+  "gcp-recommender": {
+    "source": "pack",
+    "file": "gcp/recommendations-ai.svg"
+  },
+  "gcp-resourcemanager": {
+    "source": "pack",
+    "file": "gcp/project.svg"
+  },
+  "gcp-apigee": {
+    "source": "pack",
+    "file": "gcp/apigee-api-platform.svg"
+  },
+  "gcp-cloudcdn": {
+    "source": "pack",
+    "file": "gcp/cloud-cdn.svg"
+  },
+  "gcp-dns": {
+    "source": "pack",
+    "file": "gcp/cloud-dns.svg"
+  },
+  "gcp-interconnect": {
+    "source": "pack",
+    "file": "gcp/cloud-interconnect.svg"
+  },
+  "gcp-cloudnat": {
+    "source": "pack",
+    "file": "gcp/cloud-nat.svg"
+  },
+  "gcp-ngfw": {
+    "source": "pack",
+    "file": "gcp/cloud-firewall-rules.svg"
+  },
+  "gcp-cloudvpn": {
+    "source": "pack",
+    "file": "gcp/cloud-vpn.svg"
+  },
+  "gcp-cloudloadbalancing": {
+    "source": "pack",
+    "file": "gcp/cloud-load-balancing.svg"
+  },
+  "gcp-networkconnectivitycenter": {
+    "source": "pack",
+    "file": "gcp/network-connectivity-center.svg"
+  },
+  "gcp-networkintelligencecenter": {
+    "source": "pack",
+    "file": "gcp/network-intelligence-center.svg"
+  },
+  "gcp-privateconnect": {
+    "source": "pack",
+    "file": "gcp/private-service-connect.svg"
+  },
+  "gcp-directory": {
+    "source": "pack",
+    "file": "gcp/service-discovery.svg"
+  },
+  "gcp-vpc": {
+    "source": "pack",
+    "file": "gcp/virtual-private-cloud.svg"
+  },
+  "gcp-certificatemanager": {
+    "source": "pack",
+    "file": "gcp/certificate-manager.svg"
+  },
+  "gcp-cloudarmor": {
+    "source": "pack",
+    "file": "gcp/cloud-armor.svg"
+  },
+  "gcp-hsm": {
+    "source": "pack",
+    "file": "gcp/cloud-hsm.svg"
+  },
+  "gcp-iam": {
+    "source": "pack",
+    "file": "gcp/identity-and-access-management.svg"
+  },
+  "gcp-identity": {
+    "source": "pack",
+    "file": "gcp/identity-platform.svg"
+  },
+  "gcp-cloudkms": {
+    "source": "pack",
+    "file": "gcp/key-management-service.svg"
+  },
+  "gcp-identityplatform": {
+    "source": "pack",
+    "file": "gcp/identity-platform.svg"
+  },
+  "gcp-secretmanager": {
+    "source": "pack",
+    "file": "gcp/secret-manager.svg"
+  },
+  "gcp-securitycommandcenter": {
+    "source": "pack",
+    "file": "gcp/security-command-center.svg"
+  },
+  "gcp-sensitivedataprotection": {
+    "source": "pack",
+    "file": "gcp/data-loss-prevention-api.svg"
+  },
+  "gcp-websecurityscanner": {
+    "source": "pack",
+    "file": "gcp/web-security-scanner.svg"
+  },
+  "gcp-archivestorage": {
+    "source": "pack",
+    "file": "gcp/cloud-storage.svg"
+  },
+  "gcp-backupdr": {
+    "source": "pack",
+    "file": "gcp/data-transfer.svg"
+  },
+  "gcp-cloudstorage": {
+    "source": "pack",
+    "file": "gcp/cloud-storage.svg"
+  },
+  "gcp-filestore": {
+    "source": "pack",
+    "file": "gcp/filestore.svg"
+  },
+  "gcp-hyperdisk": {
+    "source": "pack",
+    "file": "gcp/persistent-disk.svg"
+  },
+  "gcp-parallelstore": {
+    "source": "pack",
+    "file": "gcp/filestore.svg"
+  },
+  "gcp-persistentdisk": {
+    "source": "pack",
+    "file": "gcp/persistent-disk.svg"
+  },
+  "gcp-storagetransfer": {
+    "source": "pack",
+    "file": "gcp/transfer.svg"
+  },
+  "gcp-transferappliance": {
+    "source": "pack",
+    "file": "gcp/transfer-appliance.svg"
+  },
+  "oci-ai": {
+    "source": "existing"
+  },
+  "oci-datascience": {
+    "source": "existing"
+  },
+  "oci-documentunderstanding": {
+    "source": "existing"
+  },
+  "oci-generativeai": {
+    "source": "existing"
+  },
+  "oci-generativeaiagents": {
+    "source": "existing"
+  },
+  "oci-language": {
+    "source": "existing"
+  },
+  "oci-speech": {
+    "source": "existing"
+  },
+  "oci-vision": {
+    "source": "existing"
+  },
+  "oci-digitalassistant": {
+    "source": "existing"
+  },
+  "oci-bigdata": {
+    "source": "existing"
+  },
+  "oci-datacatalog": {
+    "source": "existing"
+  },
+  "oci-dataflow": {
+    "source": "existing"
+  },
+  "oci-dataintegration": {
+    "source": "existing"
+  },
+  "oci-goldengate": {
+    "source": "existing"
+  },
+  "oci-searchwithopensearch": {
+    "source": "existing"
+  },
+  "oci-streaming": {
+    "source": "existing"
+  },
+  "oci-analytics": {
+    "source": "existing"
+  },
+  "oci-autoscaling": {
+    "source": "existing"
+  },
+  "oci-baremetalinstances": {
+    "source": "existing"
+  },
+  "oci-containerinstances": {
+    "source": "existing"
+  },
+  "oci-dedicatedregion": {
+    "source": "existing"
+  },
+  "oci-dedicatedvmhosts": {
+    "source": "existing"
+  },
+  "oci-flexiblevms": {
+    "source": "existing"
+  },
+  "oci-instancepools": {
+    "source": "existing"
+  },
+  "oci-compute": {
+    "source": "existing"
+  },
+  "oci-functions": {
+    "source": "existing"
+  },
+  "oci-hpc": {
+    "source": "existing"
+  },
+  "oci-vmwaresolution": {
+    "source": "existing"
+  },
+  "oci-customer": {
+    "source": "existing"
+  },
+  "oci-preemptibleinstances": {
+    "source": "existing"
+  },
+  "oci-rovingedgeinfrastructure": {
+    "source": "existing"
+  },
+  "oci-containerregistry": {
+    "source": "existing"
+  },
+  "oci-mesh": {
+    "source": "existing"
+  },
+  "oci-kubernetesengine": {
+    "source": "existing"
+  },
+  "oci-autonomousdatawarehouse": {
+    "source": "existing"
+  },
+  "oci-autonomousdatabase": {
+    "source": "existing"
+  },
+  "oci-autonomoustransactionprocessing": {
+    "source": "existing"
+  },
+  "oci-basedatabase": {
+    "source": "existing"
+  },
+  "oci-exadatacustomer": {
+    "source": "existing"
+  },
+  "oci-exadatadatabase": {
+    "source": "existing"
+  },
+  "oci-globallydistributeddatabase": {
+    "source": "existing"
+  },
+  "oci-mysqlheatwave": {
+    "source": "existing"
+  },
+  "oci-nosqldatabase": {
+    "source": "existing"
+  },
+  "oci-database23ai": {
+    "source": "existing"
+  },
+  "oci-apigateway": {
+    "source": "existing"
+  },
+  "oci-events": {
+    "source": "existing"
+  },
+  "oci-notifications": {
+    "source": "existing"
+  },
+  "oci-queue": {
+    "source": "existing"
+  },
+  "oci-integration": {
+    "source": "existing"
+  },
+  "oci-processautomation": {
+    "source": "existing"
+  },
+  "oci-applicationperformancemonitoring": {
+    "source": "existing"
+  },
+  "oci-audit": {
+    "source": "existing"
+  },
+  "oci-budgets": {
+    "source": "existing"
+  },
+  "oci-advisor": {
+    "source": "existing"
+  },
+  "oci-costanalysis": {
+    "source": "existing"
+  },
+  "oci-logging": {
+    "source": "existing"
+  },
+  "oci-logginganalytics": {
+    "source": "existing"
+  },
+  "oci-monitoring": {
+    "source": "existing"
+  },
+  "oci-operationsinsights": {
+    "source": "existing"
+  },
+  "oci-resourcemanager": {
+    "source": "existing"
+  },
+  "oci-dns": {
+    "source": "existing"
+  },
+  "oci-dynamicroutinggateway": {
+    "source": "existing"
+  },
+  "oci-fastconnect": {
+    "source": "existing"
+  },
+  "oci-internetgateway": {
+    "source": "existing"
+  },
+  "oci-loadbalancer": {
+    "source": "existing"
+  },
+  "oci-natgateway": {
+    "source": "existing"
+  },
+  "oci-networkfirewall": {
+    "source": "existing"
+  },
+  "oci-networkloadbalancer": {
+    "source": "existing"
+  },
+  "oci-privateendpoint": {
+    "source": "existing"
+  },
+  "oci-gateway": {
+    "source": "existing"
+  },
+  "oci-sitetositevpn": {
+    "source": "existing"
+  },
+  "oci-trafficmanagement": {
+    "source": "existing"
+  },
+  "oci-virtualnetwork": {
+    "source": "existing"
+  },
+  "oci-webapplicationfirewall": {
+    "source": "existing"
+  },
+  "oci-bastion": {
+    "source": "existing"
+  },
+  "oci-certificates": {
+    "source": "existing"
+  },
+  "oci-guard": {
+    "source": "existing"
+  },
+  "oci-datasafe": {
+    "source": "existing"
+  },
+  "oci-dedicatedkms": {
+    "source": "existing"
+  },
+  "oci-identitydomains": {
+    "source": "existing"
+  },
+  "oci-iam": {
+    "source": "existing"
+  },
+  "oci-vault": {
+    "source": "existing"
+  },
+  "oci-securityzones": {
+    "source": "existing"
+  },
+  "oci-vulnerabilityscanning": {
+    "source": "existing"
+  },
+  "oci-archivestorage": {
+    "source": "existing"
+  },
+  "oci-blockvolume": {
+    "source": "existing"
+  },
+  "oci-datatransferappliance": {
+    "source": "existing"
+  },
+  "oci-filestorage": {
+    "source": "existing"
+  },
+  "oci-objectstorage": {
+    "source": "existing"
+  },
+  "oci-storagegateway": {
+    "source": "existing"
+  },
+  "ibm-granitemodels": {
+    "source": "pack",
+    "file": "ibm/svg_AI/machine-learning-model(1).svg"
+  },
+  "ibm-maximovisualinspection": {
+    "source": "pack",
+    "file": "ibm/svg_AI/AI.svg"
+  },
+  "ibm-watsonnaturallanguageunderstanding": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM WatsonX.svg"
+  },
+  "ibm-watsonspeechtotext": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM WatsonX.svg"
+  },
+  "ibm-watsontexttospeech": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM WatsonX.svg"
+  },
+  "ibm-watsonxassistant": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM WatsonX.svg"
+  },
+  "ibm-watsonxdiscovery": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM WatsonX.svg"
+  },
+  "ibm-watsonxorchestrate": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM WatsonX.svg"
+  },
+  "ibm-watsonxai": {
+    "source": "pack",
+    "file": "ibm/svg_AI/watsonx-ai.svg"
+  },
+  "ibm-watsonxgovernance": {
+    "source": "pack",
+    "file": "ibm/svg_AI/IBM® watsonx.governance™.svg"
+  },
+  "ibm-analyticsengine": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Process.svg"
+  },
+  "ibm-cognosanalytics": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Process.svg"
+  },
+  "ibm-eventstreams": {
+    "source": "pack",
+    "file": "ibm/svg_Extra Storage/database--messaging.svg"
+  },
+  "ibm-datastage": {
+    "source": "pack",
+    "file": "ibm/svg_Extra Storage/ibm--datastage.svg"
+  },
+  "ibm-knowledgecatalog": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/ibm-cloud-pak--data.svg"
+  },
+  "ibm-mq": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/message-queue.svg"
+  },
+  "ibm-planninganalytics": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Process.svg"
+  },
+  "ibm-watsonxdata": {
+    "source": "pack",
+    "file": "ibm/svg_AI/watsonx-data.svg"
+  },
+  "ibm-baremetalservers": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Bare Metal Server.svg"
+  },
+  "ibm-codeengine": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps/Serverless Application.svg"
+  },
+  "ibm-dedicatedhosts": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Dedicated Host.svg"
+  },
+  "ibm-satellite": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/CoudSatellite.svg"
+  },
+  "ibm-powervirtualserver": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Virtual Server.svg"
+  },
+  "ibm-virtualserversvpc": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Virtual Server.svg"
+  },
+  "ibm-vmwaresolutions": {
+    "source": "pack",
+    "file": "ibm/svg_Applications/Virtual Application.svg"
+  },
+  "ibm-containerregistry": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Cloud Registry.svg"
+  },
+  "ibm-kubernetes": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Kubernetes.svg"
+  },
+  "ibm-redhatopenshifton": {
+    "source": "pack",
+    "file": "ibm/svg_Compute/Open Shift.svg"
+  },
+  "ibm-cloudant": {
+    "source": "pack",
+    "file": "ibm/svg_Extra Storage/ibm--cloudant.svg"
+  },
+  "ibm-databaseselasticsearch": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/database--elastic.svg"
+  },
+  "ibm-databasesmongodb": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/database--mongodb.svg"
+  },
+  "ibm-databasespostgresql": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/database--postgreSQL.svg"
+  },
+  "ibm-databasesredis": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/database--redis.svg"
+  },
+  "ibm-db2warehouse": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/DB2 Warehouse.svg"
+  },
+  "ibm-hyperprotectdbaasecosystem": {
+    "source": "pack",
+    "file": "ibm/svg_Extra Storage/ibm-cloud--hyper-protect-dbaas.svg"
+  },
+  "ibm-db2": {
+    "source": "pack",
+    "file": "ibm/svg_Extra Storage/ibm--db2.svg"
+  },
+  "ibm-cli": {
+    "source": "pack",
+    "file": "ibm/svg_Applications/CLI Application.svg"
+  },
+  "ibm-schematics": {
+    "source": "pack",
+    "file": "ibm/svg_Applications/Automation Script.svg"
+  },
+  "ibm-sdk": {
+    "source": "pack",
+    "file": "ibm/svg_Security/code-signing-service.svg"
+  },
+  "ibm-shell": {
+    "source": "pack",
+    "file": "ibm/svg_Applications/CLI Application.svg"
+  },
+  "ibm-continuousdelivery": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps/Continuous Delivery.svg"
+  },
+  "ibm-tekton": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps/continuous-integration.svg"
+  },
+  "ibm-toolchains": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps/build-tool.svg"
+  },
+  "ibm-eventnotifications": {
+    "source": "pack",
+    "file": "ibm/svg_Observability/cloud--alerting.svg"
+  },
+  "ibm-apiconnect": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/gateway--api.svg"
+  },
+  "ibm-appconnect": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/gateway--api.svg"
+  },
+  "ibm-aspera": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/data-accessor.svg"
+  },
+  "ibm-activitytracker": {
+    "source": "pack",
+    "file": "ibm/svg_Observability/cloud--auditing.svg"
+  },
+  "ibm-logs": {
+    "source": "pack",
+    "file": "ibm/svg_Observability/cloud--logging.svg"
+  },
+  "ibm-monitoring": {
+    "source": "pack",
+    "file": "ibm/svg_Observability/cloud--monitoring.svg"
+  },
+  "ibm-instana": {
+    "source": "pack",
+    "file": "ibm/svg_Observability/cloud--monitoring.svg"
+  },
+  "ibm-turbonomic": {
+    "source": "pack",
+    "file": "ibm/svg_Observability/cloud--service-management.svg"
+  },
+  "ibm-applicationloadbalancer": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/load-balancer--application.svg"
+  },
+  "ibm-internet": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/Internet.svg"
+  },
+  "ibm-directlink": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/Direct Link.svg"
+  },
+  "ibm-dns": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/dns-services.svg"
+  },
+  "ibm-vpc": {
+    "source": "pack",
+    "file": "ibm/svg_Networking/VPC.svg"
+  },
+  "ibm-loadbalancervpc": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/load-balancer--vpc.svg"
+  },
+  "ibm-transitgateway": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/transit-gateway.svg"
+  },
+  "ibm-virtualprivateendpoint": {
+    "source": "pack",
+    "file": "ibm/svg_DevOps_Network/vpc-endpoints.svg"
+  },
+  "ibm-vpnvpc": {
+    "source": "pack",
+    "file": "ibm/svg_Security/IBM VPN for VPC.svg"
+  },
+  "ibm-appid": {
+    "source": "pack",
+    "file": "ibm/svg_Security/Identity and Access Management.svg"
+  },
+  "ibm-guardium": {
+    "source": "pack",
+    "file": "ibm/svg_Security/document--security.svg"
+  },
+  "ibm-hyperprotectcrypto": {
+    "source": "pack",
+    "file": "ibm/svg_Security/hardware-security-module.svg"
+  },
+  "ibm-iam": {
+    "source": "pack",
+    "file": "ibm/svg_Security/Identity and Access Management.svg"
+  },
+  "ibm-keyprotect": {
+    "source": "pack",
+    "file": "ibm/svg_Security/ibm-cloud--key-protect.svg"
+  },
+  "ibm-qradar": {
+    "source": "pack",
+    "file": "ibm/svg_Security/intrusion-prevention.svg"
+  },
+  "ibm-secretsmanager": {
+    "source": "pack",
+    "file": "ibm/svg_Security/Secrets Manager.svg"
+  },
+  "ibm-securitycompliancecenter": {
+    "source": "pack",
+    "file": "ibm/svg_Security/security-services.svg"
+  },
+  "ibm-blockstoragevpc": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/Block Volume.svg"
+  },
+  "ibm-filestoragevpc": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/File Storage.svg"
+  },
+  "ibm-backup": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/data-backup.svg"
+  },
+  "ibm-objectstorage": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/Object Bucket.svg"
+  },
+  "ibm-massdatamigration": {
+    "source": "pack",
+    "file": "ibm/svg_Data & Storage/data-blob.svg"
+  },
+  "aion-chatbot": {
+    "source": "existing"
+  },
+  "aion-mlmodel": {
+    "source": "existing"
+  },
+  "aion-dashboard": {
+    "source": "existing"
+  },
+  "aion-pipeline": {
+    "source": "existing"
+  },
+  "aion-automation": {
+    "source": "existing"
+  },
+  "gen-mlai": {
+    "source": "existing"
+  },
+  "gen-cache": {
+    "source": "existing"
+  },
+  "gen-database": {
+    "source": "existing"
+  },
+  "gen-elasticsearch": {
+    "source": "existing"
+  },
+  "gen-mongodb": {
+    "source": "existing"
+  },
+  "gen-mysql": {
+    "source": "existing"
+  },
+  "gen-postgresql": {
+    "source": "existing"
+  },
+  "gen-redis": {
+    "source": "existing"
+  },
+  "gen-container": {
+    "source": "existing"
+  },
+  "gen-server": {
+    "source": "existing"
+  },
+  "gen-serverless": {
+    "source": "existing"
+  },
+  "gen-docker": {
+    "source": "existing"
+  },
+  "gen-kubernetes": {
+    "source": "existing"
+  },
+  "gen-cicd": {
+    "source": "existing"
+  },
+  "gen-git": {
+    "source": "existing"
+  },
+  "gen-terraform": {
+    "source": "existing"
+  },
+  "gen-kafka": {
+    "source": "existing"
+  },
+  "gen-queue": {
+    "source": "existing"
+  },
+  "gen-rabbitmq": {
+    "source": "existing"
+  },
+  "gen-iot": {
+    "source": "existing"
+  },
+  "gen-grafana": {
+    "source": "existing"
+  },
+  "gen-monitoring": {
+    "source": "existing"
+  },
+  "gen-prometheus": {
+    "source": "existing"
+  },
+  "gen-api": {
+    "source": "existing"
+  },
+  "gen-cdn": {
+    "source": "existing"
+  },
+  "gen-dns": {
+    "source": "existing"
+  },
+  "gen-loadbalancer": {
+    "source": "existing"
+  },
+  "gen-network": {
+    "source": "existing"
+  },
+  "gen-nginx": {
+    "source": "existing"
+  },
+  "gen-desktop": {
+    "source": "existing"
+  },
+  "gen-mobile": {
+    "source": "existing"
+  },
+  "gen-user": {
+    "source": "existing"
+  },
+  "gen-web": {
+    "source": "existing"
+  },
+  "gen-firewall": {
+    "source": "existing"
+  },
+  "gen-shield": {
+    "source": "existing"
+  }
+}

@@ -80,7 +80,10 @@ export function parseMasterList(path) {
     }
 
     if (section && line.startsWith('|')) {
-      const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+      const cells = line
+        .split('|')
+        .slice(1, -1)
+        .map((c) => c.trim());
       if (cells.every((c) => /^-+$/.test(c))) continue;
 
       if (!tableColumns) {
@@ -108,7 +111,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const [cloud, cats] of Object.entries(catalogs)) {
     const n = Object.values(cats).reduce((a, v) => a + v.length, 0);
     total += n;
-    console.log(`${cloud.padEnd(6)} ${String(n).padStart(4)} services, ${Object.keys(cats).length} categories`);
+    console.log(
+      `${cloud.padEnd(6)} ${String(n).padStart(4)} services, ${Object.keys(cats).length} categories`,
+    );
   }
   console.log('services total:', total);
   console.log('role rows:', roles.length);

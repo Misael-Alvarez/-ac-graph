@@ -9,9 +9,16 @@ import { useEditor } from '../EditorProvider';
 import { useCommands } from '../hooks/useCommands';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
 import { CloseIcon, SearchIcon } from '@/components/icons/ToolIcons';
+import { PanelHead } from '@/components/ui/PanelHead';
+import type { CustomIcon } from '@/lib/domain';
+import { customIconMatches } from '@/lib/icons/customIcons';
+import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
+import { CustomGlyph, UploadForm, useIconLibrary } from './CustomIcons';
 
 /** Clouds in the order they are offered, with the count of services in each. */
 const CLOUD_ORDER = ['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion', 'generic'] as const;
+/** The tab for the author's own icons; a place to add them as much as to find them. */
+const MINE = 'mine';
 
 /**
  * The service browser.
@@ -22,18 +29,30 @@ const CLOUD_ORDER = ['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion', 'generic'] as 
  * inside it, which is the shape the catalogue actually has.
  */
 export function ServiceBrowser() {
-  const { ui, dispatchUi, t } = useEditor();
+  const { doc, ui, dispatchUi, t } = useEditor();
   const commands = useCommands();
   useReturnFocusToCanvas();
 
   const [cloud, setCloud] = useState<string>('aws');
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [uploading, setUploading] = useState(false);
+  const [library, setLibrary] = useIconLibrary();
+  // The author's icons: the browser's library, plus what this document carries.
+  const mine = useMemo(() => {
+    const seen = new Set(library.map((icon) => icon.key));
+    return [...library, ...(doc.model.customIcons ?? []).filter((icon) => !seen.has(icon.key))];
+  }, [library, doc.model.customIcons]);
 
   const catalog = useMemo(
-    () => queryCatalog({ cloud, query, locale: ui.locale }),
+    () => queryCatalog({ cloud: cloud === MINE ? 'aws' : cloud, query, locale: ui.locale }),
     [cloud, query, ui.locale],
   );
+  const mineMatches = catalog.searching
+    ? mine.filter((icon) => customIconMatches(icon, query))
+    : mine;
+  const showMine = cloud === MINE || (catalog.searching && mineMatches.length > 0);
+  const showCatalog = cloud !== MINE || catalog.searching;
 
   const toggleSection = (id: string) =>
     setCollapsed((current) => {
@@ -44,22 +63,14 @@ export function ServiceBrowser() {
     });
 
   return (
-    <aside className="side-panel is-left" aria-label={t('browser.title')}>
-      <header className="code-panel-header">
-        <strong className="side-panel-title">{t('browser.title')}</strong>
-        <span className="code-panel-spacer" />
-        <span className="browser-count result-count">
-          {t('browser.count', { count: catalog.total })}
-        </span>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t('modal.close')}
-          onClick={() => dispatchUi({ type: 'toggleBrowser' })}
-        >
-          <CloseIcon size={16} />
-        </button>
-      </header>
+    <aside className="side-panel is-left" aria-label={t('browser.title')} data-tooltip-side="right">
+      <PanelHead
+        title={t('browser.title')}
+        count={t('browser.count', { count: catalog.total })}
+        countClassName="browser-count"
+        closeLabel={t('modal.close')}
+        onClose={() => dispatchUi({ type: 'toggleBrowser' })}
+      />
 
       <div className="browser-search filter-field">
         <SearchIcon size={14} />
@@ -102,13 +113,101 @@ export function ServiceBrowser() {
               </span>
             </button>
           ))}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={cloud === MINE}
+            className={`browser-cloud chip is-mine${cloud === MINE ? ' is-active' : ''}`}
+            title={t('icons.mineTitle')}
+            onClick={() => setCloud(MINE)}
+          >
+            <span className="browser-cloud-dot chip-dot" />
+            {t('icons.mine')}
+            <span className="browser-cloud-count chip-count">{mine.length}</span>
+          </button>
         </div>
       )}
 
       <div className="browser-list">
-        {catalog.sections.length === 0 && <p className="library-note">{t('browser.empty')}</p>}
+        {uploading && (
+          <UploadForm
+            t={t}
+            onCancel={() => setUploading(false)}
+            onSaved={(icon) => {
+              const saved = saveIconToLibrary(window.localStorage, icon);
+              if (saved.ok) setLibrary(saved.icons);
+              setUploading(false);
+              // Straight onto the canvas: an icon uploaded from the browser is
+              // an icon somebody wanted to place.
+              commands.addCustomService(icon);
+            }}
+          />
+        )}
 
-        {catalog.sections.map((section) => {
+        {!uploading && showMine && (
+          <section className="browser-section is-mine">
+            <div className="browser-section-header group-header">
+              {t('icons.mineTitle')}
+              <span className="browser-section-count group-count">{mineMatches.length}</span>
+            </div>
+            <ul className="browser-grid">
+              {!catalog.searching && (
+                <li>
+                  <button
+                    type="button"
+                    className="browser-tile is-upload"
+                    onClick={() => setUploading(true)}
+                  >
+                    <span className="browser-tile-icon is-upload" aria-hidden="true">
+                      +
+                    </span>
+                    <span className="browser-tile-label">{t('icons.upload')}</span>
+                    <span className="browser-tile-cloud">{t('icons.uploadHint')}</span>
+                  </button>
+                </li>
+              )}
+              {mineMatches.map((icon: CustomIcon) => (
+                <li key={icon.key} className="browser-mine-row">
+                  <button
+                    type="button"
+                    className="browser-tile"
+                    title={[icon.description, icon.source].filter(Boolean).join(' · ') || icon.name}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', icon.key);
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                    onClick={() => commands.addCustomService(icon)}
+                  >
+                    <CustomGlyph icon={icon} className="browser-tile-icon" />
+                    <span className="browser-tile-label">{icon.name}</span>
+                    <span className="browser-tile-cloud">
+                      {icon.source ?? t('icons.customBadge')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button browser-mine-remove"
+                    aria-label={`${t('icons.remove')}: ${icon.name}`}
+                    title={t('icons.remove')}
+                    onClick={() => setLibrary(removeIconFromLibrary(window.localStorage, icon.key))}
+                  >
+                    <CloseIcon size={11} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {!mineMatches.length && !catalog.searching && (
+              <p className="library-note">{t('icons.empty')}</p>
+            )}
+          </section>
+        )}
+
+        {!uploading && showCatalog && catalog.sections.length === 0 && !mineMatches.length && (
+          <p className="library-note">{t('browser.empty')}</p>
+        )}
+
+        {(uploading || !showCatalog ? [] : catalog.sections).map((section) => {
           // A section collapsed while browsing must not swallow search results:
           // the reader would see an empty panel and conclude there are none.
           const isCollapsed = !catalog.searching && collapsed.has(section.id);
@@ -164,9 +263,11 @@ export function ServiceBrowser() {
 
       {/* A cap that is not admitted to reads as "that is all there is". */}
       <footer className="browser-footer panel-footer">
-        {catalog.total > catalog.shown
-          ? t('browser.showing', { count: catalog.shown, total: catalog.total })
-          : t('browser.hint')}
+        {cloud === MINE && !catalog.searching
+          ? t('icons.count', { count: mine.length })
+          : catalog.total > catalog.shown
+            ? t('browser.showing', { count: catalog.shown, total: catalog.total })
+            : t('browser.hint')}
       </footer>
 
       <ServiceSprite />

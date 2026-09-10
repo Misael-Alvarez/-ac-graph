@@ -701,3 +701,11 @@ describe('views round-trip', () => {
     expect(model!.views[0].include).toHaveLength(1);
   });
 });
+
+describe('custom icon keys in the DSL', () => {
+  it('accepts an uploaded icon by its key without an alias', async () => {
+    const { resolveService } = await import('./services');
+    expect(resolveService('custom-datadog-a1b2c')).toBe('custom-datadog-a1b2c');
+    expect(resolveService('custom-datadog-a1b2c', 'aws')).toBe('custom-datadog-a1b2c');
+  });
+});

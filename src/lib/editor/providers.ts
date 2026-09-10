@@ -1,4 +1,11 @@
-import { providerColors } from '@/lib/design/tokens';
+import {
+  isColor,
+  isDarkCanvas,
+  luminance,
+  mixHex,
+  providerColors,
+  type CanvasTheme,
+} from '@/lib/design/tokens';
 
 export interface ProviderPalette {
   /** Outline of the zone and of items inside it. */
@@ -101,4 +108,52 @@ export const CLOUD_KEY_PREFIX: Record<string, string> = {
 
 export function paletteFor(iconKey: string | undefined): ProviderPalette {
   return PROVIDER_COLORS[providerOf(iconKey)];
+}
+
+/** The provider whose pastel tint this stored fill is, if it is one. */
+export function providerOfFill(fill: string | undefined): string | null {
+  if (!isColor(fill)) return null;
+  const needle = fill.toLowerCase();
+  for (const [name, palette] of Object.entries(PROVIDER_COLORS)) {
+    if ([palette.fill, palette.body, palette.subHeader].some((c) => c.toLowerCase() === needle)) {
+      return name;
+    }
+  }
+  return null;
+}
+
+/**
+ * A stored fill, adapted to the sheet it is being drawn on.
+ *
+ * Fills are saved as literal colours, and every template and the provider
+ * palette chose them for paper: cream for AWS, ice blue for Azure. Painted as
+ * stored onto the dark sheet they become bright slabs with dark cards inside.
+ * On the dark canvas a pastel is read as the *intent* — "tint this by its
+ * provider" — and re-expressed as a whisper of that provider's colour over the
+ * dark card. A deliberately dark or saturated fill is somebody's choice and is
+ * left exactly as it is; so is everything under the light theme.
+ */
+export function themedFill(
+  fill: string | undefined,
+  theme: CanvasTheme,
+  base: string = theme.groupFill,
+): string | null {
+  if (!isColor(fill)) return null;
+  if (!isDarkCanvas(theme)) return fill;
+  const provider = providerOfFill(fill);
+  if (provider) return mixHex(base, PROVIDER_COLORS[provider].border, 0.1);
+  // A pale colour nobody would pick for a dark card: keep its hue, lose its glare.
+  if (luminance(fill) > 0.6) return mixHex(base, fill, 0.22);
+  return fill;
+}
+
+/**
+ * The colour that says which provider a group belongs to, for its header mark.
+ * Falls back to the theme's neutral so an unbranded group still gets a mark.
+ */
+export function accentForFill(fill: string | undefined, theme: CanvasTheme): string {
+  const provider = providerOfFill(fill);
+  if (provider) return PROVIDER_COLORS[provider].border;
+  if (isColor(fill) && luminance(fill) <= 0.6) return fill;
+  return theme.containerStroke;
 }

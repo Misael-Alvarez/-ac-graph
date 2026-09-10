@@ -53,6 +53,9 @@ for (const service of SERVICE_ICONS) {
 export function resolveService(name: string, cloud?: CloudPrefix): string | null {
   const raw = name.trim();
   if (!raw) return null;
+  // An icon the author uploaded is not in the catalogue and needs no alias:
+  // its key is its name, and the document carries the picture.
+  if (raw.startsWith('custom-')) return raw;
 
   if (cloud) {
     const prefixed = BY_ALIAS.get(slug(PREFIX[cloud] + raw));

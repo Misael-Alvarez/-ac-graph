@@ -92,7 +92,7 @@ export function DiagramScene({
           <g key={type}>
             {model.shapes
               .filter((s) => s.type === type && !hiddenByCollapse(s))
-              .map((shape) => {
+              .map((shape, index) => {
                 const Renderer = RENDERERS[type];
                 const count = summarised.get(shape.id);
                 const rendered = (
@@ -106,8 +106,14 @@ export function DiagramScene({
                 );
                 // Only the interactive canvas animates: an export or an embed is
                 // a still image, and a half-played animation would bake into it.
+                // The stagger index lets the stylesheet let shapes arrive in
+                // sequence rather than all at once.
                 return interactionFor ? (
-                  <g key={shape.id} className="shape-enter">
+                  <g
+                    key={shape.id}
+                    className="shape-enter"
+                    style={{ '--i': Math.min(index, 12) } as React.CSSProperties}
+                  >
                     {rendered}
                   </g>
                 ) : (

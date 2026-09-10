@@ -20,10 +20,11 @@ test('opens from the dock and from the keyboard', async ({ page }) => {
   await expect(page.locator('.side-panel.is-left')).toBeVisible();
 });
 
-test('offers every cloud as a tab, with counts', async ({ page }) => {
+test("offers every cloud as a tab, with counts, and the author's own", async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+b');
   const tabs = page.locator('.browser-cloud');
-  await expect(tabs).toHaveCount(7);
+  await expect(tabs).toHaveCount(8);
+  await expect(tabs.last()).toContainText('Propios');
   await expect(tabs.first()).toContainText('AWS');
   // Every tab shows how many services it holds.
   for (const text of await tabs.allInnerTexts()) {

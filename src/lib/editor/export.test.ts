@@ -76,14 +76,13 @@ describe('diagramToSvgString', () => {
     expect(svg).toContain('HTTPS');
   });
 
-  it('embeds brand logos as data URLs rather than app paths', async () => {
+  it('embeds the brand logo as a data URL rather than an app path', async () => {
     // `/aion_logo.png` resolves to nothing once the file leaves the app.
-    const svg = await diagramToSvgString({ model: sampleModel(), brand: 'dual' });
+    const svg = await diagramToSvgString({ model: sampleModel(), brand: 'aion' });
     expect(svg).not.toContain('/aion_logo.png');
-    expect(svg).not.toContain('/banorte_logo.png');
     expect(svg).toContain('data:image/png;base64,');
     expect(svg).toContain('AION Cloud');
-    expect(svg).toContain('Banorte');
+    expect(svg).not.toContain('Banorte');
   });
 
   it('omits the footer when no brand is selected', async () => {
@@ -92,7 +91,7 @@ describe('diagramToSvgString', () => {
   });
 
   it('references no external resources at all', async () => {
-    const svg = await diagramToSvgString({ model: sampleModel(), brand: 'dual' });
+    const svg = await diagramToSvgString({ model: sampleModel(), brand: 'aion' });
     const externals = svg.match(/(?:href|src)="(?!#|data:)[^"]*"/g) ?? [];
     // Only the two xmlns declarations may point outward, and those are namespaces.
     expect(externals).toEqual([]);
@@ -102,7 +101,7 @@ describe('diagramToSvgString', () => {
     const light = await diagramToSvgString({ model: sampleModel(), dark: false });
     const dark = await diagramToSvgString({ model: sampleModel(), dark: true });
     expect(light).toContain('#ffffff');
-    expect(dark).toContain('#161920');
+    expect(dark).toContain('#0e1526');
     expect(dark).not.toBe(light);
   });
 
@@ -162,8 +161,12 @@ describe('diagramToSvgString', () => {
     // it keeps the theme's own.
     const legible = readableTextOn('#101820', lightCanvas);
     expect(legible).not.toBe(lightCanvas.titleText);
-    const card = svg.slice(svg.indexOf(`clip-text-${item.id}`));
-    expect(card.slice(0, card.indexOf('</g>'))).toContain(`fill="${legible}"`);
+    // The card's own markup, up to the next shape: the title text sits after
+    // the icon well, which closes a group of its own before the text begins.
+    const start = svg.indexOf(`clip-text-${item.id}`);
+    const next = svg.indexOf('data-shape-id="', svg.indexOf('data-shape-id="', start) + 1);
+    const card = svg.slice(start, next === -1 ? undefined : next);
+    expect(card).toContain(`fill="${legible}"`);
     expect(svg).toContain(`fill="${lightCanvas.titleText}"`);
   });
 

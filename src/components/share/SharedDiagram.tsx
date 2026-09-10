@@ -146,7 +146,7 @@ export function SharedDiagram() {
           }
         }}
       >
-        <Defs theme={theme} iconKeys={iconKeysIn(model)} />
+        <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={model.customIcons} />
         <g transform={viewportTransform(viewport)}>
           <DiagramScene model={model} theme={theme} />
         </g>

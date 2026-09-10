@@ -191,6 +191,25 @@ export const ConnectorSchema = z.object({
   meta: EdgeMetaSchema.optional(),
 });
 
+/**
+ * An icon of the author's own.
+ *
+ * Either a vector — the sanitised body of an SVG with its viewBox — or a
+ * raster as a data URL. The key carries the `custom-` prefix, which is how the
+ * renderer, the DSL and the icon picker tell it from the catalogue.
+ */
+export const CustomIconSchema = z.object({
+  key: z.string().regex(/^custom-[a-z0-9][a-z0-9-]*$/),
+  name: z.string().min(1).max(60),
+  description: z.string().max(240).optional(),
+  /** Where it comes from, in the author's words: a vendor, a team, "internal". */
+  source: z.string().max(40).optional(),
+  tags: z.array(z.string().max(30)).max(12).optional(),
+  svg: z.object({ viewBox: z.string(), body: z.string().max(200_000) }).optional(),
+  image: z.string().max(400_000).optional(),
+  createdAt: z.string(),
+});
+
 export const DiagramModelSchema = z.object({
   /** Absent in pre-versioned files written by the original editor. */
   schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
@@ -213,6 +232,13 @@ export const DiagramModelSchema = z.object({
    * to a colleague.
    */
   rules: z.array(RuleSchema).optional(),
+  /**
+   * Icons the author uploaded, embedded so the document is self-contained: a
+   * shared link, an export or a colleague's browser all draw them without
+   * knowing where they came from. Absent on every document made before they
+   * existed and on any that uses only the catalogue.
+   */
+  customIcons: z.array(CustomIconSchema).optional(),
 });
 
 export type Environment = z.infer<typeof EnvironmentSchema>;
@@ -235,6 +261,7 @@ export type Shape = z.infer<typeof ShapeSchema>;
 export type ViewKind = z.infer<typeof ViewKindSchema>;
 export type View = z.infer<typeof ViewSchema>;
 export type Connector = z.infer<typeof ConnectorSchema>;
+export type CustomIcon = z.infer<typeof CustomIconSchema>;
 export type DiagramModel = z.infer<typeof DiagramModelSchema>;
 
 /** Throws a ZodError when the payload is not a usable diagram. */

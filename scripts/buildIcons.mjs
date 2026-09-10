@@ -16,7 +16,8 @@ import { renderMark } from './glyphs.mjs';
  *     IBM. Those marks say the category and the vendor, which is what an icon
  *     can usefully convey at the 24px these render at.
  */
-const AWS_ICON_DIR = '/private/tmp/claude-501/-Users-misaelalvarezcamarillo-Desktop-diagram-editor/f3711095-a1b8-421d-ac75-207d7c7a658a/scratchpad/node_modules/aws-icons/icons/architecture-service';
+const AWS_ICON_DIR =
+  '/private/tmp/claude-501/-Users-misaelalvarezcamarillo-Desktop-diagram-editor/f3711095-a1b8-421d-ac75-207d7c7a658a/scratchpad/node_modules/aws-icons/icons/architecture-service';
 const MASTER_LIST = process.argv[2];
 
 /** Abbreviations the app uses that the official filenames spell out. */
@@ -129,7 +130,8 @@ for (const service of services) {
   stats.generated++;
 }
 
-const escape = (value) => value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+const escape = (value) =>
+  value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 
 const output = [
   '// Auto-generated SVG icon definitions — do not edit manually.',
@@ -163,11 +165,11 @@ const output = [
   '    const symbol = SVG_SYMBOLS[key];',
   '    if (symbol) parts.push(symbol);',
   '  }',
-  '  return parts.join(\'\\n\');',
+  "  return parts.join('\\n');",
   '}',
   '',
   '/** Every symbol. Used by the service browser, never by an export. */',
-  'export const ALL_SYMBOLS: string = Object.values(SVG_SYMBOLS).join(\'\\n\');',
+  "export const ALL_SYMBOLS: string = Object.values(SVG_SYMBOLS).join('\\n');",
   '',
 ].join('\n');
 

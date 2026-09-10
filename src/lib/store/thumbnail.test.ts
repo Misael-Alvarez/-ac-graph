@@ -34,7 +34,7 @@ describe('renderThumbnail', () => {
 
   it('follows the theme', () => {
     expect(renderThumbnail(sample, false)).toContain('#ffffff');
-    expect(renderThumbnail(sample, true)).toContain('#161920');
+    expect(renderThumbnail(sample, true)).toContain('#0e1526');
   });
 
   it('handles an empty diagram', () => {

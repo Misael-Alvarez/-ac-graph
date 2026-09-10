@@ -1,7 +1,13 @@
 import type { Point } from '@/lib/domain';
 
-/** Corner radius applied at each elbow of a connector. */
-export const CORNER_RADIUS = 8;
+/**
+ * Corner radius applied at each elbow of a connector.
+ *
+ * Fourteen, up from eight: at the sizes these diagrams are read, an elbow of
+ * eight still read as a wire bent around a nail. Fourteen reads as a route.
+ * The radius shrinks on short segments so tight doglegs never self-intersect.
+ */
+export const CORNER_RADIUS = 14;
 
 const dist = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 

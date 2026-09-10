@@ -60,5 +60,11 @@ const ALIASES = {
 };
 
 export function canonicalCategory(raw) {
-  return ALIASES[String(raw ?? '').trim().toLowerCase()] ?? 'other';
+  return (
+    ALIASES[
+      String(raw ?? '')
+        .trim()
+        .toLowerCase()
+    ] ?? 'other'
+  );
 }

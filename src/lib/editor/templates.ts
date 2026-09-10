@@ -1,4 +1,4 @@
-import type { DiagramModel } from '@/lib/domain';
+import type { DiagramModel, EdgeMeta, NodeMeta } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
@@ -11,6 +11,8 @@ interface NodeSpec {
   service: string;
   x: number;
   y: number;
+  /** What the service says about itself; drawn as chips on its card. */
+  meta?: NodeMeta;
 }
 
 interface TemplateSpec {
@@ -19,7 +21,8 @@ interface TemplateSpec {
   /** Name resolved by `<Glyph>` — see components/icons/Glyph.tsx. */
   icon: string;
   nodes: NodeSpec[];
-  edges: [from: string, to: string, label: string][];
+  /** The optional fourth element says what the call is, beyond its label. */
+  edges: [from: string, to: string, label: string, meta?: EdgeMeta][];
 }
 
 /**
@@ -50,15 +53,17 @@ export function buildTemplate(spec: TemplateSpec, locale: Locale = 'en'): Diagra
     item.title = node.label;
     item.subtitle = serviceDescription(service, locale);
     item.icon = { kind: 'symbol', key: node.service };
+    if (node.meta) item.meta = { ...node.meta };
     itemIdByLabel.set(node.label, item.id);
   }
 
-  for (const [from, to, label] of spec.edges) {
+  for (const [from, to, label, meta] of spec.edges) {
     const sourceId = itemIdByLabel.get(from);
     const targetId = itemIdByLabel.get(to);
     if (!sourceId || !targetId) continue;
     const connector = E.addConnector(model, sourceId, targetId);
     connector.label = label;
+    if (meta) connector.meta = { ...meta };
   }
 
   E.routeAllConnectors(model);
@@ -84,24 +89,78 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
     ],
   },
   {
+    // The one template that ships with an inventory, so the chips and tags the
+    // inspector can produce are seen once before anybody has to type them.
     id: 'microservices',
     icon: 'mesh',
     nodes: [
-      { label: 'Load Balancer', service: 'aws-elb', x: 80, y: 260 },
-      { label: 'Auth Service', service: 'aws-cognito', x: 620, y: 40 },
-      { label: 'API Service', service: 'aws-ecs', x: 620, y: 300 },
-      { label: 'Worker Service', service: 'aws-fargate', x: 620, y: 560 },
-      { label: 'Database', service: 'aws-rds', x: 1160, y: 160 },
-      { label: 'Cache', service: 'gen-redis', x: 1160, y: 420 },
-      { label: 'Queue', service: 'aws-sqs', x: 1160, y: 680 },
+      {
+        label: 'Load Balancer',
+        service: 'aws-elb',
+        x: 80,
+        y: 260,
+        meta: { environment: 'prod', criticality: 'critical', owner: 'platform' },
+      },
+      {
+        label: 'Auth Service',
+        service: 'aws-cognito',
+        x: 620,
+        y: 40,
+        meta: { environment: 'prod', criticality: 'critical', technology: 'OIDC' },
+      },
+      {
+        label: 'API Service',
+        service: 'aws-ecs',
+        x: 620,
+        y: 300,
+        meta: {
+          environment: 'prod',
+          criticality: 'high',
+          technology: 'FastAPI',
+          owner: 'core-api',
+        },
+      },
+      {
+        label: 'Worker Service',
+        service: 'aws-fargate',
+        x: 620,
+        y: 560,
+        meta: { environment: 'prod', criticality: 'medium', technology: 'Python 3.12' },
+      },
+      {
+        label: 'Database',
+        service: 'aws-rds',
+        x: 1160,
+        y: 160,
+        meta: { environment: 'prod', criticality: 'critical', technology: 'PostgreSQL 16' },
+      },
+      {
+        label: 'Cache',
+        service: 'gen-redis',
+        x: 1160,
+        y: 420,
+        meta: { environment: 'prod', criticality: 'medium', technology: 'Redis 7' },
+      },
+      {
+        label: 'Queue',
+        service: 'aws-sqs',
+        x: 1160,
+        y: 680,
+        meta: { environment: 'prod', criticality: 'high', lifecycle: 'deprecated' },
+      },
     ],
     edges: [
-      ['Load Balancer', 'Auth Service', 'Auth'],
-      ['Load Balancer', 'API Service', 'HTTP'],
-      ['API Service', 'Database', 'SQL'],
-      ['API Service', 'Cache', 'R/W'],
-      ['API Service', 'Queue', 'Push'],
-      ['Worker Service', 'Queue', 'Poll'],
+      ['Load Balancer', 'Auth Service', 'Auth', { protocol: 'https', kind: 'sync', auth: 'OIDC' }],
+      [
+        'Load Balancer',
+        'API Service',
+        'HTTP',
+        { protocol: 'https', kind: 'sync', auth: 'JWT', dataClass: 'pii' },
+      ],
+      ['API Service', 'Database', 'SQL', { protocol: 'sql', kind: 'sync', dataClass: 'pii' }],
+      ['API Service', 'Cache', 'R/W', { protocol: 'redis', kind: 'sync', dataClass: 'internal' }],
+      ['API Service', 'Queue', 'Push', { protocol: 'amqp', kind: 'async' }],
+      ['Worker Service', 'Queue', 'Poll', { protocol: 'amqp', kind: 'event' }],
     ],
   },
   {
