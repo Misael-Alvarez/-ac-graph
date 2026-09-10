@@ -9,6 +9,7 @@ import { useEditor } from '../EditorProvider';
 import { serviceDescription, serviceDescriptions } from '@/lib/i18n/serviceCopy';
 import { useCommands, type Command } from '../hooks/useCommands';
 import { SearchIcon } from '@/components/icons/ToolIcons';
+import { PanelHead } from '@/components/ui/PanelHead';
 import { Glyph } from '@/components/icons/Glyph';
 
 type Row =
@@ -135,6 +136,16 @@ function PaletteContents() {
         onPointerDown={(e) => e.stopPropagation()}
         onPointerMove={liquid}
       >
+        {/* The same head as every panel: what this is, how much is in it, the
+            way out. The search used to be the only thing at the top, which made
+            the palette the one surface that did not say its name. */}
+        <PanelHead
+          title={t('palette.title')}
+          count={t('palette.count', { count: rows.length })}
+          countClassName="panel-head-count"
+          closeLabel={t('modal.close')}
+          onClose={close}
+        />
         <div className="palette-search">
           <SearchIcon size={16} />
           <input

@@ -7,9 +7,11 @@ import {
   darkColors,
   fontSize,
   isColor,
+  isDarkCanvas,
   lightCanvas,
   lightColors,
   luminance,
+  mixHex,
   radius,
   readableTextOn,
   space,
@@ -193,6 +195,15 @@ describe('stylesheet integrity', () => {
     '--row-h',
     // A row's index in its list, for the stagger.
     '--i',
+    // Presence: each collaborator's colour and cursor position, written by
+    // the presence layer per person.
+    '--user-color',
+    '--cx',
+    '--cy',
+    // The home page showcase leans towards the pointer; the angles are written
+    // by the tilt handler per move.
+    '--tilt-x',
+    '--tilt-y',
   ]);
 
   it('defines every custom property it uses', () => {
@@ -249,5 +260,19 @@ describe('isColor', () => {
     for (const value of ['', 'rojo', '#12', '#1234567', 'rgb(0,0,0)', 'red', undefined]) {
       expect(isColor(value), String(value)).toBe(false);
     }
+  });
+});
+
+describe('mixHex', () => {
+  it('blends two colours by the share of the second', () => {
+    expect(mixHex('#000000', '#ffffff', 0)).toBe('#000000');
+    expect(mixHex('#000000', '#ffffff', 1)).toBe('#ffffff');
+    expect(mixHex('#000000', '#ffffff', 0.5)).toBe('#808080');
+    expect(mixHex('#fff', '#000', 0.25)).toBe('#bfbfbf');
+  });
+
+  it('tells the dark canvas from the light one by its sheet', () => {
+    expect(isDarkCanvas(lightCanvas)).toBe(false);
+    expect(isDarkCanvas(darkCanvas)).toBe(true);
   });
 });

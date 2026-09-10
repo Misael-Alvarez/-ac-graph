@@ -9,6 +9,7 @@
  */
 import {
   ArrowLeftIcon,
+  SearchIcon,
   AutoLayoutIcon,
   BoltIcon,
   BrainIcon,
@@ -77,6 +78,7 @@ const ICONS: Record<string, IconComponent> = {
   back: ArrowLeftIcon,
   plus: PlusIcon,
   list: ListIcon,
+  search: SearchIcon,
   // Template glyphs.
   bolt: BoltIcon,
   mesh: MeshIcon,

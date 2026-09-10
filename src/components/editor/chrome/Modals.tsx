@@ -15,7 +15,10 @@ import { SHORTCUT_GROUPS } from '../hooks/useKeyboard';
 import { CloseIcon } from '@/components/icons/ToolIcons';
 import { Glyph } from '@/components/icons/Glyph';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
-import { modKey } from '@/lib/editor/platform';
+import { spellChord } from '@/lib/editor/platform';
+import { MineSection, UploadForm, useIconLibrary } from './CustomIcons';
+import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
+import { useCommands } from '../hooks/useCommands';
 
 function Dialog({
   title,
@@ -32,7 +35,13 @@ function Dialog({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const liquid = useLiquidPointer();
-  useEffect(() => ref.current?.focus(), []);
+  useEffect(() => {
+    const trigger = document.activeElement;
+    ref.current?.focus();
+    return () => {
+      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+    };
+  }, []);
 
   return (
     <div className="dialog-backdrop" onPointerDown={onClose}>
@@ -45,6 +54,33 @@ function Dialog({
         className={`dialog${wide ? ' is-wide' : ''}`}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerMove={liquid}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            onClose();
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          const controls = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), input:not(:disabled):not([type="hidden"]), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]',
+            ),
+          ).filter((element) => element.getClientRects().length > 0);
+          const first = controls[0];
+          const last = controls[controls.length - 1];
+          if (!first || !last) {
+            event.preventDefault();
+          } else if (
+            event.shiftKey &&
+            (document.activeElement === first || document.activeElement === ref.current)
+          ) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
       >
         <header className="dialog-header">
           <h2>{title}</h2>
@@ -74,7 +110,7 @@ export function Modals() {
               className="template-card"
               style={{ '--i': index } as React.CSSProperties}
               onClick={() => {
-                dispatch({ type: 'load', model: template.build(ui.locale) });
+                dispatch({ type: 'replaceModel', model: template.build(ui.locale) });
                 dispatchUi({ type: 'clearSelection' });
                 close();
               }}
@@ -121,21 +157,31 @@ export function Modals() {
     );
   }
 
+  if (ui.modal === 'icons') {
+    return (
+      <Dialog title={t('icons.mineTitle')} onClose={close} closeLabel={t('modal.close')} wide>
+        <p className="dialog-subtitle">{t('icons.dialogSubtitle')}</p>
+        <IconLibraryManager />
+      </Dialog>
+    );
+  }
+
   if (ui.modal === 'shortcuts') {
     return (
       <Dialog title={t('modal.shortcuts.title')} onClose={close} closeLabel={t('modal.close')} wide>
+        <p className="dialog-subtitle">{t('modal.shortcuts.subtitle')}</p>
         <div className="shortcut-groups">
           {SHORTCUT_GROUPS.map((group) => (
-            <div key={group.titleKey}>
+            <div key={group.titleKey} className="shortcut-group">
               <h3 className="shortcut-group-title group-header">
                 {t(group.titleKey)}
                 <span className="group-count">{group.items.length}</span>
               </h3>
-              {group.items.map(([keys, key]) => (
-                <div key={keys} className="shortcut-row">
-                  {/* `Mod` is spelled for the platform the reader is on. */}
-                  <kbd>{keys.replace('Mod+', modKey())}</kbd>
-                  <span>{t(key)}</span>
+              {group.items.map((item) => (
+                <div key={item.id} className="shortcut-row">
+                  {/* Spelled for the platform the reader is on: ⌘⇧S or Ctrl+Shift+S. */}
+                  <kbd>{spellChord(item.keys)}</kbd>
+                  <span>{t(item.labelKey)}</span>
                 </div>
               ))}
             </div>
@@ -194,6 +240,7 @@ Lambda -> DynamoDB : R/W`;
       <p className="dialog-subtitle">{t('import.subtitle')}</p>
       <textarea
         className="dialog-textarea"
+        aria-label={t('import.title')}
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={example}
@@ -246,8 +293,15 @@ Lambda -> DynamoDB : R/W`;
               const file = e.target.files?.[0];
               if (!file) return;
               const reader = new FileReader();
+              const failed = () => dispatchUi({ type: 'toast', message: t('toast.invalidFile') });
               reader.onload = () => setText(String(reader.result));
-              reader.readAsText(file);
+              reader.onerror = failed;
+              reader.onabort = failed;
+              try {
+                reader.readAsText(file);
+              } catch {
+                failed();
+              }
               e.target.value = '';
             }}
           />
@@ -266,7 +320,7 @@ Lambda -> DynamoDB : R/W`;
               dispatchUi({ type: 'toast', message: t('toast.invalidFile') });
               return;
             }
-            dispatch({ type: 'load', model: parsed.data });
+            dispatch({ type: 'replaceModel', model: parsed.data });
             dispatchUi({ type: 'clearSelection' });
             onClose();
           }}
@@ -275,5 +329,51 @@ Lambda -> DynamoDB : R/W`;
         </button>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * The author's icons, as a place of their own.
+ *
+ * The picker and the browser offer them where they are needed; this is where
+ * they are looked after — uploaded, looked over, removed — without a shape
+ * having to be selected first. Choosing one here places it on the canvas.
+ */
+function IconLibraryManager() {
+  const { doc, t } = useEditor();
+  const commands = useCommands();
+  const [library, setLibrary] = useIconLibrary();
+  const [uploading, setUploading] = useState(false);
+  const mine = useMemo(() => {
+    const seen = new Set(library.map((icon) => icon.key));
+    return [...library, ...(doc.model.customIcons ?? []).filter((icon) => !seen.has(icon.key))];
+  }, [library, doc.model.customIcons]);
+
+  if (uploading) {
+    return (
+      <div className="icon-manager">
+        <UploadForm
+          t={t}
+          onCancel={() => setUploading(false)}
+          onSaved={(icon) => {
+            const saved = saveIconToLibrary(window.localStorage, icon);
+            if (saved.ok) setLibrary(saved.icons);
+            setUploading(false);
+          }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="icon-manager">
+      <MineSection
+        t={t}
+        icons={mine}
+        showUpload
+        onUpload={() => setUploading(true)}
+        onPick={(icon) => commands.addCustomService(icon)}
+        onRemove={(key) => setLibrary(removeIconFromLibrary(window.localStorage, key))}
+      />
+    </div>
   );
 }

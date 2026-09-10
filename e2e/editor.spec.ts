@@ -69,6 +69,68 @@ test('undo restores the exact position after a drag', async ({ page }) => {
   expect(await groupRect(page)).toEqual(afterDrag);
 });
 
+test('undo still reaches the drawing after the title field had the keyboard', async ({ page }) => {
+  // Rename first, so focus sits in a text field; then move a shape. In some
+  // browsers a press inside the SVG does not take focus from that field, and
+  // Cmd+Z went to the title instead of the drawing.
+  await page.locator('[data-tool="group"]').click();
+  await page.locator('.canvas-surface').click({ position: { x: 400, y: 300 } });
+  await page.locator('.topbar-name').fill('Pagos');
+  await page.locator('.topbar-name').evaluate((el) => (el as HTMLInputElement).focus());
+
+  const before = await groupRect(page);
+  const from = await pagePoint(page, 420, 320);
+  const to = await pagePoint(page, 600, 440);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await page.mouse.up();
+  expect((await groupRect(page))!.x).not.toBe(before!.x);
+
+  await page.keyboard.press('ControlOrMeta+z');
+  expect(await groupRect(page)).toEqual(before);
+  await expect(page.locator('.topbar-name')).toHaveValue('Pagos');
+});
+
+test('a run of arrow-key nudges is one undo step', async ({ page }) => {
+  await page.locator('[data-tool="group"]').click();
+  await page.locator('.canvas-surface').click({ position: { x: 400, y: 300 } });
+  await page.locator('.canvas-surface').click({ position: { x: 420, y: 320 } });
+  const before = await groupRect(page);
+
+  for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowRight');
+  expect((await groupRect(page))!.x).toBe(before!.x + 12);
+
+  // One press, not twelve: a one-pixel step back reads as "undo does nothing".
+  await page.keyboard.press('ControlOrMeta+z');
+  expect(await groupRect(page)).toEqual(before);
+});
+
+test('typing a label is one undo step, even with the keyboard still in the field', async ({
+  page,
+}) => {
+  await page.locator('[data-tool="group"]').click();
+  await page.locator('.canvas-surface').click({ position: { x: 400, y: 300 } });
+  await page.locator('.canvas-surface').click({ position: { x: 420, y: 320 } });
+  const label = page.locator('.inspector .input').first();
+  const original = await label.inputValue();
+
+  await label.click();
+  await label.pressSequentially('XYZ');
+  await expect(label).toHaveValue(`${original}XYZ`);
+
+  // Cmd+Z inside the field: whatever the browser's own field history does, the
+  // typed word must be gone afterwards, from the model and from the field.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(label).toHaveValue(original);
+  await expect(page.locator('.canvas-surface')).not.toContainText('XYZ');
+});
+
+test('says so when there is nothing to undo', async ({ page }) => {
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.locator('.toast')).toContainText('No hay nada que deshacer');
+});
+
 test('opens the command palette and adds a service', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+k');
   await expect(page.locator('.palette')).toBeVisible();
@@ -138,14 +200,23 @@ test('opens dark, and the light choice survives a reload', async ({ page }) => {
   await expect(page.locator('html')).not.toHaveClass(/dark/);
 });
 
-test('the canvas stays paper whatever the chrome does', async ({ page }) => {
-  // The diagram is the lit thing in the product; dimming it with the interface
-  // leaves the reader looking at a grey rectangle.
-  const sheet = () => page.locator('.canvas-surface > rect').first().getAttribute('fill');
+test('the canvas follows the chrome, so the screen matches the export', async ({ page }) => {
+  // A dark editor with a white sheet in the middle is a lamp, not a workspace —
+  // and an export made from it came out dark while the screen was white.
+  // The sheet is the surface's own background; the first <rect> is the grid.
+  const sheet = () =>
+    page.locator('.canvas-surface').evaluate((el) => {
+      const rgb = getComputedStyle(el).backgroundColor.match(/\d+/g)!.map(Number);
+      return `#${rgb
+        .slice(0, 3)
+        .map((n) => n.toString(16).padStart(2, '0'))
+        .join('')}`;
+    });
   const inDark = await sheet();
+  expect(inDark?.toLowerCase()).toBe('#0e1526');
   await page.getByRole('button', { name: /modo oscuro|toggle dark/i }).click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
-  expect(await sheet()).toBe(inDark);
+  expect((await sheet())?.toLowerCase()).toBe('#ffffff');
 });
 
 test('reports no console or page errors', async ({ page }) => {
@@ -190,4 +261,31 @@ test('a resting pointer cannot steal the palette selection', async ({ page }) =>
 
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+test('⌘F finds a shape by name and glides the camera to it', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.library-showcase').click();
+  await page.waitForSelector('.canvas-surface');
+  const before = await page.locator('.canvas-surface > g[transform]').getAttribute('transform');
+
+  await page.keyboard.press('ControlOrMeta+f');
+  const find = page.locator('.find-bar-input');
+  await expect(find).toBeFocused();
+  // "Queue" is both a group and the service inside it: two matches, first shown.
+  await find.fill('queue');
+  await expect(page.locator('.find-bar-count')).toContainText('1 de 2');
+  // The match is selected and the camera has moved towards it.
+  await expect(page.locator('.selection-outline')).toHaveCount(1);
+  await expect
+    .poll(() => page.locator('.canvas-surface > g[transform]').getAttribute('transform'))
+    .not.toBe(before);
+
+  await find.fill('prod');
+  await expect(page.locator('.find-bar-count')).toContainText('de 7');
+  await find.press('Enter');
+  await expect(page.locator('.find-bar-count')).toContainText('2 de 7');
+
+  await find.press('Escape');
+  await expect(page.locator('.find-bar')).toHaveCount(0);
 });

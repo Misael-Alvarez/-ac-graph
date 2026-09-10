@@ -1,10 +1,21 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { contentBBox, cloneShapes } from '@/lib/engine';
+import { contentBBox, cloneShapes, projectView } from '@/lib/engine';
 import type { ServiceIcon } from '@/lib/editor';
-import { modKey } from '@/lib/editor/platform';
-import { downloadMarkdown, downloadPng, downloadProject, downloadSvg } from '@/lib/editor/export';
+import type { CustomIcon } from '@/lib/domain';
+import { spellChord } from '@/lib/editor/platform';
+import { shortcutFor } from '@/lib/editor/shortcuts';
+import {
+  downloadMarkdown,
+  downloadMermaid,
+  downloadPdf,
+  downloadPng,
+  downloadProject,
+  downloadSvg,
+  downloadYaml,
+  fileStem,
+} from '@/lib/editor/export';
 import { DEFAULT_VIEWPORT, fitToBox } from '@/lib/editor/viewport';
 import { createEmptyModel } from '@/lib/engine';
 import { useEditor } from '../EditorProvider';
@@ -13,9 +24,9 @@ import { serviceDescription } from '@/lib/i18n/serviceCopy';
 export interface Command {
   id: string;
   label: string;
-  /** Emoji or short glyph shown in the palette row. */
   /** Name resolved by `<Glyph>`; the data lives in a .ts file, so no JSX here. */
   icon: string;
+  /** The chord spelled for this platform, from the shortcut registry. */
   shortcut?: string;
   enabled?: boolean;
   run: () => void;
@@ -24,16 +35,24 @@ export interface Command {
 export interface CommandSet extends Array<Command> {
   /** Drops a service onto the canvas at a sensible position. */
   addService: (service: ServiceIcon) => void;
+  /** Drops one of the author's icons: embedded in the document, then placed. */
+  addCustomService: (icon: CustomIcon, at?: { x: number; y: number }) => void;
 }
 
 /**
  * Everything the command palette, the menus and the keyboard can trigger.
  *
  * Defining commands once means a new action shows up in the palette, in a menu
- * and in the shortcut sheet without being wired three times.
+ * and in the shortcut sheet without being wired three times. Shortcuts are not
+ * declared here: `shortcutFor` reads them from the registry, which is also what
+ * the keyboard handler consults, so the two cannot disagree.
  */
 export function useCommands(): CommandSet {
-  const { doc, ui, dispatch, dispatchUi, canUndo, canRedo, t } = useEditor();
+  const { doc, ui, view, dispatch, dispatchUi, canUndo, canRedo, t, title } = useEditor();
+  const selectedIds = useMemo(
+    () => new Set(view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id)),
+    [view, ui.selectedIds],
+  );
 
   const viewportSize = useCallback(() => {
     const el = document.querySelector('.canvas-surface');
@@ -72,245 +91,210 @@ export function useCommands(): CommandSet {
     [dispatch, ui.viewport, ui.locale, viewportSize],
   );
 
-  const exportOptions = useMemo(
-    () => ({ model: doc.model, dark: ui.dark, brand: ui.brand }),
-    [doc.model, ui.dark, ui.brand],
+  const addCustomService = useCallback(
+    (icon: CustomIcon, at?: { x: number; y: number }) => {
+      const { width, height } = viewportSize();
+      const x = at ? at.x : (width / 2 - ui.viewport.x) / ui.viewport.zoom - 120;
+      const y = at ? at.y : (height / 2 - ui.viewport.y) / ui.viewport.zoom - 60;
+      dispatch({ type: 'addCustomIcon', icon });
+      dispatch({
+        type: 'addGroup',
+        x,
+        y,
+        service: {
+          key: icon.key,
+          label: icon.name,
+          description: icon.description ?? icon.source ?? '',
+          category: 'custom',
+        },
+      });
+    },
+    [dispatch, ui.viewport, viewportSize],
   );
 
+  /** What an image or document export draws: the current reading, projected. */
+  const exportOptions = useCallback(
+    () => ({ model: projectView(view), dark: ui.dark, brand: ui.brand }),
+    [view, ui.dark, ui.brand],
+  );
+  const stem = fileStem(title);
+
   const commands = useMemo<Command[]>(() => {
-    const m = modKey();
+    const command = (
+      id: string,
+      labelKey: Parameters<typeof t>[0],
+      icon: string,
+      run: () => void,
+      enabled?: boolean,
+    ): Command => {
+      const chord = shortcutFor(id);
+      return {
+        id,
+        label: t(labelKey),
+        icon,
+        shortcut: chord ? spellChord(chord) : undefined,
+        enabled,
+        run,
+      };
+    };
+    const failed = () => dispatchUi({ type: 'toast', message: t('export.failed') });
+    const exported = (name: string) =>
+      dispatchUi({ type: 'toast', message: t('export.done', { name }) });
+
     return [
-      {
-        id: 'undo',
-        label: t('action.undo'),
-        icon: 'undo',
-        shortcut: `${m}Z`,
-        enabled: canUndo,
-        run: () => dispatch({ type: 'undo' }),
-      },
-      {
-        id: 'redo',
-        label: t('action.redo'),
-        icon: 'redo',
-        shortcut: `${m}⇧Z`,
-        enabled: canRedo,
-        run: () => dispatch({ type: 'redo' }),
-      },
-      {
-        id: 'selectAll',
-        label: t('action.selectAll'),
-        icon: 'selectAll',
-        shortcut: `${m}A`,
-        run: () =>
-          dispatchUi({
-            type: 'select',
-            // Containers are structural and never selectable on their own.
-            ids: doc.model.shapes.filter((s) => s.type !== 'container').map((s) => s.id),
-          }),
-      },
-      {
-        id: 'deselect',
-        label: t('action.deselect'),
-        icon: 'deselect',
-        shortcut: `${m}⇧A`,
-        run: () => dispatchUi({ type: 'clearSelection' }),
-      },
-      {
-        id: 'delete',
-        label: t('action.delete'),
-        icon: 'delete',
-        shortcut: 'Del',
-        enabled: ui.selectedIds.size > 0,
-        run: () => {
-          dispatch({ type: 'deleteShapes', ids: [...ui.selectedIds] });
+      command('undo', 'action.undo', 'undo', () => dispatch({ type: 'undo' }), canUndo),
+      command('redo', 'action.redo', 'redo', () => dispatch({ type: 'redo' }), canRedo),
+      command('selectAll', 'action.selectAll', 'selectAll', () =>
+        dispatchUi({
+          type: 'select',
+          // Containers are structural and never selectable on their own.
+          ids: view.shapes.filter((s) => s.type !== 'container').map((s) => s.id),
+        }),
+      ),
+      command('deselect', 'action.deselect', 'deselect', () =>
+        dispatchUi({ type: 'clearSelection' }),
+      ),
+      command(
+        'delete',
+        'action.delete',
+        'delete',
+        () => {
+          dispatch({ type: 'deleteShapes', ids: [...selectedIds] });
           dispatchUi({ type: 'clearSelection' });
         },
-      },
-      {
-        id: 'duplicate',
-        label: t('action.duplicate'),
-        icon: 'duplicate',
-        shortcut: `${m}D`,
-        enabled: ui.selectedIds.size > 0,
-        run: () =>
+        selectedIds.size > 0,
+      ),
+      command(
+        'duplicate',
+        'action.duplicate',
+        'duplicate',
+        () =>
           dispatch({
             type: 'paste',
-            payload: cloneShapes(doc.model, ui.selectedIds),
+            payload: cloneShapes(view, selectedIds),
             offsetX: 40,
             offsetY: 40,
           }),
-      },
-      {
-        id: 'autoLayout',
-        label: t('action.autoLayout'),
-        icon: 'autoLayout',
-        run: () => dispatch({ type: 'autoLayout' }),
-      },
-      {
-        id: 'zoomFit',
-        label: t('action.zoomFit'),
-        icon: 'zoomFit',
-        shortcut: `${m}1`,
-        run: () =>
-          dispatchUi({
-            type: 'setViewport',
-            viewport: fitToBox(contentBBox(doc.model), viewportSize(), 48, chromeInsets()),
-          }),
-      },
-      {
-        id: 'zoomReset',
-        label: t('action.zoomReset'),
-        icon: 'zoomReset',
-        shortcut: `${m}0`,
-        run: () => dispatchUi({ type: 'setViewport', viewport: DEFAULT_VIEWPORT }),
-      },
-      {
-        id: 'toggleTheme',
-        label: t('action.toggleTheme'),
-        icon: ui.dark ? 'sun' : 'moon',
-        run: () => dispatchUi({ type: 'toggleDark' }),
-      },
-      {
-        id: 'insights',
-        label: t('action.insights'),
-        icon: 'chart',
-        run: () => dispatchUi({ type: 'toggleInsights' }),
-      },
-      {
-        id: 'toggleGrid',
-        label: t('action.toggleGrid'),
-        icon: 'grid',
-        run: () => dispatchUi({ type: 'toggleGridSnap' }),
-      },
-      {
-        id: 'toggleCode',
-        label: t('action.toggleCode'),
-        icon: 'code',
-        shortcut: `${m}/`,
-        run: () => dispatchUi({ type: 'toggleCode' }),
-      },
-      {
-        id: 'toggleBrowser',
-        label: t('action.browser'),
-        icon: 'browser',
-        shortcut: `${m}B`,
-        run: () => dispatchUi({ type: 'toggleBrowser' }),
-      },
-      {
-        id: 'toggleVersions',
-        label: t('versions.title'),
-        icon: 'history',
-        run: () => dispatchUi({ type: 'toggleVersions' }),
-      },
-      {
-        id: 'toggleMinimap',
-        label: t('action.toggleMinimap'),
-        icon: 'minimap',
-        run: () => dispatchUi({ type: 'toggleMinimap' }),
-      },
-      {
-        id: 'ai',
-        label: t('action.ai'),
-        icon: 'ai',
-        shortcut: `${m}J`,
-        run: () => dispatchUi({ type: 'setModal', modal: 'ai' }),
-      },
-      {
-        id: 'templates',
-        label: t('action.templates'),
-        icon: 'templates',
-        run: () => dispatchUi({ type: 'setModal', modal: 'templates' }),
-      },
-      {
-        id: 'switchCloud',
-        label: t('action.switchCloud'),
-        icon: 'cloud',
-        run: () => dispatchUi({ type: 'setModal', modal: 'switchCloud' }),
-      },
-      {
-        id: 'importMarkdown',
-        label: t('action.importMarkdown'),
-        icon: 'import',
-        run: () => dispatchUi({ type: 'setModal', modal: 'markdown' }),
-      },
-      {
-        id: 'share',
-        label: t('action.share'),
-        icon: 'share',
-        shortcut: `${m}⇧S`,
-        run: () => dispatchUi({ type: 'setModal', modal: 'share' }),
-      },
-      {
-        id: 'exportSvg',
-        label: t('action.exportSvg'),
-        icon: 'export',
-        run: () => downloadSvg(exportOptions),
-      },
-      {
-        id: 'exportPng',
-        label: t('action.exportPng'),
-        icon: 'export',
-        run: () => {
-          void downloadPng(exportOptions).catch(() =>
-            dispatchUi({ type: 'toast', message: t('status.error') }),
-          );
-        },
-      },
-      {
-        id: 'exportMarkdown',
-        label: t('action.exportMarkdown'),
-        icon: 'export',
-        shortcut: `${m}E`,
-        run: () => downloadMarkdown(doc.model),
-      },
-      {
-        id: 'openProject',
-        label: t('action.open'),
-        icon: 'open',
-        run: () => document.querySelector<HTMLInputElement>('[data-open-project]')?.click(),
-      },
-      {
-        id: 'saveProject',
-        label: t('action.save'),
-        icon: 'save',
-        shortcut: `${m}S`,
-        run: () => downloadProject(doc.model),
-      },
-      {
-        id: 'shortcuts',
-        label: t('action.shortcuts'),
-        icon: 'shortcuts',
-        shortcut: '?',
-        run: () => dispatchUi({ type: 'setModal', modal: 'shortcuts' }),
-      },
-      {
-        id: 'clear',
-        label: t('action.clear'),
-        icon: 'clear',
-        run: () => {
-          dispatch({ type: 'load', model: createEmptyModel() });
-          dispatchUi({ type: 'clearSelection' });
-          dispatchUi({ type: 'toast', message: t('toast.cleared') });
-        },
-      },
+        selectedIds.size > 0,
+      ),
+      command('autoLayout', 'action.autoLayout', 'autoLayout', () =>
+        dispatch({ type: 'autoLayout', viewId: ui.activeViewId, drillPath: ui.drillPath }),
+      ),
+      command('zoomFit', 'action.zoomFit', 'zoomFit', () =>
+        dispatchUi({
+          type: 'setViewport',
+          viewport: fitToBox(contentBBox(view), viewportSize(), 48, chromeInsets()),
+          smooth: true,
+        }),
+      ),
+      command('zoomReset', 'action.zoomReset', 'zoomReset', () =>
+        dispatchUi({ type: 'setViewport', viewport: DEFAULT_VIEWPORT, smooth: true }),
+      ),
+      command('toggleTheme', 'action.toggleTheme', ui.dark ? 'sun' : 'moon', () =>
+        dispatchUi({ type: 'toggleDark' }),
+      ),
+      command('insights', 'action.insights', 'chart', () => dispatchUi({ type: 'toggleInsights' })),
+      command('toggleGrid', 'action.toggleGrid', 'grid', () =>
+        dispatchUi({ type: 'toggleGridSnap' }),
+      ),
+      command('toggleCode', 'action.toggleCode', 'code', () => dispatchUi({ type: 'toggleCode' })),
+      command('toggleBrowser', 'action.browser', 'browser', () =>
+        dispatchUi({ type: 'toggleBrowser' }),
+      ),
+      command('toggleVersions', 'versions.title', 'history', () =>
+        dispatchUi({ type: 'toggleVersions' }),
+      ),
+      command('toggleMinimap', 'action.toggleMinimap', 'minimap', () =>
+        dispatchUi({ type: 'toggleMinimap' }),
+      ),
+      command('ai', 'action.ai', 'ai', () => dispatchUi({ type: 'setModal', modal: 'ai' })),
+      command('templates', 'action.templates', 'templates', () =>
+        dispatchUi({ type: 'setModal', modal: 'templates' }),
+      ),
+      command('switchCloud', 'action.switchCloud', 'cloud', () =>
+        dispatchUi({ type: 'setModal', modal: 'switchCloud' }),
+      ),
+      command('importMarkdown', 'action.importMarkdown', 'import', () =>
+        dispatchUi({ type: 'setModal', modal: 'markdown' }),
+      ),
+      command('share', 'action.share', 'share', () =>
+        dispatchUi({ type: 'setModal', modal: 'share' }),
+      ),
+      command('exportMenu', 'export.title', 'export', () =>
+        dispatchUi({ type: 'setMenu', menu: ui.menu === 'export' ? null : 'export' }),
+      ),
+      command('exportSvg', 'action.exportSvg', 'export', () => {
+        try {
+          downloadSvg(exportOptions(), `${stem}.svg`);
+          exported('SVG');
+        } catch {
+          failed();
+        }
+      }),
+      command('exportPng', 'action.exportPng', 'export', () => {
+        downloadPng(exportOptions(), `${stem}.png`).then(() => exported('PNG'), failed);
+      }),
+      command('exportPdf', 'export.pdf', 'export', () => {
+        downloadPdf(exportOptions(), `${stem}.pdf`).then(() => exported('PDF'), failed);
+      }),
+      command('exportMarkdown', 'action.exportMarkdown', 'export', () => {
+        downloadMarkdown(exportOptions().model, `${stem}.md`);
+        exported('Markdown');
+      }),
+      command('exportMermaid', 'export.mermaid', 'export', () => {
+        downloadMermaid(exportOptions().model, `${stem}.mmd`);
+        exported('Mermaid');
+      }),
+      command('exportYaml', 'export.yaml', 'code', () => {
+        downloadYaml(doc.model, `${stem}.yaml`, title);
+        exported('YAML');
+      }),
+      command('openProject', 'action.open', 'open', () =>
+        document.querySelector<HTMLInputElement>('[data-open-project]')?.click(),
+      ),
+      command('saveProject', 'action.save', 'save', () => {
+        downloadProject(doc.model, `${stem}.json`);
+        exported('JSON');
+      }),
+      command('shortcuts', 'action.shortcuts', 'shortcuts', () =>
+        dispatchUi({ type: 'setModal', modal: 'shortcuts' }),
+      ),
+      command('icons', 'action.icons', 'import', () =>
+        dispatchUi({ type: 'setModal', modal: 'icons' }),
+      ),
+      command('find', 'action.find', 'search', () =>
+        dispatchUi({ type: 'setFindOpen', open: true }),
+      ),
+      command('clear', 'action.clear', 'clear', () => {
+        dispatch({ type: 'replaceModel', model: createEmptyModel() });
+        dispatchUi({ type: 'clearSelection' });
+        dispatchUi({ type: 'toast', message: t('toast.cleared') });
+      }),
     ];
   }, [
     t,
     canUndo,
     canRedo,
-    ui.selectedIds,
+    selectedIds,
+    view,
+    ui.activeViewId,
+    ui.drillPath,
     ui.dark,
+    ui.menu,
     doc.model,
     dispatch,
     dispatchUi,
     exportOptions,
     viewportSize,
     chromeInsets,
+    stem,
+    title,
   ]);
 
   return useMemo(() => {
     const set = commands.slice() as CommandSet;
     set.addService = addService;
+    set.addCustomService = addCustomService;
     return set;
-  }, [commands, addService]);
+  }, [commands, addService, addCustomService]);
 }

@@ -10,7 +10,7 @@ import {
   type Diagnostic,
 } from '@/lib/dsl';
 import { useEditor } from '../EditorProvider';
-import { CloseIcon } from '@/components/icons/ToolIcons';
+import { PanelHead } from '@/components/ui/PanelHead';
 import { CodeEditor } from './CodeEditor';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
 
@@ -108,51 +108,49 @@ export function CodePanel() {
 
   return (
     <aside className="code-panel" aria-label={t('code.title')}>
-      <header className="code-panel-header">
-        <div className="segmented is-compact">
-          {(['dsl', 'mermaid'] as const).map((option) => (
+      <PanelHead
+        title={
+          <div className="segmented is-compact">
+            {(['dsl', 'mermaid'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`segmented-option${format === option ? ' is-active' : ''}`}
+                onClick={() => setFormat(option)}
+              >
+                {option === 'dsl' ? 'YAML' : 'Mermaid'}
+              </button>
+            ))}
+          </div>
+        }
+        actions={
+          <>
+            {format === 'mermaid' && (
+              <span className="code-badge is-muted">{t('code.readOnly')}</span>
+            )}
+            {format === 'dsl' && errorCount > 0 && (
+              <span className="code-badge is-error">{errorCount}</span>
+            )}
+            {format === 'dsl' && warningCount > 0 && (
+              <span className="code-badge is-warning">{warningCount}</span>
+            )}
             <button
-              key={option}
               type="button"
-              className={`segmented-option${format === option ? ' is-active' : ''}`}
-              onClick={() => setFormat(option)}
+              className="button is-small"
+              onClick={() => {
+                void navigator.clipboard?.writeText(displayed).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+              }}
             >
-              {option === 'dsl' ? 'YAML' : 'Mermaid'}
+              {copied ? '✓' : t('action.copy')}
             </button>
-          ))}
-        </div>
-
-        <span className="code-panel-spacer" />
-
-        {format === 'mermaid' && <span className="code-badge is-muted">{t('code.readOnly')}</span>}
-        {format === 'dsl' && errorCount > 0 && (
-          <span className="code-badge is-error">{errorCount}</span>
-        )}
-        {format === 'dsl' && warningCount > 0 && (
-          <span className="code-badge is-warning">{warningCount}</span>
-        )}
-
-        <button
-          type="button"
-          className="button is-small"
-          onClick={() => {
-            void navigator.clipboard?.writeText(displayed).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-        >
-          {copied ? '✓' : t('action.copy')}
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t('modal.close')}
-          onClick={() => dispatchUi({ type: 'toggleCode' })}
-        >
-          <CloseIcon size={16} />
-        </button>
-      </header>
+          </>
+        }
+        closeLabel={t('modal.close')}
+        onClose={() => dispatchUi({ type: 'toggleCode' })}
+      />
 
       <div className="code-panel-body">
         <CodeEditor

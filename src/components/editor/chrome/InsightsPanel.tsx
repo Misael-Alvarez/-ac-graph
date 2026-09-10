@@ -10,7 +10,7 @@ import {
 import { centerOn } from '@/lib/editor/viewport';
 import { checkRules } from '@/lib/rules';
 import { useEditor } from '../EditorProvider';
-import { CloseIcon } from '@/components/icons/ToolIcons';
+import { PanelHead } from '@/components/ui/PanelHead';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
 
 /**
@@ -54,21 +54,12 @@ export function InsightsPanel({ size }: { size: { width: number; height: number 
 
   return (
     <aside className="side-panel" aria-label={t('insight.title')}>
-      <header className="code-panel-header">
-        <strong className="side-panel-title">{t('insight.title')}</strong>
-        <span className="code-panel-spacer" />
-        <span className="result-count">
-          {t('insight.counted', { nodes: analysis.nodes, edges: analysis.edges })}
-        </span>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t('modal.close')}
-          onClick={() => dispatchUi({ type: 'toggleInsights' })}
-        >
-          <CloseIcon size={16} />
-        </button>
-      </header>
+      <PanelHead
+        title={t('insight.title')}
+        count={t('insight.counted', { nodes: analysis.nodes, edges: analysis.edges })}
+        closeLabel={t('modal.close')}
+        onClose={() => dispatchUi({ type: 'toggleInsights' })}
+      />
 
       {/* The score, and immediately under it everything it is made of. There is
           no score for an empty diagram: a green 100 over nothing at all is the

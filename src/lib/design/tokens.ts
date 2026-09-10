@@ -134,79 +134,86 @@ export interface ColorTokens {
  * only ever means action or state.
  */
 export const lightColors: ColorTokens = {
-  surface: '#f6f7f9',
+  surface: '#f4f6fb',
   surfaceRaised: '#ffffff',
-  surfaceHover: '#eff1f4',
-  canvasBackdrop: '#e8eaee',
+  surfaceHover: '#e9edf6',
+  canvasBackdrop: '#e3e7f1',
   canvasSheet: '#ffffff',
-  canvasGrid: '#d3d7de',
-  textPrimary: '#0f1115',
-  textSecondary: '#545b68',
-  textTertiary: '#838b99',
+  canvasGrid: '#d4dae8',
+  textPrimary: '#0c111d',
+  textSecondary: '#4d566c',
+  textTertiary: '#79829a',
   textOnAccent: '#ffffff',
-  borderSubtle: '#e6e8ec',
-  borderStrong: '#d5d9e0',
-  accent: '#6918ce',
-  accentHover: '#5713ab',
-  accentSubtle: '#f0e8fd',
+  borderSubtle: '#e2e6ef',
+  borderStrong: '#cfd5e3',
+  accent: '#6d28d9',
+  accentHover: '#5b21b6',
+  accentSubtle: '#efe9ff',
   danger: '#dc2626',
   dangerSubtle: '#fdeceb',
   success: '#15803d',
   warning: '#c2620a',
-  selection: '#6918ce',
-  guide: '#8b3bff',
+  selection: '#6d28d9',
+  guide: '#8b5cf6',
 };
 
 /**
  * The dark chrome, and the default one.
  *
- * Slate rather than black: a true black makes every panel edge a hard line and
- * every shadow invisible. The chrome sits back so that the diagram — which is
- * paper, whatever the chrome is doing (see `canvasTheme`) — is the only lit
- * thing on the screen.
+ * Deep blue-black rather than grey or pure black: black turns every panel edge
+ * into a hard line and swallows every shadow, grey looks like a spreadsheet.
+ * A trace of indigo in the surfaces is what lets the violet accent glow instead
+ * of merely sitting there. The canvas follows the chrome here (see
+ * `canvasTheme`): a dark editor with a white sheet in the middle is a lamp,
+ * not a workspace.
  */
 export const darkColors: ColorTokens = {
-  surface: '#0f1115',
-  surfaceRaised: '#171a21',
-  surfaceHover: '#202430',
-  canvasBackdrop: '#0a0c10',
-  // The sheet stays paper under dark chrome; the editor never asks for the dark
-  // canvas, and only a share link can.
-  canvasSheet: '#ffffff',
-  canvasGrid: '#d3d7de',
-  textPrimary: '#e7eaf0',
-  textSecondary: '#a6adbb',
-  textTertiary: '#6c7484',
+  surface: '#0b1020',
+  surfaceRaised: '#121a2e',
+  surfaceHover: '#1a2440',
+  canvasBackdrop: '#070b16',
+  canvasSheet: '#0e1526',
+  canvasGrid: '#1f2a44',
+  textPrimary: '#eef2ff',
+  textSecondary: '#aeb8d0',
+  textTertiary: '#7b88a8',
   // The accent is a light violet, so text on it has to be dark to clear AA.
   textOnAccent: '#0b0b1f',
-  borderSubtle: '#232733',
-  borderStrong: '#2e3442',
-  accent: '#9c6bff',
-  accentHover: '#b28cff',
-  accentSubtle: '#221a3c',
+  accent: '#a78bfa',
+  accentHover: '#c4b5fd',
+  accentSubtle: '#2a2152',
+  borderSubtle: '#1f2a44',
+  borderStrong: '#2e3b5c',
   danger: '#f87171',
-  dangerSubtle: '#3a1d1d',
+  dangerSubtle: '#3a1d24',
   success: '#4ade80',
   warning: '#fbbf24',
-  selection: '#9c6bff',
-  guide: '#b98bff',
+  selection: '#a78bfa',
+  guide: '#c4b5fd',
 };
 
-/** Brand colours of each cloud provider. Fixed by the vendors, not themeable. */
 /** The brand gradient, from the AION isotype: its purple into its orange. */
 export const brandColors = {
-  from: '#2563ff',
-  to: '#a855f7',
+  from: '#6d28d9',
+  to: '#ff5f06',
 } as const;
 
+/**
+ * The live colour: presence, sync and anything happening right now. Cyan on
+ * purpose — it is the one hue the accent, the vendors and the status colours
+ * do not use, so "someone else is here" never reads as a selection or a
+ * warning.
+ */
+export const signalColor = '#22d3ee';
+
+/** Brand colours of each cloud provider. Fixed by the vendors, not themeable. */
 export const providerColors = {
   aws: '#ff9900',
   azure: '#0078d4',
   gcp: '#4285f4',
   oci: '#c74634',
   ibm: '#0f62fe',
-  aion: '#6918ce',
-  banorte: '#ce0032',
+  aion: '#6d28d9',
   generic: '#9aa0a6',
 } as const;
 
@@ -262,30 +269,31 @@ export const lightCanvas: CanvasTheme = {
 };
 
 export const darkCanvas: CanvasTheme = {
-  sheet: '#161920',
-  grid: '#282d3a',
-  itemFill: '#1f232d',
-  itemStroke: '#333949',
-  groupFill: '#1a1d26',
-  groupStroke: '#2c3242',
-  containerStroke: '#4a5266',
-  titleText: '#e8eaed',
-  subtitleText: '#a2a9b5',
-  noteText: '#78808e',
-  connector: '#8b93a3',
-  connectorLabelFill: '#1f232d',
-  connectorLabelStroke: '#333949',
-  connectorLabelText: '#c8cdd6',
-  divider: '#282d3a',
-  shadow: 'rgba(0, 0, 0, 0.5)',
+  sheet: '#0e1526',
+  grid: '#1f2a44',
+  itemFill: '#16203a',
+  itemStroke: '#2e3b5c',
+  groupFill: '#111a30',
+  groupStroke: '#263354',
+  containerStroke: '#4d5a7c',
+  titleText: '#eef2ff',
+  subtitleText: '#aeb8d0',
+  noteText: '#7b88a8',
+  connector: '#94a0bb',
+  connectorLabelFill: '#16203a',
+  connectorLabelStroke: '#2e3b5c',
+  connectorLabelText: '#d3dae8',
+  divider: '#1f2a44',
+  shadow: 'rgba(0, 0, 0, 0.55)',
 };
 
 /**
  * The canvas palette.
  *
- * Paper by default, whatever the chrome is doing. A drawing tool whose artboard
- * dims with the interface leaves the reader looking at a grey rectangle; the
- * dark sheet is still here, but only a share link or an embed asks for it.
+ * Follows the chrome: the sheet is paper under the light interface and deep
+ * blue-black under the dark one, so an export made from a dark editor looks
+ * like the screen it was made from. Provider tints on groups stay legible in
+ * both because `readableTextOn` picks the ink per fill.
  */
 export function canvasTheme(dark = false): CanvasTheme {
   return dark ? darkCanvas : lightCanvas;
@@ -336,4 +344,25 @@ export function readableTextOn(background: string, theme: CanvasTheme): string {
     : luminance(background) > 0.5
       ? '#1f1f1f'
       : '#f5f6f7';
+}
+
+/** Linear blend of two `#rrggbb` colours; `t` is the share of `b`. */
+export function mixHex(a: string, b: string, t: number): string {
+  const parse = (hex: string) => {
+    const value = hex.replace('#', '');
+    const full = value.length === 3 ? value.replace(/./g, (c) => c + c) : value;
+    return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  };
+  const [ar, ag, ab] = parse(a);
+  const [br, bg, bb] = parse(b);
+  const k = Math.min(1, Math.max(0, t));
+  const channel = (x: number, y: number) => Math.round(x + (y - x) * k);
+  return `#${[channel(ar, br), channel(ag, bg), channel(ab, bb)]
+    .map((n) => n.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/** Whether a canvas theme is the dark one, by the only fact that matters: its sheet. */
+export function isDarkCanvas(theme: CanvasTheme): boolean {
+  return luminance(theme.sheet) < 0.5;
 }

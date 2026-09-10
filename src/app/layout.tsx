@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import { AppProviders } from '@/components/app/AppProviders';
 import { PREFERENCES_KEY } from '@/lib/editor/uiState';
 import './globals.css';
@@ -7,24 +7,23 @@ import './globals.css';
 /**
  * The product typeface.
  *
- * Self-hosted by `next/font`, so it costs no third-party request and cannot
- * flash unstyled text. Plus Jakarta Sans is chosen over the system stack for a
- * reason the system stack cannot give: one identical shape on macOS, Windows
- * and Linux, which matters for an editor whose chrome sits at 11–13px, where
- * Segoe UI and Roboto disagree about metrics enough to shift every panel.
+ * Geist: a grotesque drawn for interfaces and code, with the even rhythm and
+ * generous x-height that keep 12px chrome legible and a display cut that holds
+ * a headline. Self-hosted by `next/font`, so it costs no third-party request
+ * and cannot flash unstyled text, and one identical shape on every OS — which
+ * matters for an editor whose chrome sits at 11–13px, where system fonts
+ * disagree about metrics enough to shift every panel.
  */
-const sans = Plus_Jakarta_Sans({
+const sans = Geist({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
   variable: '--font-sans',
   display: 'swap',
   fallback: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
 });
 
 /** Code, keycaps and any number that has to line up in a column. */
-const mono = JetBrains_Mono({
+const mono = Geist_Mono({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
   variable: '--font-mono',
   display: 'swap',
   fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
@@ -40,8 +39,8 @@ export const viewport: Viewport = {
   // The chrome is dark unless the reader has asked for light, so the browser's
   // own furniture matches by default.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#0f1115' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f1115' },
+    { media: '(prefers-color-scheme: light)', color: '#0b1020' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b1020' },
   ],
 };
 
@@ -60,7 +59,7 @@ export default function RootLayout({
             ships dark, the default — while the parser is still in <head>. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(PREFERENCES_KEY)})||'{}');if(p&&p.dark===false)document.documentElement.classList.remove('dark')}catch(e){}`,
+            __html: `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(PREFERENCES_KEY)})||'{}');if(p&&p.dark===false)document.documentElement.classList.remove('dark');if(p&&typeof p.accent==='string')document.documentElement.setAttribute('data-accent',p.accent)}catch(e){}`,
           }}
         />
       </head>

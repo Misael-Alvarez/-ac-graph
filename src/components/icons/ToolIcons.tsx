@@ -364,3 +364,81 @@ export const LayersIcon = (p: IconProps) => (
     <path d="M3.5 12L12 16.5 20.5 12M3.5 16.5L12 21l8.5-4.5" />
   </Icon>
 );
+
+/* Export formats and account, for the top bar menus. */
+
+export const FileTextIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6 3.5h8l4.5 4.5v12a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 20V5A1.5 1.5 0 016 3.5z" />
+    <path d="M14 3.5V8h4.5M8 12.5h8M8 16h5" />
+  </Icon>
+);
+
+export const ImageIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <circle cx="9" cy="10" r="1.8" />
+    <path d="M20.5 15.5l-4.5-4.5-8 8.5" />
+  </Icon>
+);
+
+export const VectorIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 18c4-9 12-9 16 0" />
+    <rect x="2.5" y="16.5" width="3" height="3" rx="0.6" />
+    <rect x="18.5" y="16.5" width="3" height="3" rx="0.6" />
+    <rect x="10.5" y="9.5" width="3" height="3" rx="0.6" />
+    <path d="M12 9.5V5.5" />
+  </Icon>
+);
+
+export const BracesIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 4.5c-2 0-3 1-3 3v2.3c0 1.2-.8 2.2-2 2.2 1.2 0 2 1 2 2.2v2.3c0 2 1 3 3 3" />
+    <path d="M16 4.5c2 0 3 1 3 3v2.3c0 1.2.8 2.2 2 2.2-1.2 0-2 1-2 2.2v2.3c0 2-1 3-3 3" />
+  </Icon>
+);
+
+export const DocumentIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4.5" y="3.5" width="15" height="17" rx="2" />
+    <path d="M8 8h8M8 11.5h8M8 15h5" />
+  </Icon>
+);
+
+export const PrintIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M7 8V4.5h10V8" />
+    <rect x="3.5" y="8" width="17" height="8.5" rx="2" />
+    <path d="M7 14h10v5.5H7z" />
+  </Icon>
+);
+
+export const UserIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M4.5 20c1-4 4-6 7.5-6s6.5 2 7.5 6" />
+  </Icon>
+);
+
+export const LogOutIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10 4.5H6a2 2 0 00-2 2v11a2 2 0 002 2h4" />
+    <path d="M14.5 8l4 4-4 4M18.5 12H9" />
+  </Icon>
+);
+
+export const UsersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M2.5 19c.8-3.4 3.2-5.2 6.5-5.2s5.7 1.8 6.5 5.2" />
+    <circle cx="17" cy="9" r="2.6" />
+    <path d="M16 13.6c2.8.2 4.7 1.8 5.5 4.9" />
+  </Icon>
+);
+
+export const MoreIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth={3} />
+  </Icon>
+);

@@ -1,16 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Shape } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { iconKeysIn } from '@/lib/engine';
 import { canvasTheme } from '@/lib/design/tokens';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
-import { fitToBox, toCanvas, viewportTransform, visibleBox, zoomAt } from '@/lib/editor/viewport';
+import {
+  fitToBox,
+  frameOnOpen,
+  lerpViewport,
+  toCanvas,
+  viewportTransform,
+  visibleBox,
+  zoomAt,
+  type Viewport,
+} from '@/lib/editor/viewport';
 import { isTextEntryTarget } from '@/lib/editor/domFocus';
 import { useEditor } from '../EditorProvider';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
 import { usePointerTools } from '../hooks/usePointerTools';
+import { useCommands } from '../hooks/useCommands';
+import { isCustomIconKey } from '@/lib/icons/customIcons';
+import { readIconLibrary } from '@/lib/icons/iconLibrary';
 import { Defs } from './Defs';
 import { DiagramScene } from './DiagramScene';
 import type { ShapeInteraction } from './shapes';
@@ -19,15 +31,19 @@ import { ContextMenu } from './ContextMenu';
 import { SelectionToolbar } from './SelectionToolbar';
 
 const HANDLE = 9;
+/** How long the camera takes to glide to a commanded viewport. */
+const GLIDE_MS = 360;
 
 export function Canvas() {
   const { doc, ui, view, dispatch, dispatchUi, collisions, t } = useEditor();
   const svgRef = useRef<SVGSVGElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const commands = useCommands();
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  // Paper, not chrome: the sheet does not follow the interface's theme.
-  const theme = canvasTheme();
+  // The sheet follows the chrome, so what is on screen is what an export from
+  // this editor will look like.
+  const theme = canvasTheme(ui.dark);
 
   const toLocal = useCallback((e: { clientX: number; clientY: number }) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -57,8 +73,77 @@ export function Canvas() {
   useEffect(() => {
     if (depth === lastFitted.current || !size.width || !view.shapes.length) return;
     lastFitted.current = depth;
-    dispatchUi({ type: 'setViewport', viewport: fitToBox(E.contentBBox(view), size) });
+    dispatchUi({
+      type: 'setViewport',
+      viewport: fitToBox(E.contentBBox(view), size),
+      smooth: true,
+    });
   }, [depth, size, view, dispatchUi]);
+
+  /* The camera glides when a command moves it — fit, reset, a drill — and
+     jumps when the hand does: a wheel or a drag already is the motion, and an
+     easing on top of it is lag. `shown` is what the sheet is drawn with; the
+     committed viewport is what pointer maths and the zoom label read, so a
+     click during the glide still lands where the drawing will settle. */
+  const [glide, setGlide] = useState<{ target: Viewport; value: Viewport } | null>(null);
+  // Derived, not mirrored: a jump shows in the same commit as the change, and
+  // only a glide towards the *current* target takes the slower road through
+  // animation frames. A glide left over from an older target is simply ignored.
+  const shown = glide && glide.target === ui.viewport ? glide.value : ui.viewport;
+  const lastShown = useRef(ui.viewport);
+  useEffect(() => {
+    const target = ui.viewport;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!ui.viewportSmooth || reduced) {
+      lastShown.current = target;
+      return;
+    }
+    const from = lastShown.current;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / GLIDE_MS, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const value = t < 1 ? lerpViewport(from, target, eased) : target;
+      lastShown.current = value;
+      setGlide(t < 1 ? { target, value } : null);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [ui.viewport, ui.viewportSmooth]);
+
+  /* A diagram opens framed: the whole of it on screen, never magnified.
+     Before this, every document opened at 100% from its top-left corner, so a
+     platform of any size greeted the reader with a quarter of itself and the
+     rest under the minimap. A layout effect, so the first painted frame is
+     already the framed one; and armed again whenever the canvas empties, so a
+     template, an import or a generation landing on blank paper is framed too. */
+  const framed = useRef(false);
+  useLayoutEffect(() => {
+    if (!view.shapes.length) {
+      framed.current = false;
+      return;
+    }
+    if (framed.current || !size.width) return;
+    framed.current = true;
+    // Content the reader placed by hand — the first group clicked onto blank
+    // paper — stays exactly where they put it. Moving the camera under a hand
+    // that is still drawing is the one thing framing must never do; it is for
+    // content that arrives whole: an opened document, a template, an import.
+    if (doc.lastCreated.length) return;
+    // Clear of the dock on the left and the minimap on the right: framed
+    // "to the viewport" and then hidden under a panel is not framed.
+    const dock = document.querySelector('.tool-dock')?.getBoundingClientRect();
+    const minimap = document.querySelector('.minimap')?.getBoundingClientRect();
+    dispatchUi({
+      type: 'setViewport',
+      viewport: frameOnOpen(E.contentBBox(view), size, {
+        left: dock ? dock.width + 24 : 0,
+        right: minimap ? minimap.width + 16 : 0,
+      }),
+    });
+  }, [size, view, doc.lastCreated, dispatchUi]);
 
   /* Track the element size so fit-to-view and culling know the viewport. */
   useEffect(() => {
@@ -133,9 +218,9 @@ export function Canvas() {
   /* Only paint what is on screen. */
   const visible = useMemo(() => {
     if (!size.width || !size.height) return null;
-    const box = visibleBox(ui.viewport, size);
+    const box = visibleBox(shown, size);
     return E.inflate(box, 200);
-  }, [ui.viewport, size]);
+  }, [shown, size]);
 
   const culledModel = useMemo(() => {
     if (!visible || model.shapes.length < 60) return model;
@@ -149,8 +234,22 @@ export function Canvas() {
     [ui.gridSnap],
   );
 
+  /**
+   * Any press on the canvas gives it the keyboard.
+   *
+   * Browsers do not agree on whether a press inside an SVG moves focus to it,
+   * and when it does not, focus stays in whatever field was last edited — the
+   * title, a label — and every shortcut after the drag, Cmd+Z above all, goes
+   * to that field instead of the drawing.
+   */
+  const takeKeyboard = useCallback(() => {
+    const svg = svgRef.current;
+    if (svg && document.activeElement !== svg) svg.focus({ preventScroll: true });
+  }, []);
+
   const onBackgroundPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      takeKeyboard();
       if (e.button === 1 || spaceHeld || ui.tool === 'pan') {
         e.preventDefault();
         tools.startPan(e);
@@ -177,18 +276,19 @@ export function Canvas() {
           tools.startLasso(e);
       }
     },
-    [ui.tool, ui.viewport, spaceHeld, tools, dispatch, dispatchUi, snap, toLocal],
+    [ui.tool, ui.viewport, spaceHeld, tools, dispatch, dispatchUi, snap, toLocal, takeKeyboard],
   );
 
   const onShapePointerDown = useCallback(
     (e: React.PointerEvent, id: string) => {
+      takeKeyboard();
       if (ui.tool !== 'select' || spaceHeld || e.button !== 0) return;
       e.stopPropagation();
       if (!e.shiftKey && !ui.selectedIds.has(id)) dispatchUi({ type: 'select', ids: [id] });
       if (e.shiftKey) dispatchUi({ type: 'toggleSelected', id });
       tools.startDrag(e, id);
     },
-    [ui.tool, ui.selectedIds, spaceHeld, tools, dispatchUi],
+    [ui.tool, ui.selectedIds, spaceHeld, tools, dispatchUi, takeKeyboard],
   );
 
   const onShapeClick = useCallback(
@@ -223,9 +323,18 @@ export function Canvas() {
     (e: React.DragEvent) => {
       e.preventDefault();
       const key = e.dataTransfer.getData('text/plain');
+      const point = toCanvas(ui.viewport, toLocal(e));
+      if (isCustomIconKey(key)) {
+        // One of the author's: from the document, or from the browser's library.
+        const icon =
+          doc.model.customIcons?.find((i) => i.key === key) ??
+          readIconLibrary(window.localStorage).find((i) => i.key === key);
+        if (icon)
+          commands.addCustomService(icon, { x: snap(point.x - 120), y: snap(point.y - 60) });
+        return;
+      }
       const service = SERVICE_ICONS.find((s) => s.key === key);
       if (!service) return;
-      const point = toCanvas(ui.viewport, toLocal(e));
       dispatch({
         type: 'addGroup',
         x: snap(point.x - 120),
@@ -238,7 +347,7 @@ export function Canvas() {
         },
       });
     },
-    [ui.viewport, ui.locale, dispatch, snap, toLocal],
+    [ui.viewport, ui.locale, dispatch, snap, toLocal, doc.model.customIcons, commands],
   );
 
   const interactionFor = useCallback(
@@ -303,7 +412,7 @@ export function Canvas() {
     spaceHeld || ui.tool === 'pan' ? 'grab' : ui.tool === 'select' ? 'default' : 'crosshair';
 
   /** The handle is drawn inside the zoomed group, so its size has to undo it. */
-  const handleSize = HANDLE / ui.viewport.zoom;
+  const handleSize = HANDLE / shown.zoom;
 
   return (
     <div
@@ -332,16 +441,16 @@ export function Canvas() {
         aria-label={t('app.title')}
         tabIndex={-1}
       >
-        <Defs theme={theme} iconKeys={iconKeysIn(model)} />
+        <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={doc.model.customIcons} />
         {ui.gridSnap && (
           <>
             <pattern
               id="grid-dots"
-              width={E.G.SNAP_SIZE * ui.viewport.zoom}
-              height={E.G.SNAP_SIZE * ui.viewport.zoom}
+              width={E.G.SNAP_SIZE * shown.zoom}
+              height={E.G.SNAP_SIZE * shown.zoom}
               patternUnits="userSpaceOnUse"
-              x={ui.viewport.x}
-              y={ui.viewport.y}
+              x={shown.x}
+              y={shown.y}
             >
               <circle cx={1} cy={1} r={1} fill={theme.grid} />
             </pattern>
@@ -349,159 +458,164 @@ export function Canvas() {
           </>
         )}
 
-        <g transform={viewportTransform(ui.viewport)}>
-          <DiagramScene
-            model={culledModel}
-            theme={theme}
-            collapsed={ui.viewport.zoom < E.COLLAPSE_ZOOM}
-            summaryLabel={(count) => t('canvas.services', { count })}
-            interactionFor={interactionFor}
-            connectorInteraction={{
-              selectedId: ui.selectedConnectorId,
-              onClick: (e, id) => {
-                e.stopPropagation();
-                dispatchUi({ type: 'selectConnector', id });
-              },
-              onContextMenu: (e, id) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dispatchUi({ type: 'selectConnector', id });
-                const point = toCanvas(ui.viewport, toLocal(e));
-                dispatchUi({
-                  type: 'openContextMenu',
-                  target: {
-                    x: e.clientX,
-                    y: e.clientY,
-                    connectorId: id,
-                    canvasX: point.x,
-                    canvasY: point.y,
-                  },
-                });
-              },
-            }}
-          />
+        {/* Painted only once the canvas knows its size, so the first frame a
+            reader sees is the framed one rather than a flash of the top-left
+            corner at 100%. */}
+        {size.width > 0 && (
+          <g transform={viewportTransform(shown)}>
+            <DiagramScene
+              model={culledModel}
+              theme={theme}
+              collapsed={shown.zoom < E.COLLAPSE_ZOOM}
+              summaryLabel={(count) => t('canvas.services', { count })}
+              interactionFor={interactionFor}
+              connectorInteraction={{
+                selectedId: ui.selectedConnectorId,
+                onClick: (e, id) => {
+                  e.stopPropagation();
+                  dispatchUi({ type: 'selectConnector', id });
+                },
+                onContextMenu: (e, id) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  dispatchUi({ type: 'selectConnector', id });
+                  const point = toCanvas(ui.viewport, toLocal(e));
+                  dispatchUi({
+                    type: 'openContextMenu',
+                    target: {
+                      x: e.clientX,
+                      y: e.clientY,
+                      connectorId: id,
+                      canvasX: point.x,
+                      canvasY: point.y,
+                    },
+                  });
+                },
+              }}
+            />
 
-          {/* Editor chrome. Deliberately outside DiagramScene so exports and
+            {/* Editor chrome. Deliberately outside DiagramScene so exports and
               embeds cannot pick it up — that was the black-rectangle bug. */}
-          <g className="canvas-overlay" pointerEvents="none">
-            {tools.guides.map((guide, i) =>
-              guide.axis === 'x' ? (
-                <line
-                  key={`gx-${i}`}
-                  x1={guide.pos}
-                  y1={visible ? visible.y : -10_000}
-                  x2={guide.pos}
-                  y2={visible ? visible.y + visible.h : 10_000}
-                  className="align-guide"
-                />
-              ) : (
-                <line
-                  key={`gy-${i}`}
-                  x1={visible ? visible.x : -10_000}
-                  y1={guide.pos}
-                  x2={visible ? visible.x + visible.w : 10_000}
-                  y2={guide.pos}
-                  className="align-guide"
-                />
-              ),
-            )}
+            <g className="canvas-overlay" pointerEvents="none">
+              {tools.guides.map((guide, i) =>
+                guide.axis === 'x' ? (
+                  <line
+                    key={`gx-${i}`}
+                    x1={guide.pos}
+                    y1={visible ? visible.y : -10_000}
+                    x2={guide.pos}
+                    y2={visible ? visible.y + visible.h : 10_000}
+                    className="align-guide"
+                  />
+                ) : (
+                  <line
+                    key={`gy-${i}`}
+                    x1={visible ? visible.x : -10_000}
+                    y1={guide.pos}
+                    x2={visible ? visible.x + visible.w : 10_000}
+                    y2={guide.pos}
+                    className="align-guide"
+                  />
+                ),
+              )}
 
-            {model.shapes
-              .filter((s) => collisions.has(s.id))
-              .map((s) => (
-                <rect
-                  key={`c-${s.id}`}
-                  x={s.x}
-                  y={s.y}
-                  width={s.w}
-                  height={s.h}
-                  rx={8}
-                  className="collision-outline"
-                />
-              ))}
-
-            {/* What a comparison found, drawn on the diagram it is about: a list
-                of changes beside a canvas that does not show them makes the
-                reader do the matching by hand. */}
-            {ui.diffHighlight &&
-              model.shapes
-                .filter(
-                  (s) =>
-                    ui.diffHighlight!.added.includes(s.id) ||
-                    ui.diffHighlight!.changed.includes(s.id),
-                )
+              {model.shapes
+                .filter((s) => collisions.has(s.id))
                 .map((s) => (
                   <rect
-                    key={`d-${s.id}`}
-                    x={s.x - 3}
-                    y={s.y - 3}
-                    width={s.w + 6}
-                    height={s.h + 6}
-                    rx={10}
-                    className={
-                      ui.diffHighlight!.added.includes(s.id) ? 'diff-added' : 'diff-changed'
-                    }
+                    key={`c-${s.id}`}
+                    x={s.x}
+                    y={s.y}
+                    width={s.w}
+                    height={s.h}
+                    rx={8}
+                    className="collision-outline"
                   />
                 ))}
 
-            {selectedShapes.map((s) => (
-              <rect
-                key={`s-${s.id}`}
-                x={s.x - 1}
-                y={s.y - 1}
-                width={s.w + 2}
-                height={s.h + 2}
-                rx={9}
-                className="selection-outline"
-              />
-            ))}
+              {/* What a comparison found, drawn on the diagram it is about: a list
+                of changes beside a canvas that does not show them makes the
+                reader do the matching by hand. */}
+              {ui.diffHighlight &&
+                model.shapes
+                  .filter(
+                    (s) =>
+                      ui.diffHighlight!.added.includes(s.id) ||
+                      ui.diffHighlight!.changed.includes(s.id),
+                  )
+                  .map((s) => (
+                    <rect
+                      key={`d-${s.id}`}
+                      x={s.x - 3}
+                      y={s.y - 3}
+                      width={s.w + 6}
+                      height={s.h + 6}
+                      rx={10}
+                      className={
+                        ui.diffHighlight!.added.includes(s.id) ? 'diff-added' : 'diff-changed'
+                      }
+                    />
+                  ))}
 
-            {ui.connectorSourceId &&
-              (() => {
-                const source = E.getShape(model, ui.connectorSourceId);
-                if (!source) return null;
-                return (
-                  <rect
-                    x={source.x - 2}
-                    y={source.y - 2}
-                    width={source.w + 4}
-                    height={source.h + 4}
-                    rx={10}
-                    className="connector-source"
-                  />
-                );
-              })()}
+              {selectedShapes.map((s) => (
+                <rect
+                  key={`s-${s.id}`}
+                  x={s.x - 1}
+                  y={s.y - 1}
+                  width={s.w + 2}
+                  height={s.h + 2}
+                  rx={9}
+                  className="selection-outline"
+                />
+              ))}
 
-            {tools.lassoBox && (
-              <rect
-                x={tools.lassoBox.x}
-                y={tools.lassoBox.y}
-                width={tools.lassoBox.w}
-                height={tools.lassoBox.h}
-                className="lasso"
-              />
-            )}
-          </g>
+              {ui.connectorSourceId &&
+                (() => {
+                  const source = E.getShape(model, ui.connectorSourceId);
+                  if (!source) return null;
+                  return (
+                    <rect
+                      x={source.x - 2}
+                      y={source.y - 2}
+                      width={source.w + 4}
+                      height={source.h + 4}
+                      rx={10}
+                      className="connector-source"
+                    />
+                  );
+                })()}
 
-          {/* Resize handle, only for a single selection of a sizeable shape.
+              {tools.lassoBox && (
+                <rect
+                  x={tools.lassoBox.x}
+                  y={tools.lassoBox.y}
+                  width={tools.lassoBox.w}
+                  height={tools.lassoBox.h}
+                  className="lasso"
+                />
+              )}
+            </g>
+
+            {/* Resize handle, only for a single selection of a sizeable shape.
               Sized against the zoom: as a plain canvas rectangle it shrank to
               three unclickable pixels when the diagram was zoomed out, and grew
               into a slab when it was zoomed in. */}
-          {selectedShapes.length === 1 && selectedShapes[0].type !== 'container' && (
-            <rect
-              x={selectedShapes[0].x + selectedShapes[0].w - handleSize / 2}
-              y={selectedShapes[0].y + selectedShapes[0].h - handleSize / 2}
-              width={handleSize}
-              height={handleSize}
-              rx={2 / ui.viewport.zoom}
-              className="resize-handle"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                tools.startResize(e, selectedShapes[0].id);
-              }}
-            />
-          )}
-        </g>
+            {selectedShapes.length === 1 && selectedShapes[0].type !== 'container' && (
+              <rect
+                x={selectedShapes[0].x + selectedShapes[0].w - handleSize / 2}
+                y={selectedShapes[0].y + selectedShapes[0].h - handleSize / 2}
+                width={handleSize}
+                height={handleSize}
+                rx={2 / shown.zoom}
+                className="resize-handle"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  tools.startResize(e, selectedShapes[0].id);
+                }}
+              />
+            )}
+          </g>
+        )}
       </svg>
 
       {doc.model.shapes.length === 0 && <EmptyState />}

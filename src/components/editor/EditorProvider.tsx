@@ -14,6 +14,7 @@ import { checkCollisions, focusSubtree, getView, resolveView, viewsOf } from '@/
 import { canRedo, canUndo, docReducer, initialDocState, type DocState } from '@/lib/editor/reducer';
 import type { EditorAction } from '@/lib/editor/actions';
 import {
+  ACCENTS,
   initialUiState,
   readPreferences,
   toPreferences,
@@ -47,6 +48,8 @@ interface EditorContextValue {
   selectedShape: Shape | null;
   canUndo: boolean;
   canRedo: boolean;
+  /** The document's title, for file names and the top bar. */
+  title: string;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
 }
 
@@ -60,9 +63,11 @@ export function useEditor(): EditorContextValue {
 
 export function EditorProvider({
   initialModel,
+  title = '',
   children,
 }: {
   initialModel: DiagramModel;
+  title?: string;
   children: ReactNode;
 }) {
   const [doc, dispatch] = useReducer(docReducer, initialModel, initialDocState);
@@ -85,6 +90,9 @@ export function EditorProvider({
       dispatchUi({ type: 'toggleCode' });
     }
     if (stored.brand) dispatchUi({ type: 'setBrand', brand: stored.brand });
+    if (stored.accent && ACCENTS.includes(stored.accent)) {
+      dispatchUi({ type: 'setAccent', accent: stored.accent });
+    }
     if (stored.locale) dispatchUi({ type: 'setLocale', locale: stored.locale });
   }, []);
 
@@ -99,6 +107,10 @@ export function EditorProvider({
   useEffect(() => {
     document.documentElement.classList.toggle('dark', ui.dark);
   }, [ui.dark]);
+
+  useEffect(() => {
+    document.documentElement.dataset.accent = ui.accent;
+  }, [ui.accent]);
 
   useEffect(() => {
     if (!ui.toast) return;
@@ -162,9 +174,10 @@ export function EditorProvider({
       selectedShape,
       canUndo: canUndo(doc),
       canRedo: canRedo(doc),
+      title,
       t,
     }),
-    [doc, ui, view, views, activeView, collisions, selectedShape, t],
+    [doc, ui, view, views, activeView, collisions, selectedShape, title, t],
   );
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;

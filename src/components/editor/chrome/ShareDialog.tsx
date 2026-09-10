@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { DiagramModel } from '@/lib/domain';
+import { projectView } from '@/lib/engine/views';
 import { PayloadTooLargeError } from '@/lib/share/codec';
 import { buildShareLinks, type ShareLinks } from '@/lib/share/links';
 import { useEditor } from '../EditorProvider';
@@ -47,6 +49,7 @@ function CopyField({
       ) : (
         <input
           className="input share-value"
+          aria-label={label}
           value={value}
           readOnly
           onFocus={(e) => e.target.select()}
@@ -64,37 +67,55 @@ function CopyField({
  * handing out a link that will be truncated somewhere downstream.
  */
 export function ShareDialog() {
-  const liquid = useLiquidPointer();
-  const { doc, ui, dispatchUi, t } = useEditor();
-  const [links, setLinks] = useState<ShareLinks | null>(null);
-  const [tooLarge, setTooLarge] = useState(false);
+  const { ui } = useEditor();
+  // Unmounting resets consent to the narrower scope on every opening.
+  return ui.modal === 'share' ? <ShareContents /> : null;
+}
 
-  const open = ui.modal === 'share';
+function ShareContents() {
+  const liquid = useLiquidPointer();
+  const { doc, ui, view, dispatchUi, t } = useEditor();
+  const [scope, setScope] = useState<'view' | 'model'>('view');
+  const model = useMemo(
+    () => (scope === 'view' ? projectView(view) : doc.model),
+    [scope, view, doc.model],
+  );
+  const theme = ui.dark ? 'dark' : 'light';
+  const [result, setResult] = useState<{
+    model: DiagramModel;
+    theme: string;
+    links?: ShareLinks;
+    error?: 'tooLarge' | 'failed';
+  } | null>(null);
+  // A result belongs to exactly one payload and theme. Never offer an old,
+  // broader link during an asynchronous scope change or model update.
+  const ready = result?.model === model && result.theme === theme ? result : null;
+  const links = ready?.links;
 
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
 
     // Every state update happens in a promise callback, never synchronously in
     // the effect body, so opening the dialog costs one render rather than three.
-    buildShareLinks(doc.model, window.location.origin, ui.dark ? 'dark' : 'light')
+    buildShareLinks(model, window.location.origin, theme)
       .then((built) => {
         if (cancelled) return;
-        setLinks(built);
-        setTooLarge(false);
+        setResult({ model, theme, links: built });
       })
       .catch((error) => {
         if (cancelled) return;
-        setLinks(null);
-        setTooLarge(error instanceof PayloadTooLargeError);
+        setResult({
+          model,
+          theme,
+          error: error instanceof PayloadTooLargeError ? 'tooLarge' : 'failed',
+        });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [open, doc.model, ui.dark]);
+  }, [model, theme]);
 
-  if (!open) return null;
   const close = () => dispatchUi({ type: 'setModal', modal: null });
 
   return (
@@ -120,8 +141,32 @@ export function ShareDialog() {
         </header>
 
         <div className="dialog-body">
-          {tooLarge && <p className="ai-error">{t('share.tooLarge')}</p>}
-          {!tooLarge && !links && <p className="library-note">{t('library.loading')}</p>}
+          <label className="inspector-field">
+            <span className="inspector-field-label">{t('share.scope')}</span>
+            <select
+              className="input is-choice"
+              value={scope}
+              aria-describedby="share-scope-hint"
+              onChange={(e) => setScope(e.target.value === 'model' ? 'model' : 'view')}
+            >
+              <option value="view">{t('share.currentView')}</option>
+              <option value="model">{t('share.fullModel')}</option>
+            </select>
+          </label>
+          <p id="share-scope-hint" className="ai-note">
+            {t(scope === 'view' ? 'share.currentViewHint' : 'share.fullModelHint')}
+          </p>
+          <p className="ai-note">{t('share.portableWarning')}</p>
+          {ready?.error && (
+            <p className="ai-error" role="alert">
+              {t(ready.error === 'tooLarge' ? 'share.tooLarge' : 'status.error')}
+            </p>
+          )}
+          {!ready && (
+            <p className="library-note" role="status">
+              {t('library.loading')}
+            </p>
+          )}
 
           {links && (
             <>

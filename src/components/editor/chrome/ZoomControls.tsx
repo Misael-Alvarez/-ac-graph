@@ -6,11 +6,12 @@ import { useEditor } from '../EditorProvider';
 import { FitIcon, ZoomInIcon, ZoomOutIcon } from '@/components/icons/ToolIcons';
 
 export function ZoomControls({ size }: { size: { width: number; height: number } }) {
-  const { doc, ui, dispatchUi, t } = useEditor();
+  const { view, ui, dispatchUi, t } = useEditor();
   const percent = Math.round(ui.viewport.zoom * 100);
 
+  // Every control here is a command, so every move it makes glides.
   const setViewport = (viewport: typeof ui.viewport) =>
-    dispatchUi({ type: 'setViewport', viewport });
+    dispatchUi({ type: 'setViewport', viewport, smooth: true });
 
   return (
     /* The group is the zoom cluster, not the fit button inside it: a screen
@@ -57,7 +58,7 @@ export function ZoomControls({ size }: { size: { width: number; height: number }
           const inspector = document.querySelector('.inspector')?.getBoundingClientRect();
           const dock = document.querySelector('.tool-dock')?.getBoundingClientRect();
           setViewport(
-            fitToBox(contentBBox(doc.model), size, 48, {
+            fitToBox(contentBBox(view), size, 48, {
               right: inspector ? inspector.width + 32 : 0,
               left: dock ? dock.width + 32 : 0,
             }),

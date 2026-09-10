@@ -13,18 +13,33 @@ const HEIGHT = 128;
 
 export function Minimap({ size }: { size: { width: number; height: number } }) {
   const { ui, view: model, dispatchUi, t } = useEditor();
-  const theme = canvasTheme();
+  const theme = canvasTheme(ui.dark);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const box = useMemo(() => contentBBox(model), [model]);
+  const view = size.width ? visibleBox(ui.viewport, size) : null;
+  /* The map shows the content and the camera, whichever is larger. Fixed to
+     the content alone, zooming out pushed the camera rectangle past the edges
+     where it was clipped into a border, and the map looked frozen. Framed on
+     both, the rectangle grows as you zoom out and shrinks as you zoom in,
+     which is the one thing a map of where-you-are has to do. */
   const viewBox = useMemo(() => {
     const pad = Math.max(box.w, box.h) * 0.06 + 40;
-    return { x: box.x - pad, y: box.y - pad, w: box.w + pad * 2, h: box.h + pad * 2 };
-  }, [box]);
+    let x = box.x - pad;
+    let y = box.y - pad;
+    let right = box.x + box.w + pad;
+    let bottom = box.y + box.h + pad;
+    if (view) {
+      x = Math.min(x, view.x);
+      y = Math.min(y, view.y);
+      right = Math.max(right, view.x + view.w);
+      bottom = Math.max(bottom, view.y + view.h);
+    }
+    return { x, y, w: right - x, h: bottom - y };
+  }, [box, view]);
 
   if (!ui.minimapOpen || !model.shapes.length) return null;
 
-  const view = size.width ? visibleBox(ui.viewport, size) : null;
   const strokeScale = viewBox.w / WIDTH;
 
   /**
@@ -144,7 +159,7 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
             width={view.w}
             height={view.h}
             fill="none"
-            stroke={providerColors.aion}
+            stroke="var(--selection)"
             strokeWidth={strokeScale * 2}
           />
         )}

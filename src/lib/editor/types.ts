@@ -10,7 +10,13 @@ import type { CloudProvider, DiagramModel } from '@/lib/domain';
 export type ToolMode =
   'select' | 'boundary' | 'subboundary' | 'group' | 'item' | 'connector' | 'pan';
 
-export type BrandMode = 'aion' | 'banorte' | 'dual' | 'none';
+/**
+ * Whether exports carry the AION Cloud signature footer.
+ *
+ * One brand, on or off. The platform is AION Cloud's internal tool, so the only
+ * question an export has to answer is whether it signs itself.
+ */
+export type BrandMode = 'aion' | 'none';
 
 export interface EditorState {
   tool: ToolMode;

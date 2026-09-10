@@ -206,7 +206,8 @@ export function ContextMenu() {
       {
         id: 'autoLayout',
         labelKey: 'action.autoLayout',
-        run: () => dispatch({ type: 'autoLayout' }),
+        run: () =>
+          dispatch({ type: 'autoLayout', viewId: ui.activeViewId, drillPath: ui.drillPath }),
       },
     );
   }

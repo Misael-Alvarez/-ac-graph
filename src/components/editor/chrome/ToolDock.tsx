@@ -38,6 +38,8 @@ export function ToolDock() {
   return (
     <div
       className="tool-dock"
+      data-tooltip-side="right"
+
       role="toolbar"
       aria-orientation="vertical"
       aria-label={t('app.title')}

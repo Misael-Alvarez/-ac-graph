@@ -22,9 +22,13 @@ export function useTheme(): { dark: boolean; toggle: () => void } {
   // Dark unless the reader has said otherwise, matching the editor's own default.
   const dark = useStoredPreferences().dark ?? true;
 
+  const accent = useStoredPreferences().accent ?? 'violet';
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
+  useEffect(() => {
+    document.documentElement.dataset.accent = accent;
+  }, [accent]);
 
   const toggle = useCallback(() => {
     try {

@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { diffModels, type ChangeKind } from '@/lib/engine';
-import type { DiagramModel, DiagramVersion } from '@/lib/domain';
+import type { DiagramModel, DiagramRecord, DiagramVersion } from '@/lib/domain';
 import { useParams } from 'next/navigation';
 import { thumbnailDataUrl } from '@/lib/store/thumbnail';
 import { renderThumbnail } from '@/lib/store/thumbnail';
 import { useRepository } from '@/components/app/RepositoryProvider';
 import { useEditor } from '../EditorProvider';
-import { CloseIcon } from '@/components/icons/ToolIcons';
+import { PanelHead } from '@/components/ui/PanelHead';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
 import { relativeDay } from '@/lib/i18n/relativeDay';
 import { MAX_VERSIONS_PER_DIAGRAM } from '@/lib/store/localRepository';
@@ -17,8 +17,9 @@ import { MAX_VERSIONS_PER_DIAGRAM } from '@/lib/store/localRepository';
 const MARK: Record<ChangeKind, string> = { added: '+', removed: '−', changed: '~' };
 
 interface VersionPanelProps {
-  onSnapshot: (model: DiagramModel) => void;
-  onRestored: () => void;
+  onSnapshot: (model: DiagramModel) => Promise<void>;
+  onRestore: (versionId: string, model: DiagramModel) => Promise<DiagramRecord>;
+  revision: string;
 }
 
 /**
@@ -28,7 +29,7 @@ interface VersionPanelProps {
  * — so restoring is itself undoable — and then the editor is reloaded from what
  * was written, rather than the panel guessing at the new state.
  */
-export function VersionPanel({ onSnapshot, onRestored }: VersionPanelProps) {
+export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelProps) {
   useReturnFocusToCanvas();
   const repository = useRepository();
   const { doc, dispatch, dispatchUi, t } = useEditor();
@@ -39,29 +40,35 @@ export function VersionPanel({ onSnapshot, onRestored }: VersionPanelProps) {
   const [comparing, setComparing] = useState<DiagramVersion | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const request = useRef({ sequence: 0 });
 
-  const refresh = useCallback(async () => {
-    if (!diagramId) return;
-    try {
-      setVersions(await repository.listVersions(diagramId));
-    } finally {
-      setLoading(false);
-    }
+  const refresh = useCallback(() => {
+    if (!diagramId) return Promise.resolve();
+    const requests = request.current;
+    const reading = ++requests.sequence;
+    return repository.listVersions(diagramId).then(
+      (found) => {
+        if (reading !== requests.sequence) return;
+        setVersions(found);
+        setLoading(false);
+      },
+      () => {
+        if (reading !== requests.sequence) return;
+        setError(true);
+        setLoading(false);
+      },
+    );
   }, [repository, diagramId]);
 
-  // The list is re-read whenever the model changes, because that is when a new
-  // version may have been written. Debounced: without it every keystroke in the
-  // editor was one more read of the whole version store.
-  const loaded = useRef(false);
+  // Refresh after a confirmed commit, not before the autosave debounce fires.
   useEffect(() => {
-    if (!loaded.current) {
-      loaded.current = true;
-      void refresh();
-      return;
-    }
-    const timer = setTimeout(() => void refresh(), 600);
-    return () => clearTimeout(timer);
-  }, [refresh, doc.model]);
+    const requests = request.current;
+    void refresh();
+    return () => {
+      requests.sequence++;
+    };
+  }, [refresh, revision]);
 
   // Thumbnails are re-rendered SVGs, and a stored version's never changes. Kept
   // out of the render path: this panel re-renders on every edit, and redrawing
@@ -122,13 +129,30 @@ export function VersionPanel({ onSnapshot, onRestored }: VersionPanelProps) {
 
   const restore = async (version: DiagramVersion) => {
     setBusy(true);
+    setError(false);
     try {
-      const restored = await repository.restoreVersion(diagramId, version.id);
+      const restored = await onRestore(version.id, doc.model);
       // Replace rather than load, so the user can undo the restore in the editor.
       dispatch({ type: 'replaceModel', model: restored.model });
       dispatchUi({ type: 'clearSelection' });
-      onRestored();
+      setComparing(null);
       await refresh();
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const snapshot = async () => {
+    setBusy(true);
+    setError(false);
+    try {
+      await onSnapshot(doc.model);
+      dispatchUi({ type: 'toast', message: t('versions.saved') });
+      await refresh();
+    } catch {
+      setError(true);
     } finally {
       setBusy(false);
     }
@@ -136,28 +160,27 @@ export function VersionPanel({ onSnapshot, onRestored }: VersionPanelProps) {
 
   return (
     <aside className="side-panel" aria-label={t('versions.title')}>
-      <header className="code-panel-header">
-        <strong className="side-panel-title">{t('versions.title')}</strong>
-        <span className="code-panel-spacer" />
-        <button
-          type="button"
-          className="button is-small"
-          onClick={() => {
-            onSnapshot(doc.model);
-            dispatchUi({ type: 'toast', message: t('versions.saved') });
-          }}
-        >
-          {t('versions.snapshot')}
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t('modal.close')}
-          onClick={() => dispatchUi({ type: 'toggleVersions' })}
-        >
-          <CloseIcon size={16} />
-        </button>
-      </header>
+      <PanelHead
+        title={t('versions.title')}
+        actions={
+          <button
+            type="button"
+            className="button is-small"
+            disabled={busy}
+            onClick={() => void snapshot()}
+          >
+            {t('versions.snapshot')}
+          </button>
+        }
+        closeLabel={t('modal.close')}
+        onClose={() => dispatchUi({ type: 'toggleVersions' })}
+      />
+
+      {error && (
+        <p className="library-note" role="alert">
+          {t('versions.failed')}
+        </p>
+      )}
 
       {diff && comparing && (
         <div className="version-list">
@@ -237,7 +260,8 @@ export function VersionPanel({ onSnapshot, onRestored }: VersionPanelProps) {
             <span className="version-meta">
               <b>{t('versions.current')}</b>
               <small>
-                {doc.model.shapes.length} · {doc.model.connectors.length}
+                {t('status.shapes', { count: doc.model.shapes.length })} ·{' '}
+                {t('status.connectors', { count: doc.model.connectors.length })}
               </small>
             </span>
           </article>

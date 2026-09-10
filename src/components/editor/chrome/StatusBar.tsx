@@ -48,9 +48,11 @@ export function StatusBar({ status }: { status: SaveStatus }) {
             ? 'status.saving'
             : status === 'error'
               ? 'status.error'
-              : status === 'pending'
-                ? 'status.pending'
-                : 'status.saved',
+              : status === 'conflict'
+                ? 'status.conflict'
+                : status === 'pending'
+                  ? 'status.pending'
+                  : 'status.saved',
         )}
       </span>
     </footer>

@@ -151,8 +151,9 @@ test('offers templates even once the library has diagrams', async ({ page }) => 
   await page.waitForSelector('.canvas-surface');
   await page.getByRole('button', { name: 'Todos los diagramas' }).click();
 
-  // The inline start screen is gone now; the picker has to carry the templates.
-  await expect(page.locator('.library-start')).toHaveCount(0);
+  // The starting points stay on the home once there are diagrams — a real
+  // drawing of each, always one click away — and the picker carries them too.
+  await expect(page.locator('.library-start .template-card')).toHaveCount(6);
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
   await expect(page.locator('.dialog .template-card')).toHaveCount(6);
 

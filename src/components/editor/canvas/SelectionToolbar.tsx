@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { AlignEdge, DistributeAxis } from '@/lib/engine';
-import { bbox, outermost } from '@/lib/engine';
+import { bbox, cloneShapes, outermost } from '@/lib/engine';
 import { toScreen } from '@/lib/editor/viewport';
 import { useEditor } from '../EditorProvider';
 import {
@@ -16,6 +16,9 @@ import {
   DistributeVerticalIcon,
 } from '@/components/icons/AlignIcons';
 import { CopyIcon, TrashIcon } from '@/components/icons/ToolIcons';
+
+/** Screen pixels from the canvas top that the floating view bar occupies. */
+const TOP_CLEARANCE = 112;
 
 const ALIGNMENTS: {
   edge: AlignEdge;
@@ -49,9 +52,13 @@ const DISTRIBUTIONS: {
 export function SelectionToolbar() {
   const { ui, view, dispatch, dispatchUi, t } = useEditor();
 
-  const targets = useMemo(
-    () => (ui.selectedIds.size >= 2 ? outermost(view, ui.selectedIds) : []),
+  const selectedIds = useMemo(
+    () => view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id),
     [view, ui.selectedIds],
+  );
+  const targets = useMemo(
+    () => (selectedIds.length >= 2 ? outermost(view, selectedIds) : []),
+    [view, selectedIds],
   );
 
   const anchor = useMemo(() => {
@@ -60,7 +67,15 @@ export function SelectionToolbar() {
     const left = Math.min(...boxes.map((b) => b.x));
     const right = Math.max(...boxes.map((b) => b.x + b.w));
     const top = Math.min(...boxes.map((b) => b.y));
-    return toScreen(ui.viewport, { x: (left + right) / 2, y: top });
+    const bottom = Math.max(...boxes.map((b) => b.y + b.h));
+    const above = toScreen(ui.viewport, { x: (left + right) / 2, y: top });
+    // Above the selection by default; below it when "above" would put the
+    // toolbar under the view bar or off the top of the canvas, where it could
+    // be seen but not pressed.
+    if (above.y < TOP_CLEARANCE) {
+      return { ...toScreen(ui.viewport, { x: (left + right) / 2, y: bottom }), below: true };
+    }
+    return { ...above, below: false };
   }, [targets, ui.viewport]);
 
   if (!anchor || targets.length < 2) return null;
@@ -70,12 +85,12 @@ export function SelectionToolbar() {
 
   return (
     <div
-      className="selection-toolbar"
+      className={`selection-toolbar${anchor.below ? ' is-below' : ''}`}
       style={{ left: anchor.x, top: anchor.y }}
       role="toolbar"
       aria-label={t('align.title')}
     >
-      <span className="selection-count">{ui.selectedIds.size}</span>
+      <span className="selection-count">{selectedIds.length}</span>
       <span className="selection-divider" />
 
       {ALIGNMENTS.map(({ edge, label, Icon }) => (
@@ -85,7 +100,15 @@ export function SelectionToolbar() {
           className="icon-button"
           title={t(label as Parameters<typeof t>[0])}
           aria-label={t(label as Parameters<typeof t>[0])}
-          onClick={() => dispatch({ type: 'alignShapes', ids, edge })}
+          onClick={() =>
+            dispatch({
+              type: 'alignShapes',
+              ids,
+              edge,
+              viewId: ui.activeViewId,
+              drillPath: ui.drillPath,
+            })
+          }
         >
           <Icon size={16} />
         </button>
@@ -101,7 +124,15 @@ export function SelectionToolbar() {
           disabled={!canDistribute}
           title={t(label as Parameters<typeof t>[0])}
           aria-label={t(label as Parameters<typeof t>[0])}
-          onClick={() => dispatch({ type: 'distributeShapes', ids, axis })}
+          onClick={() =>
+            dispatch({
+              type: 'distributeShapes',
+              ids,
+              axis,
+              viewId: ui.activeViewId,
+              drillPath: ui.drillPath,
+            })
+          }
         >
           <Icon size={16} />
         </button>
@@ -114,7 +145,14 @@ export function SelectionToolbar() {
         className="icon-button"
         title={t('action.duplicate')}
         aria-label={t('action.duplicate')}
-        onClick={() => dispatch({ type: 'duplicateShapes', ids: [...ui.selectedIds] })}
+        onClick={() =>
+          dispatch({
+            type: 'paste',
+            payload: cloneShapes(view, new Set(selectedIds)),
+            offsetX: 40,
+            offsetY: 40,
+          })
+        }
       >
         <CopyIcon size={15} />
       </button>
@@ -124,7 +162,7 @@ export function SelectionToolbar() {
         title={t('action.delete')}
         aria-label={t('action.delete')}
         onClick={() => {
-          dispatch({ type: 'deleteShapes', ids: [...ui.selectedIds] });
+          dispatch({ type: 'deleteShapes', ids: selectedIds });
           dispatchUi({ type: 'clearSelection' });
         }}
       >
