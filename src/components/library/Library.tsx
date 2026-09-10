@@ -5,49 +5,25 @@ import { useRouter } from 'next/navigation';
 import type { DiagramMeta } from '@/lib/domain';
 import { createEmptyModel } from '@/lib/engine';
 import { TEMPLATES } from '@/lib/editor/templates';
-import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { thumbnailDataUrl } from '@/lib/store/thumbnail';
 import { renderPreview } from '@/lib/store/preview';
 import { useLocale } from '@/lib/i18n/useLocale';
-import { relativeDay } from '@/lib/i18n/relativeDay';
-import { AcGraphLogo } from '@/components/brand/AcGraphLogo';
 import { useMembersApi, useRepository, useRepositoryReady } from '../app/RepositoryProvider';
 import { DropImportError, readDroppedFile } from '@/lib/library/dropImport';
 import { usePresence } from '@/lib/editor/usePresence';
-import { sortDiagrams, useLibraryPrefs, type LibrarySort } from '@/lib/library/prefs';
+import { sortDiagrams, useLibraryPrefs } from '@/lib/library/prefs';
 import { useUser } from '../app/AuthProvider';
 import { LOCAL_USER } from '@/lib/auth/user';
 import { buildStamp } from '@/lib/appConfig';
 import { useTheme } from '../app/useTheme';
-import {
-  CloseIcon,
-  CopyIcon,
-  FolderIcon,
-  ImportIcon,
-  LogOutIcon,
-  MoonIcon,
-  PlusIcon,
-  SearchIcon,
-  StarIcon,
-  SunIcon,
-  TemplateIcon,
-  TrashIcon,
-  UsersIcon,
-} from '@/components/icons/ToolIcons';
-import { Glyph } from '@/components/icons/Glyph';
+import { ImportIcon, SearchIcon } from '@/components/icons/ToolIcons';
 import { ConfirmDialog } from './ConfirmDialog';
-import { WorkspaceActions } from './WorkspaceActions';
+import { DiagramCard } from './DiagramCard';
+import { LibraryHeader } from './LibraryHeader';
+import { LibraryHero } from './LibraryHero';
+import { FAVOURITES, LibraryToolbar, NO_FOLDER } from './LibraryToolbar';
+import { TemplateGallery } from './TemplateGallery';
 import { NewDiagramDialog } from './NewDiagramDialog';
-import { CountUp } from './CountUp';
-
-const NO_FOLDER = '__none__';
-/** A filter value, not a folder: the starred diagrams. */
-const FAVOURITES = '__favourites__';
-const SERVICE_COUNT = SERVICE_ICONS.length;
-/** The public clouds in the catalogue; AION and the generic set are not clouds. */
-const CLOUD_COUNT = new Set(
-  SERVICE_ICONS.map((s) => s.category).filter((c) => c !== 'aion' && c !== 'generic'),
-).size;
 
 /** The diagram library: everything stored, with a way into each one. */
 export function Library() {
@@ -196,20 +172,6 @@ export function Library() {
   );
   const showcase = previews.find((p) => p.template.id === 'microservices') ?? previews[0];
 
-  // The showcase leans towards the hand, a few degrees, and settles back when
-  // it leaves: the one gesture that says "this is a thing, not a picture".
-  const tilt = useCallback((event: React.PointerEvent<HTMLElement>) => {
-    const el = event.currentTarget;
-    const rect = el.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    el.style.setProperty('--tilt-x', `${(x * 10).toFixed(2)}deg`);
-    el.style.setProperty('--tilt-y', `${(-y * 8).toFixed(2)}deg`);
-  }, []);
-  const settle = useCallback((event: React.PointerEvent<HTMLElement>) => {
-    event.currentTarget.style.removeProperty('--tilt-x');
-    event.currentTarget.style.removeProperty('--tilt-y');
-  }, []);
   const showTemplates = () =>
     document
       .getElementById('library-start')
@@ -236,239 +198,42 @@ export function Library() {
           {notice}
         </p>
       )}
-      <header className="library-header">
-        <div className="library-identity">
-          <AcGraphLogo size={22} animate />
-        </div>
-        {/* Where you are and where you can go, in the header itself: a home
-            that is only a logo and two buttons reads as a page, not a place. */}
-        <nav className="library-nav" aria-label={t('library.navLabel')}>
-          <a className="library-nav-link is-active" href="#library-body">
-            {t('library.recent')}
-          </a>
-          <a className="library-nav-link" href="#library-start">
-            {t('library.startPoints')}
-          </a>
-        </nav>
-        <span className="library-spacer" />
-        <WorkspaceActions onChanged={refresh} t={t} />
-        <button
-          type="button"
-          className="icon-button"
-          title={t('action.toggleTheme')}
-          aria-label={t('action.toggleTheme')}
-          aria-pressed={dark}
-          onClick={toggleTheme}
-        >
-          {dark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
-        </button>
-        <span className="topbar-divider" />
-        <span
-          className="library-user"
-          title={authState === 'authenticated' ? (user.email ?? user.name) : t('account.local')}
-        >
-          <span className="library-avatar" aria-hidden="true">
-            {user.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- provider-hosted avatar
-              <img src={user.avatarUrl} alt="" />
-            ) : (
-              displayName.slice(0, 1).toUpperCase()
-            )}
-          </span>
-          {displayName}
-        </span>
-        {authState === 'authenticated' && (
-          <button
-            type="button"
-            className="icon-button"
-            title={t('account.signOut')}
-            aria-label={t('account.signOut')}
-            onClick={() => void signOut()}
-          >
-            <LogOutIcon size={16} />
-          </button>
-        )}
-        <button type="button" className="button is-primary" onClick={() => setPicking(true)}>
-          <PlusIcon size={15} />
-          {t('library.new')}
-        </button>
-      </header>
+      <LibraryHeader
+        t={t}
+        dark={dark}
+        authState={authState}
+        user={user}
+        displayName={displayName}
+        onRefresh={refresh}
+        onToggleTheme={toggleTheme}
+        onSignOut={signOut}
+        onNew={() => setPicking(true)}
+      />
 
       {/* The one place in the app with room to say what it is: the words on
           the left, and on the right the proof — a real template, really drawn. */}
-      <section className="library-hero">
-        <div className="library-hero-aurora" aria-hidden="true" />
-        <div className="library-hero-grid" aria-hidden="true" />
-        <div className="library-hero-inner is-split">
-          <div className="library-hero-copy">
-            <p className="library-hero-eyebrow">
-              <span className="library-hero-pulse" aria-hidden="true" />
-              {t('library.eyebrow')}
-            </p>
-            <h1 className="library-hero-title">{t('library.heroTitle')}</h1>
-            <p className="library-hero-subtitle">{t('library.heroLede')}</p>
-            <div className="library-hero-actions">
-              <button
-                type="button"
-                className="button is-primary is-large"
-                onClick={() => setPicking(true)}
-              >
-                <PlusIcon size={16} />
-                {t('library.heroCta')}
-              </button>
-              <button type="button" className="button is-large is-ghost" onClick={showTemplates}>
-                {t('library.browseTemplates')}
-              </button>
-            </div>
-            <ul className="library-hero-points">
-              <li>
-                <kbd>⌘K</kbd>
-                {t('library.pointSearch')}
-              </li>
-              <li>
-                <span className="library-point-mark" aria-hidden="true">
-                  YAML
-                </span>
-                {t('library.pointCode')}
-              </li>
-              <li>
-                <span className="library-point-mark" aria-hidden="true">
-                  PDF
-                </span>
-                {t('library.pointShare')}
-              </li>
-            </ul>
-          </div>
-          {showcase && (
-            <button
-              type="button"
-              className="library-showcase"
-              aria-label={`${t('library.showcaseLabel')}: ${t(showcase.template.nameKey)}`}
-              onPointerMove={tilt}
-              onPointerLeave={settle}
-              onClick={() => void create(t(showcase.template.nameKey), showcase.model)}
-            >
-              <span className="library-showcase-bar" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-                <span>{t(showcase.template.nameKey)}</span>
-              </span>
-              {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL */}
-              <img className="library-showcase-image" src={showcase.src} alt="" />
-              <span className="library-showcase-caption">
-                <span className="library-showcase-label">{t('library.showcaseLabel')}</span>
-                <span>
-                  {t('status.shapes', {
-                    count: showcase.model.shapes.filter((s) => s.type === 'item').length,
-                  })}
-                  {' · '}
-                  {t('status.connectors', { count: showcase.model.connectors.length })}
-                </span>
-              </span>
-            </button>
-          )}
-        </div>
-        <div className="library-hero-inner">
-          <ul className="library-stats" aria-label={t('library.statsLabel')}>
-            <li className="library-stat">
-              <CountUp className="tabular" value={items.length} />
-              <span>
-                {items.length === 1 ? t('library.statDiagram') : t('library.statDiagrams')}
-              </span>
-            </li>
-            <li className="library-stat">
-              <CountUp className="tabular" value={SERVICE_COUNT} />
-              <span>{t('library.statServices')}</span>
-            </li>
-            <li className="library-stat">
-              <CountUp className="tabular" value={CLOUD_COUNT} />
-              <span>{t('library.statClouds')}</span>
-            </li>
-            <li className="library-stat">
-              <CountUp className="tabular" value={TEMPLATES.length + 1} />
-              <span>{t('library.statTemplates')}</span>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <LibraryHero
+        t={t}
+        diagramCount={items.length}
+        showcase={showcase}
+        onNew={() => setPicking(true)}
+        onBrowseTemplates={showTemplates}
+        onPick={(title, model) => void create(title, model)}
+      />
 
-      <div className="library-toolbar">
-        <div className="library-search filter-field">
-          <SearchIcon size={15} />
-          <input
-            className="library-search-input filter-input"
-            placeholder={t('library.search')}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query && (
-            <button
-              type="button"
-              className="library-search-clear"
-              aria-label={t('library.clearSearch')}
-              onClick={() => setQuery('')}
-            >
-              <CloseIcon size={13} />
-            </button>
-          )}
-        </div>
-        {query.trim() !== '' && (
-          <span className="result-count">
-            {t('browser.showing', { count: visible.length, total: items.length })}
-          </span>
-        )}
-        {items.length > 1 && (
-          <label className="library-sort">
-            <span className="sr-only">{t('library.sort')}</span>
-            <select
-              className="input is-choice"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as LibrarySort)}
-            >
-              <option value="recent">{t('library.sortRecent')}</option>
-              <option value="name">{t('library.sortName')}</option>
-              <option value="created">{t('library.sortCreated')}</option>
-            </select>
-          </label>
-        )}
-
-        {(folders.length > 0 || starredCount > 0) && (
-          <div className="library-folders chip-row">
-            <button
-              type="button"
-              className={`library-folder chip${folder === null ? ' is-active' : ''}`}
-              onClick={() => setFolder(null)}
-            >
-              {t('library.all')}
-              <span className="chip-count">{items.length}</span>
-            </button>
-            {starredCount > 0 && (
-              <button
-                type="button"
-                className={`library-folder chip${folder === FAVOURITES ? ' is-active' : ''}`}
-                onClick={() => setFolder(folder === FAVOURITES ? null : FAVOURITES)}
-              >
-                <StarIcon size={13} filled />
-                {t('library.favourites')}
-                <span className="chip-count">{starredCount}</span>
-              </button>
-            )}
-            {folders.map(([name, count]) => (
-              <button
-                key={name}
-                type="button"
-                className={`library-folder chip${folder === name ? ' is-active' : ''}`}
-                onClick={() => setFolder(name)}
-              >
-                <FolderIcon size={13} />
-                {name}
-                <span className="chip-count">{count}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <LibraryToolbar
+        t={t}
+        query={query}
+        onQuery={setQuery}
+        visibleCount={visible.length}
+        total={items.length}
+        sort={sort}
+        onSort={setSort}
+        folders={folders}
+        folder={folder}
+        onFolder={setFolder}
+        starredCount={starredCount}
+      />
 
       <main className="library-body" id="library-body">
         {/* Cards rather than a line of text: the page keeps its shape, so
@@ -505,150 +270,35 @@ export function Library() {
         {visible.length > 0 && (
           <ul className="library-grid">
             {visible.map((item, index) => (
-              <li
+              <DiagramCard
                 key={item.id}
-                className="library-card"
-                style={{ '--i': index } as React.CSSProperties}
-              >
-                <button
-                  type="button"
-                  className="library-card-open"
-                  onClick={() => router.push(`/d/${item.id}`)}
-                >
-                  <span className="library-thumb">
-                    {item.thumbnail ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL
-                      <img src={thumbnailDataUrl(item.thumbnail)} alt="" />
-                    ) : (
-                      <TemplateIcon size={22} />
-                    )}
-                  </span>
-                  <span className="library-card-body">
-                    <span className="library-card-title">{item.title}</span>
-                    <span className="library-card-meta">
-                      <span>{t('library.updated', { when: relativeDay(item.updatedAt, t) })}</span>
-                      {item.folder && (
-                        <span className="library-card-folder">
-                          <FolderIcon size={11} />
-                          {item.folder}
-                        </span>
-                      )}
-                      {item.role && item.role !== 'owner' && (
-                        /* Someone else's diagram: say so, and how far one may go with it. */
-                        <span className="library-card-role" title={t('library.sharedWithYou')}>
-                          <UsersIcon size={11} />
-                          {t(item.role === 'editor' ? 'role.editor' : 'role.viewer')}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                </button>
-                <div className="library-card-actions">
-                  <button
-                    type="button"
-                    className={`icon-button library-star${starred.has(item.id) ? ' is-on' : ''}`}
-                    title={t(starred.has(item.id) ? 'library.unfavourite' : 'library.favourite')}
-                    aria-label={`${t(starred.has(item.id) ? 'library.unfavourite' : 'library.favourite')}: ${item.title}`}
-                    aria-pressed={starred.has(item.id)}
-                    onClick={() => {
-                      // Un-starring the last favourite while looking at favourites
-                      // would leave an empty page with no chip to leave it by.
-                      if (folder === FAVOURITES && starred.has(item.id) && starredCount === 1) {
-                        setFolder(null);
-                      }
-                      toggleFavourite(item.id);
-                    }}
-                  >
-                    <StarIcon size={14} filled={starred.has(item.id)} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title={t('action.duplicate')}
-                    aria-label={`${t('action.duplicate')}: ${item.title}`}
-                    onClick={() => void repository.duplicate(item.id).then(refresh)}
-                  >
-                    <CopyIcon size={14} />
-                  </button>
-                  {item.role && item.role !== 'owner' ? (
-                    <button
-                      type="button"
-                      className="icon-button"
-                      title={t('share.leave')}
-                      aria-label={`${t('share.leave')}: ${item.title}`}
-                      onClick={() => setDeleting(item)}
-                    >
-                      <LogOutIcon size={14} />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="icon-button is-danger"
-                      title={t('action.delete')}
-                      aria-label={`${t('action.delete')}: ${item.title}`}
-                      onClick={() => setDeleting(item)}
-                    >
-                      <TrashIcon size={14} />
-                    </button>
-                  )}
-                </div>
-              </li>
+                t={t}
+                item={item}
+                index={index}
+                starred={starred.has(item.id)}
+                onOpen={() => router.push(`/d/${item.id}`)}
+                onToggleStar={() => {
+                  // Un-starring the last favourite while looking at favourites
+                  // would leave an empty page with no chip to leave it by.
+                  if (folder === FAVOURITES && starred.has(item.id) && starredCount === 1) {
+                    setFolder(null);
+                  }
+                  toggleFavourite(item.id);
+                }}
+                onDuplicate={() => void repository.duplicate(item.id).then(refresh)}
+                onRemove={() => setDeleting(item)}
+              />
             ))}
           </ul>
         )}
 
         {/* Starting points, always: a real drawing of each, not an icon. */}
         {!loading && (
-          <section className="library-start" id="library-start">
-            <div className="library-section-head">
-              <h2>{t('library.startPoints')}</h2>
-              <p>{t('library.startPointsHint')}</p>
-            </div>
-            <div className="library-templates is-rich">
-              <button
-                type="button"
-                className="template-card is-blank is-rich"
-                onClick={() => void create(t('app.untitled'))}
-              >
-                <span className="template-thumb is-blank">
-                  <PlusIcon size={22} />
-                </span>
-                <span className="template-text">
-                  <b>{t('library.blank')}</b>
-                  <small>{t('library.blankHint')}</small>
-                </span>
-              </button>
-              {previews.map(({ template, model, src }) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  className="template-card is-rich"
-                  onClick={() => void create(t(template.nameKey), model)}
-                >
-                  <span className="template-thumb">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL */}
-                    <img src={src} alt="" />
-                    <span className="template-glyph">
-                      <Glyph name={template.icon} size={14} />
-                    </span>
-                  </span>
-                  <span className="template-text">
-                    <b>{t(template.nameKey)}</b>
-                    <small>{t(template.descriptionKey)}</small>
-                    <span className="template-meta">
-                      <span>
-                        {t('status.shapes', {
-                          count: model.shapes.filter((s) => s.type === 'item').length,
-                        })}
-                      </span>
-                      <span>·</span>
-                      <span>{t('status.connectors', { count: model.connectors.length })}</span>
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
+          <TemplateGallery
+            t={t}
+            previews={previews}
+            onPick={(title, model) => void create(title, model)}
+          />
         )}
       </main>
 

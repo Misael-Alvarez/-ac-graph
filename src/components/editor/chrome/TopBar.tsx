@@ -1,59 +1,37 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AcMark } from '@/components/brand/AcGraphLogo';
-import { useUser } from '@/components/app/AuthProvider';
-import { LOCAL_USER } from '@/lib/auth/user';
-import { buildStamp } from '@/lib/appConfig';
-import { LOCALES, LOCALE_LABELS, type MessageKey } from '@/lib/i18n/messages';
-import { ACCENTS } from '@/lib/editor/uiState';
 import type { SaveStatus } from '@/components/app/useDiagramDocument';
 import { spellChord } from '@/lib/editor/platform';
 import { shortcutFor } from '@/lib/editor/shortcuts';
 import { usePresence } from '@/lib/editor/usePresence';
+import { Kbd } from '@/components/ui/Kbd';
 import { useEditor } from '../EditorProvider';
 import { useCommands } from '../hooks/useCommands';
 import type { Collaboration } from '../hooks/useCollaboration';
 import { PresenceStack } from './Presence';
-import { MenuGroup, MenuItem, MenuSeparator, TopBarMenu } from './TopBarMenu';
+import { AccountMenu } from './AccountMenu';
+import { ExportMenu } from './ExportMenu';
+import { MoreMenu } from './MoreMenu';
 import {
   ArrowLeftIcon,
   AutoLayoutIcon,
-  BracesIcon,
   ChartIcon,
-  ChevronDownIcon,
-  CloudIcon,
   CodeIcon,
-  DocumentIcon,
-  DownloadIcon,
-  EraseIcon,
-  FileTextIcon,
   FitIcon,
-  FolderIcon,
   GridIcon,
   HistoryIcon,
-  ImageIcon,
-  ImportIcon,
-  KeyboardIcon,
   ListIcon,
   LockIcon,
-  LogOutIcon,
-  MapIcon,
   MoonIcon,
-  MoreIcon,
-  PrintIcon,
   RedoIcon,
-  SaveIcon,
   SearchIcon,
   ShareIcon,
   SparkleIcon,
   SunIcon,
-  TemplateIcon,
   UndoIcon,
-  UserIcon,
-  VectorIcon,
-  ZoomOutIcon,
 } from '@/components/icons/ToolIcons';
 
 interface TopBarProps {
@@ -63,12 +41,6 @@ interface TopBarProps {
   collab: Collaboration;
 }
 
-const EXPORT_THEME_KEY = {
-  editor: 'export.themeEditor',
-  light: 'export.themeLight',
-  dark: 'export.themeDark',
-} as const;
-
 const STATUS_KEY = {
   saved: 'status.saved',
   pending: 'status.pending',
@@ -76,13 +48,6 @@ const STATUS_KEY = {
   error: 'status.error',
   conflict: 'status.conflict',
 } as const;
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 /**
  * The top bar: where the document is, who is here, and every way out of it.
@@ -97,19 +62,12 @@ function initials(name: string): string {
  */
 export function TopBar({ title, status, onRename, collab }: TopBarProps) {
   const { ui, dispatchUi, canUndo, canRedo, readOnly, t } = useEditor();
-  const { user, state: authState, signOut, rename } = useUser();
-  const [renaming, setRenaming] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
   const commands = useCommands();
   const router = useRouter();
-  const displayName =
-    user.id === LOCAL_USER.id && user.name === LOCAL_USER.name ? t('account.you') : user.name;
-  const stamp = buildStamp(ui.locale);
   const run = (id: string) => commands.find((c) => c.id === id)?.run();
   const closeMenu = useCallback(() => dispatchUi({ type: 'setMenu', menu: null }), [dispatchUi]);
   // The menu that is closing stays for its exit; the buttons report the real state.
   const menu = usePresence(ui.menu);
-  const menuExit = { closing: menu.closing, onExited: menu.onExited };
   const toggleMenu = (menu: 'export' | 'account' | 'more') =>
     dispatchUi({ type: 'setMenu', menu: ui.menu === menu ? null : menu });
   /** An icon button that runs a command and shows its shortcut on hover. */
@@ -206,7 +164,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
         >
           <SearchIcon size={14} />
           <span>{t('palette.placeholder')}</span>
-          <kbd>{chord('palette')}</kbd>
+          <Kbd>{chord('palette')}</Kbd>
         </button>
 
         {/* The canvas: frame it, tidy it, snap it. */}
@@ -254,103 +212,14 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
 
         <span className="topbar-divider" />
 
-        <div className="topbar-menu-host">
-          <button
-            type="button"
-            className="button"
-            title={`${t('export.title')} · ${chord('exportMenu')}`}
-            aria-label={t('export.title')}
-            aria-haspopup="menu"
-            aria-expanded={ui.menu === 'export'}
-            onClick={() => toggleMenu('export')}
-          >
-            <DownloadIcon size={15} />
-            <span className="button-label">{t('export.title')}</span>
-            <ChevronDownIcon size={12} />
-          </button>
-          {menu.shown === 'export' && (
-            <TopBarMenu label={t('export.title')} onClose={closeMenu} {...menuExit}>
-              <p className="topbar-menu-note">{t('export.subtitle')}</p>
-              <MenuGroup label={t('export.image')} />
-              <MenuItem
-                icon={<ImageIcon size={15} />}
-                label={t('export.png')}
-                hint={t('export.pngHint')}
-                onSelect={() => pick('exportPng')}
-              />
-              <MenuItem
-                icon={<VectorIcon size={15} />}
-                label={t('export.svg')}
-                hint={t('export.svgHint')}
-                onSelect={() => pick('exportSvg')}
-              />
-              <MenuItem
-                icon={<PrintIcon size={15} />}
-                label={t('export.pdf')}
-                hint={t('export.pdfHint')}
-                onSelect={() => pick('exportPdf')}
-              />
-              <MenuSeparator />
-              <MenuGroup label={t('export.document')} />
-              <MenuItem
-                icon={<FileTextIcon size={15} />}
-                label={t('export.markdown')}
-                hint={t('export.markdownHint')}
-                onSelect={() => pick('exportMarkdown')}
-              />
-              <MenuItem
-                icon={<DocumentIcon size={15} />}
-                label={t('export.mermaid')}
-                hint={t('export.mermaidHint')}
-                onSelect={() => pick('exportMermaid')}
-              />
-              <MenuSeparator />
-              <MenuGroup label={t('export.code')} />
-              <MenuItem
-                icon={<BracesIcon size={15} />}
-                label={t('export.yaml')}
-                hint={t('export.yamlHint')}
-                onSelect={() => pick('exportYaml')}
-              />
-              <MenuItem
-                icon={<BracesIcon size={15} />}
-                label={t('export.json')}
-                hint={t('export.jsonHint')}
-                shortcut={chord('saveProject')}
-                onSelect={() => pick('saveProject')}
-              />
-              <MenuSeparator />
-              {/* Settings, not actions: the menu stays open so the effect of a
-                  choice can be seen next to the export it will apply to. */}
-              <MenuGroup label={t('export.theme')} />
-              {(['editor', 'light', 'dark'] as const).map((theme) => (
-                <MenuItem
-                  key={theme}
-                  icon={
-                    theme === 'editor' ? (
-                      <GridIcon size={15} />
-                    ) : theme === 'light' ? (
-                      <SunIcon size={15} />
-                    ) : (
-                      <MoonIcon size={15} />
-                    )
-                  }
-                  label={t(EXPORT_THEME_KEY[theme])}
-                  active={ui.exportTheme === theme}
-                  onSelect={() => dispatchUi({ type: 'setExportTheme', theme })}
-                />
-              ))}
-              <MenuSeparator />
-              <MenuItem
-                icon={<ListIcon size={15} />}
-                label={t('export.meta')}
-                hint={t('export.metaHint')}
-                active={ui.exportMeta}
-                onSelect={() => dispatchUi({ type: 'toggleExportMeta' })}
-              />
-            </TopBarMenu>
-          )}
-        </div>
+        <ExportMenu
+          menu={menu}
+          onToggle={() => toggleMenu('export')}
+          onClose={closeMenu}
+          pick={pick}
+          chord={chord}
+          off={off}
+        />
 
         <button
           type="button"
@@ -374,226 +243,16 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
           <span className="button-label">{t('topbar.share')}</span>
         </button>
 
-        {/* Everything done once a week lives one click away, not in a search. */}
-        <div className="topbar-menu-host">
-          <button
-            type="button"
-            className="icon-button"
-            title={t('topbar.more')}
-            aria-label={t('topbar.more')}
-            aria-haspopup="menu"
-            aria-expanded={ui.menu === 'more'}
-            onClick={() => toggleMenu('more')}
-          >
-            <MoreIcon size={16} />
-          </button>
-          {menu.shown === 'more' && (
-            <TopBarMenu label={t('topbar.more')} onClose={closeMenu} {...menuExit}>
-              <MenuGroup label={t('topbar.document')} />
-              <MenuItem
-                icon={<TemplateIcon size={15} />}
-                label={t('action.templates')}
-                disabled={off('templates')}
-                onSelect={() => pick('templates')}
-              />
-              <MenuItem
-                icon={<CloudIcon size={15} />}
-                label={t('action.switchCloud')}
-                disabled={off('switchCloud')}
-                onSelect={() => pick('switchCloud')}
-              />
-              <MenuItem
-                icon={<ImportIcon size={15} />}
-                label={t('action.importMarkdown')}
-                disabled={off('importMarkdown')}
-                onSelect={() => pick('importMarkdown')}
-              />
-              <MenuItem
-                icon={<FolderIcon size={15} />}
-                label={t('action.open')}
-                disabled={off('openProject')}
-                onSelect={() => pick('openProject')}
-              />
-              <MenuItem
-                icon={<SaveIcon size={15} />}
-                label={t('action.save')}
-                shortcut={chord('saveProject')}
-                onSelect={() => pick('saveProject')}
-              />
-              <MenuSeparator />
-              <MenuGroup label={t('topbar.canvas')} />
-              <MenuItem
-                icon={<ZoomOutIcon size={15} />}
-                label={t('action.zoomReset')}
-                shortcut={chord('zoomReset')}
-                onSelect={() => pick('zoomReset')}
-              />
-              <MenuItem
-                icon={<MapIcon size={15} />}
-                label={t('action.toggleMinimap')}
-                shortcut={chord('toggleMinimap')}
-                active={ui.minimapOpen}
-                onSelect={() => pick('toggleMinimap')}
-              />
-              <MenuItem
-                icon={<ImportIcon size={15} />}
-                label={t('action.icons')}
-                hint={t('icons.uploadHint')}
-                disabled={off('icons')}
-                onSelect={() => pick('icons')}
-              />
-              <MenuItem
-                icon={<KeyboardIcon size={15} />}
-                label={t('action.shortcuts')}
-                shortcut={chord('shortcuts')}
-                onSelect={() => pick('shortcuts')}
-              />
-              <MenuSeparator />
-              <MenuItem
-                icon={<EraseIcon size={15} />}
-                label={t('action.clear')}
-                danger
-                disabled={off('clear')}
-                onSelect={() => pick('clear')}
-              />
-            </TopBarMenu>
-          )}
-        </div>
+        <MoreMenu
+          menu={menu}
+          onToggle={() => toggleMenu('more')}
+          onClose={closeMenu}
+          pick={pick}
+          chord={chord}
+          off={off}
+        />
 
-        <div className="topbar-menu-host">
-          <button
-            type="button"
-            className="user-button"
-            aria-haspopup="menu"
-            aria-expanded={ui.menu === 'account'}
-            aria-label={t('account.title')}
-            title={authState === 'authenticated' ? displayName : t('account.local')}
-            onClick={() => toggleMenu('account')}
-          >
-            <span className="user-avatar" aria-hidden="true">
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- provider-hosted avatar
-                <img src={user.avatarUrl} alt="" />
-              ) : (
-                initials(displayName)
-              )}
-            </span>
-            <ChevronDownIcon size={12} />
-          </button>
-          {menu.shown === 'account' && (
-            <TopBarMenu label={t('account.title')} onClose={closeMenu} {...menuExit}>
-              <p className="topbar-menu-note">
-                {authState === 'authenticated'
-                  ? `${t('account.signedInAs')} ${user.name}${user.email ? ` · ${user.email}` : ''}`
-                  : t('account.localHint')}
-                {stamp && (
-                  <span className="topbar-menu-stamp">{t('app.build', { when: stamp })}</span>
-                )}
-              </p>
-              <MenuSeparator />
-              <MenuGroup label={t('account.tone')} />
-              <div className="tone-row" role="radiogroup" aria-label={t('account.tone')}>
-                {ACCENTS.map((accent) => (
-                  <button
-                    key={accent}
-                    type="button"
-                    role="radio"
-                    aria-checked={ui.accent === accent}
-                    className={`tone-swatch is-${accent}${ui.accent === accent ? ' is-active' : ''}`}
-                    title={t(`tone.${accent}` as MessageKey)}
-                    aria-label={t(`tone.${accent}` as MessageKey)}
-                    onClick={() => dispatchUi({ type: 'setAccent', accent })}
-                  />
-                ))}
-              </div>
-              <MenuSeparator />
-              <MenuGroup label={t('account.language')} />
-              {LOCALES.map((locale) => (
-                <MenuItem
-                  key={locale}
-                  label={LOCALE_LABELS[locale]}
-                  active={ui.locale === locale}
-                  onSelect={() => {
-                    dispatchUi({ type: 'setLocale', locale });
-                    closeMenu();
-                  }}
-                />
-              ))}
-              <MenuSeparator />
-              <MenuItem
-                icon={ui.brand === 'aion' ? <AcMark size={12} /> : <DocumentIcon size={15} />}
-                label={t('account.brand')}
-                active={ui.brand === 'aion'}
-                onSelect={() => {
-                  dispatchUi({ type: 'setBrand', brand: ui.brand === 'aion' ? 'none' : 'aion' });
-                }}
-              />
-              {authState === 'authenticated' && (
-                <>
-                  <MenuSeparator />
-                  <MenuItem
-                    icon={<LogOutIcon size={15} />}
-                    label={t('account.signOut')}
-                    onSelect={() => {
-                      closeMenu();
-                      void signOut();
-                    }}
-                  />
-                </>
-              )}
-              {authState === 'local' && (
-                <>
-                  <MenuSeparator />
-                  {/* The local profile is editable, not a dead row: the name is
-                      what other people see beside your cursor and on the
-                      avatar, so it is worth being able to change it here. */}
-                  {renaming ? (
-                    <form
-                      className="topbar-menu-form"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const next = nameDraft.trim();
-                        if (next) rename(next);
-                        setRenaming(false);
-                        closeMenu();
-                      }}
-                    >
-                      <input
-                        className="input"
-                        value={nameDraft}
-                        autoFocus
-                        maxLength={40}
-                        aria-label={t('account.rename')}
-                        placeholder={t('account.renamePlaceholder')}
-                        onChange={(e) => setNameDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') setRenaming(false);
-                        }}
-                      />
-                      <button type="submit" className="button is-primary is-small">
-                        {t('account.renameSave')}
-                      </button>
-                    </form>
-                  ) : (
-                    <MenuItem
-                      icon={<UserIcon size={15} />}
-                      label={displayName}
-                      hint={t('account.renameHint')}
-                      onSelect={() => {
-                        setNameDraft(
-                          user.id === LOCAL_USER.id && user.name === LOCAL_USER.name
-                            ? ''
-                            : user.name,
-                        );
-                        setRenaming(true);
-                      }}
-                    />
-                  )}
-                </>
-              )}
-            </TopBarMenu>
-          )}
-        </div>
+        <AccountMenu menu={menu} onToggle={() => toggleMenu('account')} onClose={closeMenu} />
       </div>
     </header>
   );

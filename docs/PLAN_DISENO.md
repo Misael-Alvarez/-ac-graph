@@ -43,6 +43,6 @@ Resultado: seis tamaños de icono, cuatro alturas de fila, tres estilos de campo
 
 ## Siguientes pasos (fuera de esta entrega)
 
-- Extraer componentes React `Panel`, `PanelHeader`, `Row`, `Tile`, `Field` y migrar las seis superficies a ellos (hoy la homologación vive en CSS sobre las clases actuales; los componentes harían imposible desviarse).
+- ~~Extraer componentes React `Panel`, `PanelHeader`, `Row`, `Tile`, `Field` y migrar las seis superficies a ellos.~~ **Hecho** (2026-09-10, H1 #2 fase 2): `src/components/ui/{PanelHead,Kbd,SearchField,Chip,GroupHeader,Tile,Row,Field,Section}.tsx`; las clases propias de cada superficie viajan por props porque el CSS y las pruebas las nombran, y la anatomía común la impone el componente. Verificado con `styles:compare` = 0 diferencias.
 - Tooltips con descripción larga (segunda línea) para las herramientas del dock.
 - Modo compacto para portátiles de 13".

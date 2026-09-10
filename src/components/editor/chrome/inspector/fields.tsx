@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Field } from '@/components/ui/Field';
 import { CATEGORY_SHORT_LABELS } from '@/data/serviceIcons';
 import { isColor, mixHex } from '@/lib/design/tokens';
 import { PROVIDER_COLORS } from '@/lib/editor/providers';
@@ -29,47 +30,6 @@ export const PROTOCOLS = [
 ] as const;
 export const EDGE_KINDS = ['sync', 'async', 'event', 'data', 'dependency'] as const;
 export const DATA_CLASSES = ['public', 'internal', 'confidential', 'pii', 'pci', 'phi'] as const;
-
-export function Section({
-  title,
-  children,
-  defaultOpen = true,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <section className="inspector-section" data-open={open}>
-      <button
-        type="button"
-        className="inspector-section-header group-header"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {title}
-        <span className={`inspector-chevron${open ? ' is-open' : ''}`} aria-hidden="true" />
-      </button>
-      {/* The body stays mounted so the section can roll open and shut instead
-          of appearing and vanishing. `inert` is what keeps a closed section out
-          of the tab order and out of the accessibility tree — the animation is
-          the only thing that should survive being closed. */}
-      <div className="inspector-shutter" inert={!open}>
-        <div className="inspector-section-body">{children}</div>
-      </div>
-    </section>
-  );
-}
-
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="inspector-field">
-      <span className="inspector-field-label">{label}</span>
-      {children}
-    </label>
-  );
-}
 
 /** The hue behind a chip, matching the marks the canvas draws for the same word. */
 const TONE_HEX: Record<Tone, string> = {
@@ -290,57 +250,6 @@ export function FillField({
  * It only exists while something is selected: the previous editor kept a 280px
  * column permanently on screen showing "no selection" most of the time.
  */
-/**
- * A number the reader can type or nudge, committed as it changes.
- *
- * The position section used to print X, Y, W and H as text: four facts and
- * nothing to do with them. Each is a field now; typing a value or pressing the
- * arrows moves or resizes the shape at once, and a run of arrow presses is one
- * undo step. Anything that does not parse is left in the field, uncommitted.
- */
-export function NumberField({
-  label,
-  value,
-  min,
-  disabled,
-  onCommit,
-}: {
-  label: string;
-  value: number;
-  min?: number;
-  disabled?: boolean;
-  onCommit: (value: number) => void;
-}) {
-  const [draft, setDraft] = useState(String(value));
-  const [synced, setSynced] = useState(value);
-  if (synced !== value) {
-    setSynced(value);
-    setDraft(String(value));
-  }
-  return (
-    <label className={`number-field${disabled ? ' is-disabled' : ''}`}>
-      <span className="number-field-label">{label}</span>
-      <input
-        className="number-field-input"
-        type="number"
-        inputMode="numeric"
-        step={1}
-        min={min}
-        value={draft}
-        disabled={disabled}
-        aria-label={label}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          const next = Number(e.target.value);
-          if (e.target.value.trim() !== '' && Number.isFinite(next) && next !== value) {
-            onCommit(min !== undefined ? Math.max(min, next) : next);
-          }
-        }}
-        onBlur={() => setDraft(String(value))}
-      />
-    </label>
-  );
-}
 
 /**
  * The message key naming what a shape is.

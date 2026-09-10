@@ -4,6 +4,7 @@ import type { ToolMode } from '@/lib/editor';
 import { shortcut } from '@/lib/editor/platform';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { useEditor } from '../EditorProvider';
+import { Kbd } from '@/components/ui/Kbd';
 import {
   LayoutIcon,
   BoundaryIcon,
@@ -68,7 +69,7 @@ export function ToolDock() {
                 well made every one of them announce its own shortcut twice. */}
             <span className="tool-tooltip" role="tooltip" aria-hidden="true">
               {t('action.browser')}
-              <kbd>{shortcut('B')}</kbd>
+              <Kbd>{shortcut('B')}</Kbd>
             </span>
           </button>
           <span className="tool-dock-divider" />
@@ -90,7 +91,7 @@ export function ToolDock() {
             <Icon size={18} />
             <span className="tool-tooltip" role="tooltip" aria-hidden="true">
               {t(labelKey)}
-              <kbd>{shortcut}</kbd>
+              <Kbd>{shortcut}</Kbd>
             </span>
           </button>
         );

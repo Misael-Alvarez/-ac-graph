@@ -4,7 +4,9 @@ import type { Connector, EdgeMeta } from '@/lib/domain';
 import { protocolLabel } from '@/lib/editor/meta';
 import { ConnectorIcon, TrashIcon } from '@/components/icons/ToolIcons';
 import { useEditor } from '../../EditorProvider';
-import { ChoiceField, DATA_CLASSES, EDGE_KINDS, Field, PROTOCOLS, Section } from './fields';
+import { Field } from '@/components/ui/Field';
+import { Section } from '@/components/ui/Section';
+import { ChoiceField, DATA_CLASSES, EDGE_KINDS, PROTOCOLS } from './fields';
 
 /**
  * The inspector for a connection: what it is called, how it is drawn, and what

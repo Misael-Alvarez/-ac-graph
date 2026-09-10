@@ -6,6 +6,9 @@ import type { MessageKey } from '@/lib/i18n/messages';
 import { ACCEPTED_ICON_TYPES, readIconFile, type IconFileResult } from '@/lib/icons/customIcons';
 import { ICON_LIBRARY_KEY, readIconLibrary } from '@/lib/icons/iconLibrary';
 import { ImportIcon, PlusIcon, TrashIcon } from '@/components/icons/ToolIcons';
+import { Field } from '@/components/ui/Field';
+import { GroupHeader } from '@/components/ui/GroupHeader';
+import { Tile } from '@/components/ui/Tile';
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
@@ -99,34 +102,42 @@ export function MineSection({
   if (!icons.length && !showUpload) return null;
   return (
     <section className="icon-picker-section is-mine">
-      <div className="icon-picker-section-header group-header">
+      <GroupHeader
+        className="icon-picker-section-header"
+        count={icons.length}
+        countClassName="icon-picker-section-count"
+      >
         {t('icons.mineTitle')}
-        <span className="icon-picker-section-count group-count">{icons.length}</span>
-      </div>
+      </GroupHeader>
       <ul className="icon-picker-grid">
         {showUpload && (
           <li>
-            <button type="button" className="icon-picker-tile is-upload" onClick={onUpload}>
-              <span className="icon-picker-upload-mark" aria-hidden="true">
-                <PlusIcon size={16} />
-              </span>
-              <span className="icon-picker-tile-label">{t('icons.upload')}</span>
-            </button>
+            <Tile
+              className="icon-picker-tile"
+              modifier="is-upload"
+              onClick={onUpload}
+              icon={
+                <span className="icon-picker-upload-mark" aria-hidden="true">
+                  <PlusIcon size={16} />
+                </span>
+              }
+              label={t('icons.upload')}
+              labelClassName="icon-picker-tile-label"
+            />
           </li>
         )}
         {icons.map((icon) => (
           <li key={icon.key} className="icon-picker-mine-cell">
-            <button
-              type="button"
-              data-key={icon.key}
-              className={`icon-picker-tile${icon.key === value ? ' is-current' : ''}`}
-              aria-pressed={icon.key === value}
+            <Tile
+              className="icon-picker-tile"
+              dataKey={icon.key}
+              current={icon.key === value}
               title={[icon.description, icon.source].filter(Boolean).join(' · ') || icon.name}
               onClick={() => onPick(icon)}
-            >
-              <CustomGlyph icon={icon} className="icon-picker-tile-icon" />
-              <span className="icon-picker-tile-label">{icon.name}</span>
-            </button>
+              icon={<CustomGlyph icon={icon} className="icon-picker-tile-icon" />}
+              label={icon.name}
+              labelClassName="icon-picker-tile-label"
+            />
             <button
               type="button"
               className="icon-picker-remove"
@@ -228,7 +239,9 @@ export function UploadForm({
       }}
     >
       <div className="icon-upload-head">
-        <span className="icon-picker-section-header group-header">{t('icons.upload')}</span>
+        <GroupHeader as="span" className="icon-picker-section-header">
+          {t('icons.upload')}
+        </GroupHeader>
         <button type="button" className="button is-small" onClick={onCancel}>
           {t('icons.cancel')}
         </button>
@@ -250,8 +263,7 @@ export function UploadForm({
         </span>
       </label>
 
-      <label className="inspector-field">
-        <span className="inspector-field-label">{t('icons.name')}</span>
+      <Field label={t('icons.name')}>
         <input
           className="input"
           value={name}
@@ -259,9 +271,8 @@ export function UploadForm({
           placeholder={t('icons.namePlaceholder')}
           onChange={(e) => setName(e.target.value)}
         />
-      </label>
-      <label className="inspector-field">
-        <span className="inspector-field-label">{t('icons.description')}</span>
+      </Field>
+      <Field label={t('icons.description')}>
         <input
           className="input"
           value={description}
@@ -269,10 +280,9 @@ export function UploadForm({
           placeholder={t('icons.descriptionPlaceholder')}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </label>
+      </Field>
       <div className="icon-upload-row">
-        <label className="inspector-field">
-          <span className="inspector-field-label">{t('icons.source')}</span>
+        <Field label={t('icons.source')}>
           <input
             className="input"
             value={source}
@@ -280,16 +290,15 @@ export function UploadForm({
             placeholder={t('icons.sourcePlaceholder')}
             onChange={(e) => setSource(e.target.value)}
           />
-        </label>
-        <label className="inspector-field">
-          <span className="inspector-field-label">{t('icons.tags')}</span>
+        </Field>
+        <Field label={t('icons.tags')}>
           <input
             className="input"
             value={tags}
             placeholder={t('icons.tagsPlaceholder')}
             onChange={(e) => setTags(e.target.value)}
           />
-        </label>
+        </Field>
       </div>
 
       {error && (

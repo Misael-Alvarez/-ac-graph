@@ -9,7 +9,11 @@ import { useEditor } from '../EditorProvider';
 import { serviceDescription, serviceDescriptions } from '@/lib/i18n/serviceCopy';
 import { useCommands, type Command } from '../hooks/useCommands';
 import { SearchIcon } from '@/components/icons/ToolIcons';
+import { GroupHeader } from '@/components/ui/GroupHeader';
+import { Kbd } from '@/components/ui/Kbd';
 import { PanelHead } from '@/components/ui/PanelHead';
+import { Row } from '@/components/ui/Row';
+import { SpriteIcon } from '@/components/ui/Tile';
 import { Glyph } from '@/components/icons/Glyph';
 
 type Row =
@@ -173,54 +177,54 @@ function PaletteContents() {
           {rows.map((row, index) => (
             <div key={row.kind === 'command' ? row.command.id : row.key}>
               {index === 0 && row.kind === 'command' && (
-                <p className="palette-group group-header">
+                <GroupHeader as="p" className="palette-group" count={commandCount}>
                   {t('palette.commands')}
-                  <span className="group-count">{commandCount}</span>
-                </p>
+                </GroupHeader>
               )}
               {index === firstServiceIndex && (
-                <p className="palette-group group-header">
+                <GroupHeader as="p" className="palette-group" count={rows.length - commandCount}>
                   {t('palette.services')}
-                  <span className="group-count">{rows.length - commandCount}</span>
-                </p>
+                </GroupHeader>
               )}
-              <button
-                type="button"
+              <Row
+                className="palette-row"
+                active={index === active}
+                index={index}
                 id={`palette-row-${index}`}
                 data-index={index}
                 role="option"
                 aria-selected={index === active}
-                className={`palette-row${index === active ? ' is-active' : ''}`}
-                style={{ '--i': index } as React.CSSProperties}
                 // pointermove, not pointerenter: a stationary cursor that the
                 // list happens to open under would otherwise steal the selection,
                 // so a blind Enter could fire whatever sat beneath it.
                 onPointerMove={() => setActiveIndex(index)}
                 onClick={() => run(row)}
-              >
-                {row.kind === 'service' ? (
-                  <>
-                    <svg className="palette-icon" viewBox="0 0 24 24" aria-hidden="true">
-                      <use href={`#i-${row.key}`} width={24} height={24} />
-                    </svg>
-                    <span className="palette-label">{row.label}</span>
+                icon={
+                  row.kind === 'service' ? (
+                    <SpriteIcon serviceKey={row.key} className="palette-icon" />
+                  ) : (
+                    <span className="palette-icon" aria-hidden="true">
+                      <Glyph name={row.command.icon} size={17} />
+                    </span>
+                  )
+                }
+                meta={
+                  row.kind === 'service' ? (
                     <span className="palette-meta">
                       {CATEGORY_LABELS[row.category as keyof typeof CATEGORY_LABELS] ??
                         row.category}
                     </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="palette-icon" aria-hidden="true">
-                      <Glyph name={row.command.icon} size={17} />
-                    </span>
-                    <span className="palette-label">{row.command.label}</span>
-                    {row.command.shortcut && (
-                      <kbd className="palette-meta">{row.command.shortcut}</kbd>
-                    )}
-                  </>
-                )}
-              </button>
+                  ) : (
+                    row.command.shortcut && (
+                      <Kbd className="palette-meta">{row.command.shortcut}</Kbd>
+                    )
+                  )
+                }
+              >
+                <span className="palette-label">
+                  {row.kind === 'service' ? row.label : row.command.label}
+                </span>
+              </Row>
             </div>
           ))}
         </div>
@@ -228,16 +232,16 @@ function PaletteContents() {
         {/* The list has always answered to these keys; nothing said so. */}
         <footer className="palette-footer">
           <span>
-            <kbd>↑</kbd>
-            <kbd>↓</kbd>
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
             {t('palette.hintMove')}
           </span>
           <span>
-            <kbd>↵</kbd>
+            <Kbd>↵</Kbd>
             {t('palette.hintRun')}
           </span>
           <span>
-            <kbd>esc</kbd>
+            <Kbd>esc</Kbd>
             {t('palette.hintClose')}
           </span>
           <span className="palette-footer-count">{t('palette.count', { count: rows.length })}</span>

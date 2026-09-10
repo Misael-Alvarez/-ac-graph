@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 cerrado y las diez victorias rápidas del plan de mejoras en `origin/main`; árbol limpio).
+Última actualización: 2026-09-10 (H1 cerrado del todo, incluida la fase 2 de componentes de sistema, pendiente de commit; victorias rápidas en `origin/main`).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` en `b195b01` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `b195b01`. Commits de esta etapa, por tema:
+- **Estado del árbol:** HEAD `e2fcc1d` con **H1 #2 fase 2 sin confirmar**: `src/components/ui/{Kbd,SearchField,Chip,GroupHeader,Tile,Row,Field,Section}.tsx` + `ui.test.ts`; explorador, selector (+`CustomIcons`), paleta, historial, análisis, menús, contextual, atajos, dock, estado vacío, biblioteca e inspector migrados; `TopBar.tsx` partido en `ExportMenu/MoreMenu/AccountMenu` (+`menuProps.ts`); `Library.tsx` partido en `LibraryHeader/LibraryHero/LibraryToolbar/DiagramCard/TemplateGallery`. `styles:compare` = 0 diferencias. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -23,6 +23,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `9db935a` — Let replicas share the room: presence and events over LISTEN/NOTIFY
   - `c3afefa` — Decide who is in: owners, editors and viewers per diagram
   - `b195b01` — Seven small things the plan had waiting
+  - `e2fcc1d` — Record where the work stands after the quick wins
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -100,6 +101,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - **Deshacer:** ráfagas coalescidas (`coalesceKey`), Cmd+Z desde campos cae al dibujo, historial vacío avisa. No romperlo.
 - **Iconos propios** viven en el navegador y se **embeben en el documento** al usarse (`model.customIcons`), para que enlaces y exportaciones los lleven.
 - **CSS:** un solo `globals.css` en orden de cascada; cada selector una vez salvo los _cascade-pinned_ (comentados). **No añadir capas de sobrescritura al final**; cambiar la regla donde está y verificar con `styles:compare`.
+- **Componentes de sistema (`src/components/ui/`):** `PanelHead`, `SearchField`, `Chip`/`ChipRow`, `GroupHeader`, `Tile` (+`SpriteIcon`), `Row`, `Field`/`NumberField`, `Section`, `Kbd`. Una fila, tesela, chip o cabecera nueva se hace con ellos; las clases propias de la superficie van por props (`className`, `labelClassName`, `countClassName`) porque el CSS y las pruebas las nombran. `ui.test.ts` fija el HTML exacto: si cambia el marcado, cambia el test a conciencia y se pasa `styles:compare`. La instantánea de estilos identifica cada elemento por etiqueta + clases + posición: no envolver en nodos nuevos.
 - **Tokens:** `tokens.ts` ↔ `globals.css` en paridad (test). Acento por tono (`data-accent`): violeta AION, índigo, grafito, océano, rosa.
 - **Tipografía:** Geist / Geist Mono autoalojadas. Paleta pizarra-azul (`#0b1020 / #121a2e / #1a2440`).
 - **Movimiento:** lo que abre el teclado no se anima (paleta ⌘K); popovers crecen desde su disparador; tooltips propios (instantáneos entre vecinos, nunca repiten la etiqueta visible); todo sobre transform/opacity; apagado con `prefers-reduced-motion`; materiales respetan `prefers-reduced-transparency` y `prefers-contrast`. **Salidas**: todo lo que entra animado sale animado y más corto (diálogos 140 ms, menús/popovers 120 ms, toast 180 ms) con `usePresence` + keyframes `*-out`; al añadir una superficie nueva, envolver su estado de apertura con `usePresence` y usar `presence.key` para que reabrir empiece limpio.
@@ -119,7 +121,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Azure y OCI sin iconos oficiales (313/572) — H2 #15.
 - Etiquetas de conector centradas en el segmento más largo; pueden pisar un borde de grupo — H2 #11.
 - Métricas por proceso (Prometheus agrega por `instance`); sin alertas ni envío a colector (decisión del operador). Las rutas de IA no llevan `code` en la línea de acceso (responden con `NextResponse.json` propio).
-- La homologación visual vive en CSS + `PanelHead`; faltan `Row/Tile/Field` como componentes — H1 #2 fase 2.
+- La paleta ⌘K conserva su búsqueda propia (`palette-search`) y el menú contextual su fila (`context-menu-item`): unificarlos con `SearchField`/`MenuItem` cambiaría el DOM. `useCommands.ts` (~300 líneas) sigue siendo un solo hook.
 - E2E: 1 spec de biblioteca puede fallar en paralelo por IndexedDB compartido (pasa aislado); ver `PLAN_MEJORAS.md` H1 #3 (aislar por worker sigue pendiente aunque el falso intermitente se corrigió).
 
 ## 7. Dónde está cada cosa (mapa rápido)
@@ -128,20 +130,21 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Reducer e historial: `src/lib/editor/reducer.ts`, `actions.ts` (`coalesceKey`), `uiState.ts` (paneles, menú, acento, find).
 - Guardado: `src/lib/store/{saveCoordinator,draftJournal,draftSession,localRepository,httpRepository}.ts`; `useDiagramDocument.ts`.
 - Lienzo: `src/components/editor/canvas/` (`Canvas.tsx` encuadre y cámara que se desliza, `ConnectorLayer.tsx`, `shapes/`, `Defs.tsx`); metadatos → marcas: `src/lib/editor/meta.ts`.
-- Chrome: `src/components/editor/chrome/` (`TopBar`, `ToolDock`, `InspectorPanel` + `inspector/`, `ServiceBrowser`, `IconPicker`, `CustomIcons`, `CommandPalette`, `FindBar`, `VersionPanel`, `InsightsPanel`, `Minimap`, `Modals`); componentes de sistema en `src/components/ui/`.
+- Chrome: `src/components/editor/chrome/` (`TopBar` + `ExportMenu`/`MoreMenu`/`AccountMenu`/`menuProps.ts`, `ToolDock`, `InspectorPanel` + `inspector/`, `ServiceBrowser`, `IconPicker`, `CustomIcons`, `CommandPalette`, `FindBar`, `VersionPanel`, `InsightsPanel`, `Minimap`, `Modals`); componentes de sistema en `src/components/ui/`.
 - Iconos propios: `src/lib/icons/{customIcons,iconLibrary}.ts`.
-- Portada: `src/components/library/Library.tsx` (+ `CountUp`), vista previa real `src/lib/store/preview.ts`.
+- Portada: `src/components/library/Library.tsx` (estado y composición) + `LibraryHeader`, `LibraryHero`, `LibraryToolbar` (exporta `FAVOURITES`/`NO_FOLDER`), `DiagramCard`, `TemplateGallery` (exporta `TemplatePreview`), `WorkspaceActions`, `CountUp`; vista previa real `src/lib/store/preview.ts`.
 - App: `src/components/app/` (providers, tooltips, ripple, tema, `PageState` para 404/error).
 - Victorias rápidas: `src/lib/editor/describe.ts` (descripción accesible), `src/lib/editor/usePresence.ts` (salidas), `src/lib/library/{prefs,dropImport}.ts` (orden/favoritos, soltar archivo), `repositoryUrl`/`stripMetadata` en `src/lib/editor/meta.ts`, `exportTheme`/`exportMeta` en `uiState.ts`.
 - Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica). Roles: `src/server/diagrams/{repository,errors,schemas}.ts`, rutas `src/app/api/diagrams/[id]/members/**`, cliente `src/lib/store/httpRepository.ts` (`MembersApi`), solo lectura `src/lib/editor/readOnly.ts` + `readOnly` en `EditorProvider`, UI `ShareDialog.tsx` (`SharePeople`) y `Library.tsx`.
 - Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
 - Herramientas: `scripts/{audit-controls,audit-roles,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1139; 1196 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (136 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
+- Pruebas: `src/**/*.test.ts` (1155; 1212 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (136 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. Seguir por `PLAN_MEJORAS.md`: H1 #2 fase 2 (`Row/Tile/Field` como componentes y migrar las seis superficies; partir `TopBar.tsx` y `Library.tsx`), después H2 (#9 comentarios anclados, #10 presentación, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias, que ya puede apoyarse en los roles).
+1. **Confirmar H1 #2 fase 2** en un commit y `git push`; reconstruir la imagen Docker local.
+2. **H1 cerrado del todo.** Seguir por `PLAN_MEJORAS.md` con H2: #10 presentación (M), #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

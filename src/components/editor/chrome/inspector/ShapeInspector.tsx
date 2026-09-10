@@ -8,16 +8,15 @@ import { CLOUD_KEY_PREFIX } from '@/lib/editor/providers';
 import { TrashIcon } from '@/components/icons/ToolIcons';
 import { useEditor } from '../../EditorProvider';
 import { IconPicker } from '../IconPicker';
+import { Field, NumberField } from '@/components/ui/Field';
+import { Section } from '@/components/ui/Section';
 import {
   ChoiceField,
   CRITICALITIES,
   ENVIRONMENTS,
-  Field,
   FillField,
   FillPresets,
   LIFECYCLES,
-  NumberField,
-  Section,
 } from './fields';
 import { ShapeHero, shapeTypeKey } from './ShapeHero';
 

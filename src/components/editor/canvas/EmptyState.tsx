@@ -4,6 +4,7 @@ import { AcMark } from '@/components/brand/AcGraphLogo';
 import { useEditor } from '../EditorProvider';
 import { ImportIcon, SearchIcon, TemplateIcon } from '@/components/icons/ToolIcons';
 import { shortcut } from '@/lib/editor/platform';
+import { Kbd } from '@/components/ui/Kbd';
 
 /** Shown on a blank canvas: three ways to start, each one clickable. */
 export function EmptyState() {
@@ -30,7 +31,7 @@ export function EmptyState() {
           </span>
           {t('canvas.empty.search')}
           <small>{t('canvas.empty.searchHint')}</small>
-          <kbd>{shortcut('K')}</kbd>
+          <Kbd>{shortcut('K')}</Kbd>
         </button>
         <button
           type="button"

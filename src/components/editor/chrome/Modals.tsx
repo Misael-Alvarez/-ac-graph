@@ -13,6 +13,8 @@ import { providerColors } from '@/lib/design/tokens';
 import { useEditor } from '../EditorProvider';
 import { SHORTCUT_GROUPS } from '../hooks/useKeyboard';
 import { CloseIcon } from '@/components/icons/ToolIcons';
+import { GroupHeader } from '@/components/ui/GroupHeader';
+import { Kbd } from '@/components/ui/Kbd';
 import { Glyph } from '@/components/icons/Glyph';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { spellChord } from '@/lib/editor/platform';
@@ -209,14 +211,13 @@ export function Modals() {
         <div className="shortcut-groups">
           {SHORTCUT_GROUPS.map((group) => (
             <div key={group.titleKey} className="shortcut-group">
-              <h3 className="shortcut-group-title group-header">
+              <GroupHeader as="h3" className="shortcut-group-title" count={group.items.length}>
                 {t(group.titleKey)}
-                <span className="group-count">{group.items.length}</span>
-              </h3>
+              </GroupHeader>
               {group.items.map((item) => (
                 <div key={item.id} className="shortcut-row">
                   {/* Spelled for the platform the reader is on: ⌘⇧S or Ctrl+Shift+S. */}
-                  <kbd>{spellChord(item.keys)}</kbd>
+                  <Kbd>{spellChord(item.keys)}</Kbd>
                   <span>{t(item.labelKey)}</span>
                 </div>
               ))}

@@ -7,6 +7,7 @@ import { shortcut } from '@/lib/editor/platform';
 import { useEditor } from '../EditorProvider';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { exitProps, usePresence } from '@/lib/editor/usePresence';
+import { Kbd } from '@/components/ui/Kbd';
 
 interface Entry {
   id: string;
@@ -243,7 +244,7 @@ export function ContextMenu() {
             }}
           >
             <span>{t(row.labelKey)}</span>
-            {row.shortcut && <kbd>{row.shortcut}</kbd>}
+            {row.shortcut && <Kbd>{row.shortcut}</Kbd>}
           </button>
         ),
       )}

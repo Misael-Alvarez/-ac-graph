@@ -10,7 +10,9 @@ import {
 import { centerOn } from '@/lib/editor/viewport';
 import { checkRules } from '@/lib/rules';
 import { useEditor } from '../EditorProvider';
+import { GroupHeader } from '@/components/ui/GroupHeader';
 import { PanelHead } from '@/components/ui/PanelHead';
+import { Row } from '@/components/ui/Row';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
 
 /**
@@ -82,20 +84,20 @@ export function InsightsPanel({ size }: { size: { width: number; height: number 
             and an observation is one nobody has decided about yet. */}
         {rules.violations.length > 0 && (
           <section className="insight-group">
-            <header className="group-header is-high">
-              {/* The badge carries the count; repeating it in the label reads
-                  like a stutter. The CLI, which has no badge, says it in words. */}
+            {/* The badge carries the count; repeating it in the label reads
+                like a stutter. The CLI, which has no badge, says it in words. */}
+            <GroupHeader as="header" modifier="is-high" count={rules.violations.length}>
               {t('rules.broken')}
-              <span className="group-count">{rules.violations.length}</span>
-            </header>
+            </GroupHeader>
             {rules.violations.map((violation) => (
-              <button
+              <Row
                 key={`${violation.ruleId}:${violation.subject}`}
-                type="button"
                 className="insight-row"
                 onClick={() => reveal(violation)}
+                icon={
+                  <span className={`insight-dot is-${violation.severity}`} aria-hidden="true" />
+                }
               >
-                <span className={`insight-dot is-${violation.severity}`} aria-hidden="true" />
                 <span className="insight-text">
                   <b>
                     {violation.subject}
@@ -103,29 +105,27 @@ export function InsightsPanel({ size }: { size: { width: number; height: number 
                   </b>
                   <small className="insight-rule">{violation.description}</small>
                 </span>
-              </button>
+              </Row>
             ))}
           </section>
         )}
 
         {groups.map((group) => (
           <section key={group.severity} className="insight-group">
-            <header className={`group-header is-${group.severity}`}>
+            <GroupHeader as="header" modifier={`is-${group.severity}`} count={group.items.length}>
               {t(SEVERITY_LABEL[group.severity])}
-              <span className="group-count">{group.items.length}</span>
-            </header>
+            </GroupHeader>
             {group.items.map((finding) => (
-              <button
+              <Row
                 key={finding.id}
-                type="button"
                 className="insight-row"
                 onClick={() => reveal(finding)}
+                icon={<span className={`insight-dot is-${finding.severity}`} aria-hidden="true" />}
               >
-                <span className={`insight-dot is-${finding.severity}`} aria-hidden="true" />
                 <span className="insight-text">
                   {t(FINDING_HEADLINE[finding.kind], finding.detail)}
                 </span>
-              </button>
+              </Row>
             ))}
           </section>
         ))}

@@ -8,8 +8,12 @@ import { serviceDescription } from '@/lib/i18n/serviceCopy';
 import { useEditor } from '../EditorProvider';
 import { useCommands } from '../hooks/useCommands';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
-import { CloseIcon, SearchIcon } from '@/components/icons/ToolIcons';
+import { CloseIcon } from '@/components/icons/ToolIcons';
+import { Chip, ChipRow } from '@/components/ui/Chip';
+import { GroupHeader } from '@/components/ui/GroupHeader';
 import { PanelHead } from '@/components/ui/PanelHead';
+import { SearchField } from '@/components/ui/SearchField';
+import { SpriteIcon, Tile } from '@/components/ui/Tile';
 import type { CustomIcon } from '@/lib/domain';
 import { customIconMatches } from '@/lib/icons/customIcons';
 import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
@@ -72,60 +76,59 @@ export function ServiceBrowser() {
         onClose={() => dispatchUi({ type: 'toggleBrowser' })}
       />
 
-      <div className="browser-search filter-field">
-        <SearchIcon size={14} />
-        <input
-          className="browser-search-input filter-input"
-          placeholder={t('browser.search')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button
-            type="button"
-            className="icon-button"
-            title={t('browser.clearSearch')}
-            aria-label={t('browser.clearSearch')}
-            onClick={() => setQuery('')}
-          >
-            <CloseIcon size={12} />
-          </button>
-        )}
-      </div>
+      <SearchField
+        className="browser-search"
+        inputClassName="browser-search-input"
+        placeholder={t('browser.search')}
+        value={query}
+        onChange={setQuery}
+        trailing={
+          query && (
+            <button
+              type="button"
+              className="icon-button"
+              title={t('browser.clearSearch')}
+              aria-label={t('browser.clearSearch')}
+              onClick={() => setQuery('')}
+            >
+              <CloseIcon size={12} />
+            </button>
+          )
+        }
+      />
 
       {!catalog.searching && (
-        <div className="browser-clouds chip-row" role="tablist" aria-label={t('browser.title')}>
+        <ChipRow className="browser-clouds" tabs label={t('browser.title')}>
           {CLOUD_ORDER.map((id) => (
-            <button
+            <Chip
               key={id}
-              type="button"
               role="tab"
-              aria-selected={cloud === id}
-              className={`browser-cloud chip${cloud === id ? ' is-active' : ''}`}
+              className="browser-cloud"
+              active={cloud === id}
               title={CATEGORY_LABELS[id]}
-              style={{ '--cloud-color': CATEGORY_COLORS[id] } as React.CSSProperties}
+              color={CATEGORY_COLORS[id]}
+              dotClassName="browser-cloud-dot"
+              count={SERVICES_PER_CLOUD.get(id) ?? 0}
+              countClassName="browser-cloud-count"
               onClick={() => setCloud(id)}
             >
-              <span className="browser-cloud-dot chip-dot" />
               {CATEGORY_SHORT_LABELS[id] ?? CATEGORY_LABELS[id]}
-              <span className="browser-cloud-count chip-count">
-                {SERVICES_PER_CLOUD.get(id) ?? 0}
-              </span>
-            </button>
+            </Chip>
           ))}
-          <button
-            type="button"
+          <Chip
             role="tab"
-            aria-selected={cloud === MINE}
-            className={`browser-cloud chip is-mine${cloud === MINE ? ' is-active' : ''}`}
+            className="browser-cloud"
+            modifier="is-mine"
+            active={cloud === MINE}
             title={t('icons.mineTitle')}
+            dotClassName="browser-cloud-dot"
+            count={mine.length}
+            countClassName="browser-cloud-count"
             onClick={() => setCloud(MINE)}
           >
-            <span className="browser-cloud-dot chip-dot" />
             {t('icons.mine')}
-            <span className="browser-cloud-count chip-count">{mine.length}</span>
-          </button>
-        </div>
+          </Chip>
+        </ChipRow>
       )}
 
       <div className="browser-list">
@@ -146,45 +149,47 @@ export function ServiceBrowser() {
 
         {!uploading && showMine && (
           <section className="browser-section is-mine">
-            <div className="browser-section-header group-header">
+            <GroupHeader
+              className="browser-section-header"
+              count={mineMatches.length}
+              countClassName="browser-section-count"
+            >
               {t('icons.mineTitle')}
-              <span className="browser-section-count group-count">{mineMatches.length}</span>
-            </div>
+            </GroupHeader>
             <ul className="browser-grid">
               {!catalog.searching && (
                 <li>
-                  <button
-                    type="button"
-                    className="browser-tile is-upload"
+                  <Tile
+                    className="browser-tile"
+                    modifier="is-upload"
                     onClick={() => setUploading(true)}
-                  >
-                    <span className="browser-tile-icon is-upload" aria-hidden="true">
-                      +
-                    </span>
-                    <span className="browser-tile-label">{t('icons.upload')}</span>
-                    <span className="browser-tile-cloud">{t('icons.uploadHint')}</span>
-                  </button>
+                    icon={
+                      <span className="browser-tile-icon is-upload" aria-hidden="true">
+                        +
+                      </span>
+                    }
+                    label={t('icons.upload')}
+                    labelClassName="browser-tile-label"
+                    meta={<span className="browser-tile-cloud">{t('icons.uploadHint')}</span>}
+                  />
                 </li>
               )}
               {mineMatches.map((icon: CustomIcon) => (
                 <li key={icon.key} className="browser-mine-row">
-                  <button
-                    type="button"
+                  <Tile
                     className="browser-tile"
                     title={[icon.description, icon.source].filter(Boolean).join(' · ') || icon.name}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', icon.key);
-                      e.dataTransfer.effectAllowed = 'copy';
-                    }}
+                    dragKey={icon.key}
                     onClick={() => commands.addCustomService(icon)}
-                  >
-                    <CustomGlyph icon={icon} className="browser-tile-icon" />
-                    <span className="browser-tile-label">{icon.name}</span>
-                    <span className="browser-tile-cloud">
-                      {icon.source ?? t('icons.customBadge')}
-                    </span>
-                  </button>
+                    icon={<CustomGlyph icon={icon} className="browser-tile-icon" />}
+                    label={icon.name}
+                    labelClassName="browser-tile-label"
+                    meta={
+                      <span className="browser-tile-cloud">
+                        {icon.source ?? t('icons.customBadge')}
+                      </span>
+                    }
+                  />
                   <button
                     type="button"
                     className="icon-button browser-mine-remove"
@@ -213,45 +218,36 @@ export function ServiceBrowser() {
           const isCollapsed = !catalog.searching && collapsed.has(section.id);
           return (
             <section key={section.id} className="browser-section">
-              <button
-                type="button"
-                className="browser-section-header group-header"
-                aria-expanded={!isCollapsed}
-                onClick={() => toggleSection(section.id)}
+              <GroupHeader
+                className="browser-section-header"
+                open={!isCollapsed}
+                onToggle={() => toggleSection(section.id)}
+                count={section.services.length}
+                countClassName="browser-section-count"
               >
-                <span
-                  className={`inspector-chevron${isCollapsed ? '' : ' is-open'}`}
-                  aria-hidden="true"
-                />
                 {section.label}
-                <span className="browser-section-count group-count">{section.services.length}</span>
-              </button>
+              </GroupHeader>
 
               {!isCollapsed && (
                 <ul className="browser-grid">
                   {section.services.map((service) => (
                     <li key={service.key}>
-                      <button
-                        type="button"
+                      <Tile
                         className="browser-tile"
                         title={serviceDescription(service, ui.locale) || service.label}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', service.key);
-                          e.dataTransfer.effectAllowed = 'copy';
-                        }}
+                        dragKey={service.key}
                         onClick={() => commands.addService(service)}
-                      >
-                        <svg className="browser-tile-icon" viewBox="0 0 24 24" aria-hidden="true">
-                          <use href={`#i-${service.key}`} width={24} height={24} />
-                        </svg>
-                        <span className="browser-tile-label">{service.label}</span>
-                        {catalog.searching && (
-                          <span className="browser-tile-cloud">
-                            {CATEGORY_LABELS[service.category]}
-                          </span>
-                        )}
-                      </button>
+                        icon={<SpriteIcon serviceKey={service.key} className="browser-tile-icon" />}
+                        label={service.label}
+                        labelClassName="browser-tile-label"
+                        meta={
+                          catalog.searching && (
+                            <span className="browser-tile-cloud">
+                              {CATEGORY_LABELS[service.category]}
+                            </span>
+                          )
+                        }
+                      />
                     </li>
                   ))}
                 </ul>

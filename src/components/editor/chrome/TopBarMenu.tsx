@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { exitProps } from '@/lib/editor/usePresence';
+import { Kbd } from '@/components/ui/Kbd';
 
 /**
  * A menu hanging from a top bar control.
@@ -116,7 +117,7 @@ export function MenuItem({
         <span>{label}</span>
         {hint ? <small>{hint}</small> : null}
       </span>
-      {shortcut ? <kbd>{shortcut}</kbd> : null}
+      {shortcut ? <Kbd>{shortcut}</Kbd> : null}
     </button>
   );
 }

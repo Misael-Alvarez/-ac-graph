@@ -17,7 +17,11 @@ import type { Locale, MessageKey } from '@/lib/i18n/messages';
 import type { CustomIcon } from '@/lib/domain';
 import { customIconMatches } from '@/lib/icons/customIcons';
 import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
-import { ChevronDownIcon, CloseIcon, SearchIcon } from '@/components/icons/ToolIcons';
+import { ChevronDownIcon, CloseIcon } from '@/components/icons/ToolIcons';
+import { Chip, ChipRow } from '@/components/ui/Chip';
+import { GroupHeader } from '@/components/ui/GroupHeader';
+import { SearchField } from '@/components/ui/SearchField';
+import { SpriteIcon, Tile } from '@/components/ui/Tile';
 import { CustomGlyph, MineSection, UploadForm, useIconLibrary } from './CustomIcons';
 
 /** Clouds in the order they are offered, matching the service browser. */
@@ -313,65 +317,60 @@ function Popover({
       inert={closing || undefined}
       {...exitProps(closing, onExited)}
     >
-      <div className="icon-picker-search filter-field">
-        <SearchIcon size={14} />
-        <input
-          ref={searchRef}
-          className="icon-picker-search-input filter-input"
-          placeholder={t('browser.search')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t('modal.close')}
-          onClick={onClose}
-        >
-          <CloseIcon size={13} />
-        </button>
-      </div>
+      <SearchField
+        className="icon-picker-search"
+        inputClassName="icon-picker-search-input"
+        inputRef={searchRef}
+        placeholder={t('browser.search')}
+        value={query}
+        onChange={setQuery}
+        trailing={
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t('modal.close')}
+            onClick={onClose}
+          >
+            <CloseIcon size={13} />
+          </button>
+        }
+      />
 
       {!catalog.searching && (
-        <div
-          className="icon-picker-clouds chip-row"
-          role="tablist"
-          aria-label={t('inspector.cloud')}
-        >
+        <ChipRow className="icon-picker-clouds" tabs label={t('inspector.cloud')}>
           {CLOUD_ORDER.map((id) => (
-            <button
+            <Chip
               key={id}
-              type="button"
               role="tab"
-              aria-selected={cloud === id}
-              className={`icon-picker-cloud chip${cloud === id ? ' is-active' : ''}`}
+              className="icon-picker-cloud"
+              active={cloud === id}
               title={CATEGORY_LABELS[id]}
-              style={{ '--cloud-color': CATEGORY_COLORS[id] } as React.CSSProperties}
+              color={CATEGORY_COLORS[id]}
+              dotClassName="icon-picker-cloud-dot"
+              count={SERVICES_PER_CLOUD.get(id) ?? 0}
+              countClassName="icon-picker-cloud-count"
               onClick={() => {
                 setCloud(id);
                 setUploading(false);
               }}
             >
-              <span className="icon-picker-cloud-dot chip-dot" />
               {CATEGORY_SHORT_LABELS[id] ?? CATEGORY_LABELS[id]}
-              <span className="icon-picker-cloud-count chip-count">
-                {SERVICES_PER_CLOUD.get(id) ?? 0}
-              </span>
-            </button>
+            </Chip>
           ))}
-          <button
-            type="button"
+          <Chip
             role="tab"
-            aria-selected={cloud === MINE}
-            className={`icon-picker-cloud chip is-mine${cloud === MINE ? ' is-active' : ''}`}
+            className="icon-picker-cloud"
+            modifier="is-mine"
+            active={cloud === MINE}
             title={t('icons.mineTitle')}
+            dotClassName="icon-picker-cloud-dot"
+            count={mine.length}
+            countClassName="icon-picker-cloud-count"
             onClick={() => setCloud(MINE)}
           >
-            <span className="icon-picker-cloud-dot chip-dot" />
             {t('icons.mine')}
-            <span className="icon-picker-cloud-count chip-count">{mine.length}</span>
-          </button>
-        </div>
+          </Chip>
+        </ChipRow>
       )}
 
       <div className="icon-picker-list" ref={listRef}>
@@ -414,58 +413,52 @@ function Popover({
             const isCollapsed = !catalog.searching && collapsed.has(section.id);
             return (
               <section key={section.id} className="icon-picker-section">
-                <button
-                  type="button"
-                  className="icon-picker-section-header group-header"
-                  aria-expanded={!isCollapsed}
-                  onClick={() => toggleSection(section.id)}
+                <GroupHeader
+                  className="icon-picker-section-header"
+                  open={!isCollapsed}
+                  onToggle={() => toggleSection(section.id)}
+                  count={section.services.length}
+                  countClassName="icon-picker-section-count"
                 >
-                  <span
-                    className={`inspector-chevron${isCollapsed ? '' : ' is-open'}`}
-                    aria-hidden="true"
-                  />
                   {section.label}
-                  <span className="icon-picker-section-count group-count">
-                    {section.services.length}
-                  </span>
-                </button>
+                </GroupHeader>
 
                 {!isCollapsed && (
                   <ul className="icon-picker-grid">
                     {section.services.map((service) => (
                       <li key={service.key}>
-                        <button
-                          type="button"
-                          data-key={service.key}
-                          className={`icon-picker-tile${service.key === value ? ' is-current' : ''}`}
-                          aria-pressed={service.key === value}
+                        <Tile
+                          className="icon-picker-tile"
+                          dataKey={service.key}
+                          current={service.key === value}
                           title={
                             catalog.searching
                               ? `${service.label} · ${CATEGORY_LABELS[service.category]}`
                               : serviceDescription(service, locale) || service.label
                           }
                           onClick={() => onPick(service.key)}
-                        >
-                          <svg
-                            className="icon-picker-tile-icon"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <use href={`#i-${service.key}`} width={24} height={24} />
-                          </svg>
-                          {catalog.searching && (
-                            <span
-                              className="icon-picker-tile-cloud"
-                              style={
-                                {
-                                  '--cloud-color': CATEGORY_COLORS[service.category],
-                                } as React.CSSProperties
-                              }
-                              aria-hidden="true"
+                          icon={
+                            <SpriteIcon
+                              serviceKey={service.key}
+                              className="icon-picker-tile-icon"
                             />
-                          )}
-                          <span className="icon-picker-tile-label">{service.label}</span>
-                        </button>
+                          }
+                          marker={
+                            catalog.searching && (
+                              <span
+                                className="icon-picker-tile-cloud"
+                                style={
+                                  {
+                                    '--cloud-color': CATEGORY_COLORS[service.category],
+                                  } as React.CSSProperties
+                                }
+                                aria-hidden="true"
+                              />
+                            )
+                          }
+                          label={service.label}
+                          labelClassName="icon-picker-tile-label"
+                        />
                       </li>
                     ))}
                   </ul>

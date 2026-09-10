@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 cerrado (8 de 8) y las **diez victorias rapidas** del `PLAN_MEJORAS.md` cerradas (la #10 por medicion); todo en `origin/main` (`b195b01`), arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con ese commit. Para retomar: `docs/CONTEXTO.md`. Siguiente: H1 #2 fase 2 (`Row/Tile/Field`) y H2.
+> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo — #2 fase 2 (componentes de sistema `Row/Tile/Field/Chip/GroupHeader/SearchField/Kbd`, seis superficies migradas, `TopBar` y `Library` partidos) entregado hoy con **0 diferencias de estilo computado**, pendiente de commit y push; el resto en `origin/main` (`e2fcc1d`). Contenedor local en http://127.0.0.1:3080 con `b195b01` (reconstruir). Para retomar: `docs/CONTEXTO.md`. Siguiente: H2.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -426,12 +426,44 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 - Soltar varios archivos importa solo el primero.
 - El AiDialog conserva su estado entre aperturas (deliberado) y por eso no usa la `key` de apertura.
 
+## H1 #2 fase 2 del plan de mejoras / componentes de sistema (cerrado, 2026-09-10)
+
+**Base:** `e2fcc1d` (`main`). La homologacion «Aurora» vivia en CSS sobre clases repetidas a mano en seis superficies; ahora vive ademas en componentes React, y las dos pantallas mas grandes estan partidas. Restriccion de la entrega: **ningun cambio de DOM** — la instantanea de estilos identifica cada elemento por etiqueta, conjunto de clases y posicion, y las lineas base visuales y los selectores de pruebas nombran las clases actuales.
+
+### Entregado
+
+**`src/components/ui/`** (junto a `PanelHead`): `Kbd` (una tecla; clase opcional solo para la paleta), `SearchField` (lupa + campo `filter-field`/`filter-input` + hueco `trailing` para el boton de limpiar o cerrar; tamano de icono y `ref`), `Chip` y `ChipRow` (pestanas de nube del explorador y del selector, chips de carpeta y favoritos de la biblioteca: `role="tab"` con `aria-selected` cuando son pestanas, punto `chip-dot`, contador `chip-count`, `--cloud-color`, modificador `is-mine`), `GroupHeader` (cabecera de grupo con contador; `button` con chevron y `aria-expanded` cuando pliega, antes o despues del nombre; `div|header|p|span|h3` cuando no), `Tile` (tesela de servicio: icono → marca → nombre → meta, `data-key`/`aria-pressed`/`is-current` para el selector, `draggable` con la clave en `text/plain` para el explorador) con `SpriteIcon` (el `<svg><use href="#i-…"/></svg>` del sprite), `Row` (fila de lista: icono → texto → meta; `--i` para el escalonado; el resto de atributos de la lista por `rest`), y `Field`/`NumberField`/`Section` movidos desde `inspector/fields.tsx` (`Section` ahora construido sobre `GroupHeader`). Las clases propias de cada superficie viajan por props (`className`, `labelClassName`, `countClassName`…): son lo que el CSS viste y las pruebas seleccionan; la anatomia comun (`chip`, `group-header`, `filter-field`, el orden de las partes) la impone el componente.
+
+**Migradas**: explorador de servicios (busqueda, pestanas, cabeceras, teselas de catalogo, propias y de subida), selector de iconos y su seccion «Propios» en `CustomIcons.tsx` (ademas el formulario de subida usa `Field` en vez de cuatro copias del marcado), paleta ⌘K (cabeceras de grupo, filas de comando y de servicio, `kbd` del pie), historial (cuatro cabeceras), analisis (cabeceras con severidad, filas), menus de la barra y contextual (`Kbd`), hoja de atajos (`GroupHeader` + `Kbd`), dock y estado vacio (`Kbd`), biblioteca (busqueda, chips, `kbd`), inspector (`Field`, `NumberField`, `Section` desde `ui`).
+
+**Particiones**: `TopBar.tsx` 600 → 279 lineas, con `ExportMenu.tsx`, `MoreMenu.tsx` y `AccountMenu.tsx` (cada uno su `.topbar-menu-host` completo; contrato comun en `menuProps.ts`: `menu` (presencia), `onToggle`, `onClose`, `pick`, `chord`, `off`); `Library.tsx` 702 → 352, con `LibraryHeader.tsx`, `LibraryHero.tsx` (con `SERVICE_COUNT`/`CLOUD_COUNT` y la inclinacion del escaparate), `LibraryToolbar.tsx` (exporta `FAVOURITES`/`NO_FOLDER`), `DiagramCard.tsx` y `TemplateGallery.tsx` (exporta `TemplatePreview`). Extraccion por corte de lineas exactas: el JSX es el mismo, cambiaron solo los nombres de los manejadores.
+
+**Pruebas de render** (`src/components/ui/ui.test.ts`, happy-dom + `react-dom/client`): cada componente se renderiza y su HTML se compara byte a byte con el marcado manual que sustituye (16 pruebas), incluida la carga `text/plain` del arrastre de `Tile`.
+
+### Pruebas ejecutadas
+
+| Comprobacion                                         | Resultado                                                                              |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm test`                                           | 1155 pruebas (antes 1139)                                                              |
+| `npm run typecheck`, `lint`, `format:check`, `build` | Correctos (ESLint sin avisos: importaciones de iconos podadas en `TopBar` y `Library`) |
+| **`styles:compare`** (build de `e2fcc1d` vs. nuevo)  | **0 elementos distintos de 33.960 comparados en 140 estados — identicos**              |
+| Playwright funcional / visual                        | 136 de 136 / 24 de 24                                                                  |
+| `npm run audit:controls`                             | 83 de 83                                                                               |
+
+### Limites conocidos
+
+- La paleta conserva su propia busqueda (`palette-search`/`palette-input`, con ARIA de combobox) y no `SearchField`: cambiar sus clases cambiaria el DOM.
+- `ChoiceField`, `FillField` y `FillPresets` siguen en `inspector/fields.tsx`: son del inspector (tonos por palabra), no anatomia comun.
+- El menu contextual y `MenuItem` siguen siendo marcados distintos (`context-menu-item` sin icono ni texto secundario); unificarlos exigiria cambiar el DOM.
+- No hay `@testing-library/react`: las pruebas de render usan `react-dom/client` + `act` en happy-dom (patron de `usePresence.test.ts`).
+
 ## CP2, CP4 a CP9: pendientes
 
 Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comentarios, publicaciones), F5, F6, F7 (CRDT y offline) y F8 (AWS). Ver `PLAN_MAESTRO.md`, seccion 9.
 
 ## Siguiente tarea exacta
 
-1. Siguiente segun `PLAN_MEJORAS.md`: H1 #2 fase 2 (`Row/Tile/Field` como componentes, partir `TopBar.tsx` y `Library.tsx`) y despues H2 (#9 comentarios anclados, #10 presentacion, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias).
-2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Confirmar H1 #2 fase 2 en un commit y `git push`; reconstruir la imagen Docker local.
+2. H1 cerrado del todo. Siguiente segun `PLAN_MEJORAS.md`: **H2** — #10 presentacion (M), #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S, ya puede apoyarse en los roles), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
+3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.

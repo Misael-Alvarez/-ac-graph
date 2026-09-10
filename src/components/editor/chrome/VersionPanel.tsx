@@ -8,6 +8,7 @@ import { thumbnailDataUrl } from '@/lib/store/thumbnail';
 import { renderThumbnail } from '@/lib/store/thumbnail';
 import { useRepository } from '@/components/app/RepositoryProvider';
 import { useEditor } from '../EditorProvider';
+import { GroupHeader } from '@/components/ui/GroupHeader';
 import { PanelHead } from '@/components/ui/PanelHead';
 import { useReturnFocusToCanvas } from '@/lib/editor/returnFocus';
 import { relativeDay } from '@/lib/i18n/relativeDay';
@@ -186,24 +187,23 @@ export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelPr
 
       {diff && comparing && (
         <div className="version-list">
-          <header className="group-header">
+          <GroupHeader
+            as="header"
+            count={new Date(comparing.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          >
             {t('versions.comparing')}
-            <span className="group-count">
-              {new Date(comparing.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-          </header>
+          </GroupHeader>
 
           {diff.identical && <p className="library-note">{t('diff.identical')}</p>}
 
           {diff.nodes.length > 0 && (
             <section>
-              <header className="group-header">
+              <GroupHeader as="header" count={diff.nodes.length}>
                 {t('diff.nodes')}
-                <span className="group-count">{diff.nodes.length}</span>
-              </header>
+              </GroupHeader>
               {diff.nodes.map((change) => (
                 <p
                   key={`${change.kind}-${change.shape.id}`}
@@ -223,10 +223,9 @@ export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelPr
 
           {diff.edges.length > 0 && (
             <section>
-              <header className="group-header">
+              <GroupHeader as="header" count={diff.edges.length}>
                 {t('diff.edges')}
-                <span className="group-count">{diff.edges.length}</span>
-              </header>
+              </GroupHeader>
               {diff.edges.map((change) => (
                 <p
                   key={`${change.kind}-${change.connector.id}`}
@@ -275,10 +274,9 @@ export function VersionPanel({ onSnapshot, onRestore, revision }: VersionPanelPr
 
           {groups.map((group) => (
             <section key={group.label} className="version-group">
-              <header className="group-header">
+              <GroupHeader as="header" count={group.items.length}>
                 {group.label}
-                <span className="group-count">{group.items.length}</span>
-              </header>
+              </GroupHeader>
               {group.items.map((version) => (
                 <article key={version.id} className="version-row">
                   <span className="version-thumb">
