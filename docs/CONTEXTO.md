@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 cerrado y en `origin/main` hasta `c3afefa`; victorias rápidas 4–10 entregadas, pendientes de commit).
+Última actualización: 2026-09-10 (H1 cerrado y las diez victorias rápidas del plan de mejoras en `origin/main`; árbol limpio).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -9,8 +9,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 ## 1. Qué es y dónde está
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
-- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` en `c3afefa` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** HEAD `c3afefa` con las **victorias rápidas 4–10 sin confirmar**: `src/lib/editor/{describe,usePresence,readOnly}.ts`, `src/lib/library/{prefs,dropImport}.ts`, `repositoryUrl`/`stripMetadata` en `meta.ts`, `exportTheme`/`exportMeta` en `uiState`, menú Exportar, `ItemShape` (chip enlazado), `Canvas` (`aria-describedby`), `DiagramDocument` (`<title>/<desc>`), `Library` (orden, favoritos, soltar archivo), salidas animadas en diálogos/menús/popover/toast, `audit-controls.mjs` (83 controles), i18n, CSS, docs. Verificado en verde (sección 3). Commits anteriores, por tema:
+- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` en `b195b01` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
+- **Estado del árbol:** limpio en `b195b01`. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -22,6 +22,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `f12fdb2` — See what the server is doing: one id per request, one line per request, metrics and traces
   - `9db935a` — Let replicas share the room: presence and events over LISTEN/NOTIFY
   - `c3afefa` — Decide who is in: owners, editors and viewers per diagram
+  - `b195b01` — Seven small things the plan had waiting
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -89,7 +90,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 ## 4. Estado del contenedor
 
-`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 tras el cierre de H1 (#5, #6 y #7 incluidos; **sin** las victorias rápidas 4–10 hasta reconstruir; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
+`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 en `b195b01` (H1 completo y victorias rápidas; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
 
 ## 5. Decisiones que no hay que rediscutir
 
@@ -141,7 +142,6 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **Confirmar las victorias rápidas 4–10** en un commit y `git push`; reconstruir la imagen Docker local.
-2. Seguir por `PLAN_MEJORAS.md`: H1 #2 fase 2 (`Row/Tile/Field` como componentes y migrar las seis superficies; partir `TopBar.tsx` y `Library.tsx`), después H2 (#9 comentarios anclados, #10 presentación, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias, que ya puede apoyarse en los roles).
+1. Seguir por `PLAN_MEJORAS.md`: H1 #2 fase 2 (`Row/Tile/Field` como componentes y migrar las seis superficies; partir `TopBar.tsx` y `Library.tsx`), después H2 (#9 comentarios anclados, #10 presentación, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias, que ya puede apoyarse en los roles).
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

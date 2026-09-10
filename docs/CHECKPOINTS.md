@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 cerrado (8 de 8, en `origin/main` hasta `c3afefa`) y las **diez victorias rapidas** del `PLAN_MEJORAS.md` cerradas (siete entregadas hoy, pendientes de commit y push; la #10 cerrada por medicion). Contenedor local en http://127.0.0.1:3080 con la imagen del cierre de H1 (reconstruir para incluir las victorias rapidas). Para retomar: `docs/CONTEXTO.md`. Siguiente: H1 #2 fase 2 (`Row/Tile/Field`) y H2.
+> **Checkpoint vigente (2026-09-10):** H1 cerrado (8 de 8) y las **diez victorias rapidas** del `PLAN_MEJORAS.md` cerradas (la #10 por medicion); todo en `origin/main` (`b195b01`), arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con ese commit. Para retomar: `docs/CONTEXTO.md`. Siguiente: H1 #2 fase 2 (`Row/Tile/Field`) y H2.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -432,7 +432,6 @@ Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comen
 
 ## Siguiente tarea exacta
 
-1. Confirmar las victorias rapidas 4-10 en un commit y `git push`; reconstruir la imagen Docker local.
-2. Siguiente segun `PLAN_MEJORAS.md`: H1 #2 fase 2 (`Row/Tile/Field` como componentes, partir `TopBar.tsx` y `Library.tsx`) y despues H2 (#9 comentarios anclados, #10 presentacion, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias).
-3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Siguiente segun `PLAN_MEJORAS.md`: H1 #2 fase 2 (`Row/Tile/Field` como componentes, partir `TopBar.tsx` y `Library.tsx`) y despues H2 (#9 comentarios anclados, #10 presentacion, #11 conectores editables, #12 notas/texto/regiones, #14 iconos en servidor, #20 plantillas propias).
+2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
