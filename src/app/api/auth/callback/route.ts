@@ -8,6 +8,9 @@ import {
   sessionCookie,
 } from '@/server/auth/session';
 import { withServerMode } from '@/server/handler';
+import { annotateRequest } from '@/server/observability/context';
+import { log } from '@/server/observability/log';
+import { appMetrics } from '@/server/observability/metrics';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,18 +21,21 @@ export const dynamic = 'force-dynamic';
  * the server log.
  */
 export function GET(request: NextRequest) {
-  return withServerMode(request, {}, async () => {
+  return withServerMode(request, { route: '/api/auth/callback' }, async () => {
     const boundState = readCookie(request, AUTH_STATE_COOKIE);
     try {
       const { user, nextPath } = await completeLogin(request.nextUrl.searchParams, boundState);
+      annotateRequest({ userId: user.id });
       const session = await createSession(user.id);
+      appMetrics().logins.inc({ result: 'ok' });
 
       const headers = new Headers({ Location: nextPath, 'Cache-Control': 'no-store' });
       headers.append('Set-Cookie', sessionCookie(session.id));
       headers.append('Set-Cookie', clearAuthStateCookie());
       return new Response(null, { status: 302, headers });
     } catch (error) {
-      console.error('[auth] login callback failed', error instanceof Error ? error.message : error);
+      appMetrics().logins.inc({ result: 'error' });
+      log().warn('login callback failed', { err: error });
       const headers = new Headers({
         Location: '/?auth_error=callback',
         'Cache-Control': 'no-store',

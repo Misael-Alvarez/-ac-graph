@@ -20,6 +20,8 @@ import type {
 } from '@/lib/store/types';
 import { serverClock, type Clock } from '../clock';
 import { getPool, withTransaction } from '../db';
+import { log } from '../observability/log';
+import { appMetrics } from '../observability/metrics';
 import { DiagramNotFoundError, VersionNotFoundError } from './errors';
 
 /**
@@ -130,21 +132,23 @@ export class PgDiagramRepository implements DiagramRepository {
   }
 
   async save(id: string, model: DiagramModel, options: SaveOptions = {}): Promise<DiagramRecord> {
-    return this.change(id, async (existing, client) => {
-      if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
-        throw new DiagramConflictError();
-      }
-      const updated = DiagramRecordSchema.parse({ ...existing, ...options.metadata, model });
-      updated.thumbnail = renderThumbnail(updated.model);
-      if (options.snapshotModel || options.snapshot) {
-        await this.snapshot(
-          client,
-          options.snapshotModel ? { ...updated, model: options.snapshotModel } : existing,
-          options.label ?? null,
-        );
-      }
-      return { ...updated, updatedAt: this.clock(existing.updatedAt) };
-    });
+    return this.counted('save', () =>
+      this.change(id, async (existing, client) => {
+        if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
+          throw new DiagramConflictError();
+        }
+        const updated = DiagramRecordSchema.parse({ ...existing, ...options.metadata, model });
+        updated.thumbnail = renderThumbnail(updated.model);
+        if (options.snapshotModel || options.snapshot) {
+          await this.snapshot(
+            client,
+            options.snapshotModel ? { ...updated, model: options.snapshotModel } : existing,
+            options.label ?? null,
+          );
+        }
+        return { ...updated, updatedAt: this.clock(existing.updatedAt) };
+      }),
+    );
   }
 
   async updateMeta(
@@ -188,25 +192,48 @@ export class PgDiagramRepository implements DiagramRepository {
     versionId: string,
     options: Pick<SaveOptions, 'expectedUpdatedAt'> = {},
   ): Promise<DiagramRecord> {
-    return this.change(diagramId, async (existing, client) => {
-      if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
-        throw new DiagramConflictError();
+    return this.counted('restore', () =>
+      this.change(diagramId, async (existing, client) => {
+        if (options.expectedUpdatedAt && options.expectedUpdatedAt !== existing.updatedAt) {
+          throw new DiagramConflictError();
+        }
+        const found = await client.query<VersionRow>(
+          `select ${VERSION_COLUMNS} from diagram_versions where id = $1 and diagram_id = $2`,
+          [versionId, diagramId],
+        );
+        const row = found.rows[0];
+        if (!row) throw new VersionNotFoundError(versionId);
+        const version = toVersion(row);
+        await this.snapshot(client, existing, 'before restore');
+        return {
+          ...existing,
+          model: version.model,
+          thumbnail: renderThumbnail(version.model),
+          updatedAt: this.clock(existing.updatedAt),
+        };
+      }),
+    );
+  }
+
+  /**
+   * Counts a write by outcome. A conflict is the editor holding a stale
+   * revision — normal in a shared workspace and worth watching, not an error.
+   */
+  private async counted<T>(operation: 'save' | 'restore', write: () => Promise<T>): Promise<T> {
+    const { diagramSaves } = appMetrics();
+    try {
+      const result = await write();
+      diagramSaves.inc({ operation, result: 'ok' });
+      return result;
+    } catch (thrown) {
+      if (thrown instanceof DiagramConflictError) {
+        diagramSaves.inc({ operation, result: 'conflict' });
+        log().info('stale revision refused', { operation });
+      } else {
+        diagramSaves.inc({ operation, result: 'error' });
       }
-      const found = await client.query<VersionRow>(
-        `select ${VERSION_COLUMNS} from diagram_versions where id = $1 and diagram_id = $2`,
-        [versionId, diagramId],
-      );
-      const row = found.rows[0];
-      if (!row) throw new VersionNotFoundError(versionId);
-      const version = toVersion(row);
-      await this.snapshot(client, existing, 'before restore');
-      return {
-        ...existing,
-        model: version.model,
-        thumbnail: renderThumbnail(version.model),
-        updatedAt: this.clock(existing.updatedAt),
-      };
-    });
+      throw thrown;
+    }
   }
 
   async exportWorkspace(): Promise<WorkspaceExport> {

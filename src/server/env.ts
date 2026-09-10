@@ -92,3 +92,45 @@ export function serverEnv(source: EnvSource = process.env): ServerEnv {
 export function isSecureAppUrl(env: Pick<ServerEnv, 'appUrl'>): boolean {
   return env.appUrl.startsWith('https://');
 }
+
+/**
+ * Observability settings. Independent of server mode: a local-mode container
+ * logs and exposes metrics exactly like a server-mode one.
+ */
+export const LOG_LEVELS = ['debug', 'info', 'warn', 'error', 'silent'] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+export type LogFormat = 'json' | 'pretty';
+
+export interface ObservabilityEnv {
+  logLevel: LogLevel;
+  /** One JSON object per line for collectors; `pretty` for a terminal. */
+  logFormat: LogFormat;
+  /** When set, `/api/metrics` demands `Authorization: Bearer <token>`. */
+  metricsToken: string | null;
+  /** Traces are exported only when a collector endpoint is configured. */
+  otlpEndpoint: string | null;
+  serviceName: string;
+}
+
+export const DEFAULT_SERVICE_NAME = 'ac-graph';
+
+function isLogLevel(value: string): value is LogLevel {
+  return (LOG_LEVELS as readonly string[]).includes(value);
+}
+
+export function readObservabilityEnv(source: EnvSource = process.env): ObservabilityEnv {
+  const level = clean(source.LOG_LEVEL)?.toLowerCase() ?? '';
+  const format = clean(source.LOG_FORMAT)?.toLowerCase() ?? '';
+  return {
+    logLevel: isLogLevel(level) ? level : 'info',
+    logFormat:
+      format === 'json' || format === 'pretty'
+        ? format
+        : source.NODE_ENV === 'production'
+          ? 'json'
+          : 'pretty',
+    metricsToken: clean(source.METRICS_TOKEN),
+    otlpEndpoint: clean(source.OTEL_EXPORTER_OTLP_ENDPOINT),
+    serviceName: clean(source.OTEL_SERVICE_NAME) ?? DEFAULT_SERVICE_NAME,
+  };
+}

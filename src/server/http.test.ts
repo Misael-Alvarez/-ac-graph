@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { DiagramConflictError } from '@/lib/store/localRepository';
 import { DiagramNotFoundError, VersionNotFoundError } from './diagrams/errors';
@@ -11,6 +11,8 @@ import {
   readJsonBody,
   serverModeOff,
 } from './http';
+import { observe } from './observability/request';
+import { captureLogs } from './testing/logs';
 
 describe('responses', () => {
   it('json() is JSON and never cached', async () => {
@@ -72,18 +74,47 @@ describe('errorResponse', () => {
     expect(body.issues[0].path).toEqual(['n']);
   });
 
-  it('hides anything unexpected behind a generic 500, logging only name and message', async () => {
-    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('hides anything unexpected behind a generic 500 and logs the error itself', async () => {
+    const logs = captureLogs();
     try {
       const response = errorResponse(new Error('connection string postgres://user:secret@db'));
       expect(response.status).toBe(500);
       const text = await response.text();
       expect(text).not.toContain('secret');
       expect(JSON.parse(text).code).toBe('internal');
-      expect(log).toHaveBeenCalledTimes(1);
-      expect(log.mock.calls[0][1]).toBe('Error: connection string postgres://user:secret@db');
+
+      const [record, ...rest] = logs.named('unhandled error');
+      expect(rest).toEqual([]);
+      expect(record.level).toBe('error');
+      expect(record.err).toMatchObject({
+        name: 'Error',
+        message: 'connection string postgres://user:secret@db',
+      });
+      expect((record.err as { stack: string }).stack).toContain('http.test.ts');
     } finally {
-      log.mockRestore();
+      logs.restore();
+    }
+  });
+
+  it('quotes the request id in the 500 when there is one', async () => {
+    const logs = captureLogs('silent');
+    try {
+      const response = await observe(
+        new Request('http://localhost/api/x', { headers: { 'x-request-id': 'req-12345678' } }),
+        { route: '/api/x' },
+        () => {
+          throw new TypeError('boom');
+        },
+      );
+      expect(response.status).toBe(500);
+      expect(response.headers.get('x-request-id')).toBe('req-12345678');
+      expect(await response.json()).toEqual({
+        code: 'internal',
+        message: 'Something went wrong on the server.',
+        requestId: 'req-12345678',
+      });
+    } finally {
+      logs.restore();
     }
   });
 });

@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'bin/**/*.test.ts'],
+    // The server logger stays quiet unless a test captures it (`captureLogs`).
+    env: { LOG_LEVEL: 'silent' },
     coverage: {
       provider: 'v8',
       include: ['src/lib/**/*.ts'],

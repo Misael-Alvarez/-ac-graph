@@ -58,6 +58,13 @@ provider and what server mode does not do yet are in
 [docs/AUTHENTIK.md](docs/AUTHENTIK.md); ports, private runtime configuration
 and safe shutdown are in [docs/DOCKER.md](docs/DOCKER.md).
 
+In both modes the server logs one JSON record per request (with a request id
+that is also returned as `x-request-id`), serves Prometheus metrics at
+`/api/metrics`, and exports OpenTelemetry traces when
+`OTEL_EXPORTER_OTLP_ENDPOINT` names a collector. Details and the variables
+(`LOG_LEVEL`, `LOG_FORMAT`, `METRICS_TOKEN`, `OTEL_*`) are in
+[docs/DOCKER.md](docs/DOCKER.md#logs-metrics-and-traces).
+
 ## What it does
 
 - **572 cloud services** across AWS, Azure, Google Cloud, Oracle Cloud, IBM
@@ -260,8 +267,13 @@ src/lib/share/    Link codec and share/embed URLs
 src/lib/store/    DiagramRepository — the only I/O boundary in the app
 src/lib/editor/   Reducer, viewport maths, export
 src/components/   The editor: canvas, floating chrome, code panel
-src/app/api/      Route handlers: AI (the only place the API key exists) and
-                  the server-rendered embed
+src/app/api/      Route handlers: AI (the only place the API key exists), the
+                  server-rendered embed, and in server mode the diagram API,
+                  sessions and live events; /api/health and /api/metrics
+src/server/       Server mode: PostgreSQL repository, OIDC sessions, presence,
+                  and observability (JSON logs, Prometheus metrics, optional
+                  OpenTelemetry traces) behind one request wrapper
+src/instrumentation.ts  Next.js start-up hook: logger, metrics, traces
 bin/              The CLI and the MCP server, over the same library
 ```
 

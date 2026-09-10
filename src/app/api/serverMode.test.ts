@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
+import { appMetrics } from '@/server/observability/metrics';
+import { captureLogs } from '@/server/testing/logs';
 import { GET as callback } from './auth/callback/route';
 import { GET as login } from './auth/login/route';
 import { POST as logout } from './auth/logout/route';
@@ -102,5 +104,57 @@ describe('in server mode, before the database', () => {
     serverMode();
     const response = await logout(request('/api/auth/logout', { method: 'POST' }));
     expect(response.status).toBe(403);
+  });
+});
+
+describe('every answer is observable', () => {
+  it('carries a request id and leaves one access line with the route template', async () => {
+    serverMode();
+    const logs = captureLogs();
+    try {
+      const response = await getDiagram(
+        request('/api/diagrams/dgm_1', { headers: { 'x-request-id': 'proxy-0001' } }),
+        context('dgm_1'),
+      );
+      expect(response.status).toBe(401);
+      expect(response.headers.get('x-request-id')).toBe('proxy-0001');
+
+      const [line, ...rest] = logs.named('http request');
+      expect(rest).toEqual([]);
+      // The handler never ran, yet the line knows which diagram was asked for.
+      expect(line).toMatchObject({
+        level: 'info',
+        requestId: 'proxy-0001',
+        method: 'GET',
+        route: '/api/diagrams/[id]',
+        path: '/api/diagrams/dgm_1',
+        diagramId: 'dgm_1',
+        status: 401,
+        code: 'unauthenticated',
+      });
+      expect(line).not.toHaveProperty('userId');
+      expect(JSON.stringify(logs.records)).not.toContain('acg_session');
+
+      expect(
+        appMetrics().httpRequests.get({ route: '/api/diagrams/[id]', method: 'GET', status: 401 }),
+      ).toBe(1);
+    } finally {
+      logs.restore();
+    }
+  });
+
+  it('a local-mode 404 is counted under its route too', async () => {
+    localMode();
+    const logs = captureLogs();
+    try {
+      await listDiagrams(request('/api/diagrams'));
+      expect(logs.named('http request')[0]).toMatchObject({
+        route: '/api/diagrams',
+        status: 404,
+        code: 'server_mode_off',
+      });
+    } finally {
+      logs.restore();
+    }
   });
 });

@@ -5,6 +5,7 @@ import { AI_MODEL, getClient } from '@/lib/ai/client';
 import { describeError } from '@/lib/ai/errors';
 import { RateLimiter, callerKey } from '@/lib/ai/rateLimit';
 import { EXPLAIN_SYSTEM_PROMPT, buildExplainPrompt } from '@/lib/ai/prompt';
+import { observe } from '@/server/observability/request';
 
 const limiter = new RateLimiter({ capacity: 8, refillPerMinute: 6 });
 
@@ -20,7 +21,11 @@ const RequestSchema = z.object({
  * showing it as it arrives is the difference between a two-second wait and a
  * blank panel.
  */
-export async function POST(request: Request) {
+export function POST(request: Request) {
+  return observe(request, { route: '/api/ai/explain' }, () => explain(request));
+}
+
+async function explain(request: Request): Promise<Response> {
   const client = getClient();
   if (!client) {
     return NextResponse.json(

@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-09):** H1 del `PLAN_MEJORAS.md` cerrado en 6 de 8 puntos. Trabajo confirmado en siete commits por tema sobre la base `e28174b` (HEAD `69408f2`; sin push); contenedor local en http://127.0.0.1:3080 con la imagen de este cierre. Para retomar: `docs/CONTEXTO.md`. Siguiente paso recomendado: H1 #5 observabilidad, #6 bus multi-replica, #7 roles.
+> **Checkpoint vigente (2026-09-10):** H1 del `PLAN_MEJORAS.md` cerrado en 7 de 8 puntos (#5 observabilidad entregado hoy, pendiente de commit). Base `c03cf6e` (`main`, 13 commits por delante de `origin/main`; nunca se ha hecho push desde esta maquina). Contenedor local en http://127.0.0.1:3080 reconstruido con esta entrega. Para retomar: `docs/CONTEXTO.md`. Siguiente paso recomendado: H1 #6 bus multi-replica, #7 roles.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -291,13 +291,48 @@ Verificacion: 1042 unitarias, 136 E2E funcionales, 24 visuales (estables en dos 
 
 Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consolidate`. Docker reconstruido.
 
+## H1 del plan de mejoras / observabilidad minima (cerrado, 2026-09-10)
+
+**Base:** `c03cf6e` (`main`). H1 #5 del `PLAN_MEJORAS.md`: logs JSON con `requestId`/`userId`/`diagramId`, metricas Prometheus en `/api/metrics`, trazas OpenTelemetry opcionales.
+
+### Entregado
+
+**Un envoltorio por peticion** (`src/server/observability/request.ts`, `observe(request, { route }, run)`): asigna el id (el `x-request-id` del proxy si tiene forma de id — 8 a 128 caracteres de `[A-Za-z0-9._-]` —, un UUID si no), ejecuta el handler dentro de un `AsyncLocalStorage` (`context.ts`) para que el repositorio, el pool y el stream registren con ese id sin pasarlo por parametros, mide, cuenta bajo la **plantilla de ruta** (`/api/diagrams/[id]`, nunca el path concreto), escribe una linea de acceso y devuelve `x-request-id` en la respuesta (reconstruyendo la respuesta si sus cabeceras son inmutables, como una redireccion). `withUser`/`withServerMode` (`handler.ts`) exigen `route` y anotan `userId` y `sessionKey` tras autenticar; las rutas que no pasan por ellos (IA, embed, config, health, metrics) se envuelven directamente. Los parametros dinamicos se leen del path contra la plantilla, asi que un 401 o un 404 que nunca llega al handler igualmente dice que diagrama se pedia. `error()` anota el `code` del fallo; un 500 lleva el `requestId` en el cuerpo para que la persona pueda citarlo.
+
+**Logger propio** (`log.ts`, sin dependencia): un objeto JSON por linea en stdout — `time`, `level`, `msg`, despues las vinculaciones (id, metodo, ruta, usuario, diagrama) y los campos —; `LOG_LEVEL` (`debug|info|warn|error|silent`) y `LOG_FORMAT` (`json` en produccion, `pretty` en terminal). Claves que parecen credenciales (`cookie`, `authorization`, `password`, `secret`, `token`, `api_key`) se redactan a cualquier profundidad; los `Error` salen como nombre, mensaje y `code`, con pila solo en registros `error` o con logger `debug`; ciclos y profundidad acotados. Nunca se registra la query string (llevaria `code` y `state` del callback OIDC o el payload de un embed) ni cuerpo ni cabeceras. Si hay un span activo, cada registro lleva `traceId` y `spanId`. Los cuatro `console.error` del servidor pasan por el logger. Salud y scrape registran en `debug`.
+
+**Registro Prometheus propio** (`metrics.ts`): contadores, gauges e histogramas con exposicion 0.0.4, singleton en `globals.ts` (compartido entre los bundles por ruta de Next), tope de 500 series por metrica con contador de rechazos, colectores en tiempo de scrape para proceso (CPU, RSS, heap, utilizacion del bucle de eventos, version), `acgraph_build_info` y clientes del pool. Metricas de aplicacion: `acgraph_http_requests_total{route,method,status}`, `acgraph_http_request_duration_seconds{route,method}`, `acgraph_http_requests_in_flight`, `acgraph_http_conflicts_total{route}` (412), `acgraph_diagram_saves_total{operation=save|restore,result=ok|conflict|error}` (en el repositorio), `acgraph_sessions_created_total`, `acgraph_sessions_ended_total`, `acgraph_logins_total{result}`, `acgraph_sse_connections`, `acgraph_sse_connections_total`, `acgraph_sse_events_published_total{type}`, `acgraph_db_transactions_total{result}`, `acgraph_db_transaction_duration_seconds`, `acgraph_unhandled_errors_total{source}`. Ninguna etiqueta es un id (hay prueba). `GET /api/metrics` abierto por defecto (puerto en loopback); con `METRICS_TOKEN` exige `Authorization: Bearer` con comparacion en tiempo constante.
+
+**Trazas opcionales** (`tracing.ts`, `startup.ts`, `src/instrumentation.ts`): `register()` de Next arranca el logger, crea las metricas con sus series a cero, escribe `server started` (modo, Node, build, pid, nivel, formato, trazas, metricas protegidas) y, solo si `OTEL_EXPORTER_OTLP_ENDPOINT` esta definido, importa el SDK (`@opentelemetry/sdk-trace-node` + exportador OTLP HTTP/JSON, paquetes marcados `serverExternalPackages`) y registra el proveedor global: Next, ya instrumentado, emite un span por peticion, por handler y por `fetch` con `service.name` = `OTEL_SERVICE_NAME` y `service.version` = sello de build; los avisos del exportador salen por el logger; SIGTERM vacia el lote. `onRequestError` registra y cuenta los errores que Next atrapa fuera de los handlers, sin leer cabeceras. Sin colector no se carga nada del SDK.
+
+**Configuracion**: `readObservabilityEnv` en `env.ts` (independiente del modo servidor); variables en `.env.example`, pasadas por `compose.yaml`; seccion "Logs, metrics and traces" en `docs/DOCKER.md`, referencias en `README.md` y `docs/AUTHENTIK.md`; corregidas las frases de `DOCKER.md` y `compose.yaml` que aun decian que PostgreSQL era un "sandbox futuro" y que no habia autenticacion.
+
+### Pruebas ejecutadas
+
+| Comprobacion                                                  | Resultado                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                                    | 1094 pruebas en 74 archivos (antes 1041): logger (formato, niveles, hijos, redaccion, errores, ciclos, pretty), registro (exposicion exacta, escapes, tipos, tope de series, colectores), `observe` (id, plantilla vs path, en vuelo, 412, 500 con id, `code`, rutas silenciosas, aislamiento entre peticiones concurrentes), `/api/metrics` (formato, token), `readObservabilityEnv` |
+| `npm test` con `TEST_DATABASE_URL` (PostgreSQL 17 desechable) | 1138 pruebas en 77 archivos; nueva prueba de extremo a extremo: guardado → 412 → contadores de guardados, conflictos, transacciones (1 commit, 1 rollback), sesiones creada/terminada; linea de acceso con `userId`, `diagramId`, `sessionKey`, `code`; scrape sin ids ni cookie                                                                                                      |
+| `npm run typecheck`, `lint`, `format:check`, `build`          | Correctos; `/api/metrics` y `src/instrumentation.ts` en el build                                                                                                                                                                                                                                                                                                                      |
+| Humo `npm start` (3100, modo local)                           | `server started` en JSON; `x-request-id` generado y respetado desde el proxy; lineas de acceso con `diagramId` y `code` en 404 sin handler; `/api/metrics` con 83 series compartidas entre rutas y sin contarse a si mismo                                                                                                                                                            |
+| Humo con colector OTLP falso (`OTEL_EXPORTER_OTLP_ENDPOINT`)  | 12 spans exportados para 3 peticiones (`GET /api/config`, `executing api route`, `resolve page components`, `start response`) con `service.name` y `service.version`; el `traceId` de la linea de acceso coincide con el del span; parada con SIGTERM sin avisos                                                                                                                      |
+| Imagen Docker reconstruida (`acgraph-foundation`, Node 24)    | Sana en loopback; `docker logs` en JSON (`server started`, lineas de acceso), `x-request-id`, `/api/metrics` con `acgraph_build_info`, paquetes `@opentelemetry/*` trazados al standalone e `instrumentation.js` compilado                                                                                                                                                            |
+| Playwright funcional / visual (servidor externo 3100)         | 136 de 136 / 24 de 24                                                                                                                                                                                                                                                                                                                                                                 |
+
+### Limites conocidos
+
+- Las metricas y la presencia son por proceso: con replicas cada una expone las suyas (Prometheus las agrega por `instance`); no hay bus ni agregacion. H1 #6.
+- Las rutas de IA responden con `NextResponse.json` propio, asi que su linea de acceso lleva `status` pero no `code`.
+- No hay metricas de negocio del lado del cliente (tiempo hasta interactivo, errores del navegador) ni alertas; que un colector reciba los datos es decision del operador.
+- Las trazas cubren los spans de Next; no hay spans propios por consulta SQL ni por render de miniatura (el histograma de transaccion cubre lo primero en agregado).
+
 ## CP2, CP4 a CP9: pendientes
 
 Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comentarios, publicaciones), F5, F6, F7 (CRDT y offline) y F8 (AWS). Ver `PLAN_MAESTRO.md`, seccion 9.
 
 ## Siguiente tarea exacta
 
-1. `git push` cuando el usuario lo pida; el arbol esta confirmado y verde (1042 unitarias, 136 E2E, 24 visuales, auditoria 69/69, tipos/lint/formato/build, Docker).
-2. `PLAN_MEJORAS.md` H1 #5 observabilidad minima; #6 bus LISTEN/NOTIFY para presencia multi-replica; #7 roles por diagrama.
+1. Confirmar la observabilidad (H1 #5) en un commit (la imagen Docker local ya esta reconstruida); `git push` cuando el usuario lo pida (1094 unitarias, 1138 con PostgreSQL, 136 E2E, 24 visuales, tipos/lint/formato/build).
+2. `PLAN_MEJORAS.md` H1 #6 bus LISTEN/NOTIFY para presencia multi-replica (las metricas `acgraph_sse_*` ya permiten ver el efecto); #7 roles por diagrama.
 3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
 4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.

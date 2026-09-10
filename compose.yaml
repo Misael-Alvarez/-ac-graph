@@ -11,6 +11,13 @@ services:
       - '127.0.0.1:${APP_PORT:-3080}:3000'
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Observability: JSON logs on stdout, Prometheus at /api/metrics, optional traces.
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-ac-graph}
     restart: unless-stopped
     stop_grace_period: 30s
     cap_drop:
@@ -23,7 +30,7 @@ services:
         max-size: '10m'
         max-file: '3'
 
-  # Future backend sandbox ONLY. The app has no database connection or dependency.
+  # Server mode only (compose.server.yaml drops the profile). Local mode never starts it.
   postgres:
     image: postgres:17.11-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0
     profiles: [postgres]

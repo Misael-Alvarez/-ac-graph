@@ -68,7 +68,17 @@ export async function freshSchema(pool: Pool): Promise<void> {
 
 /** Forgets every process-wide singleton so a test file sees a clean server. */
 export function resetServerSingletons(): void {
-  for (const key of ['pgPool', 'schemaReady', 'clock', 'presence', 'events', 'oidcConfig']) {
+  for (const key of [
+    'pgPool',
+    'schemaReady',
+    'clock',
+    'presence',
+    'events',
+    'oidcConfig',
+    'metrics',
+    'appMetrics',
+    'logger',
+  ]) {
     resetSingleton(key);
   }
 }

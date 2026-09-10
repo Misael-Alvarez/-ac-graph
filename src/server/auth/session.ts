@@ -4,6 +4,8 @@ import type { User } from '@/lib/domain';
 import { getPool } from '../db';
 import { isSecureAppUrl, serverEnv, type ServerEnv } from '../env';
 import { HttpError } from '../http';
+import { log } from '../observability/log';
+import { appMetrics } from '../observability/metrics';
 
 /**
  * Cookie sessions.
@@ -141,6 +143,8 @@ export async function createSession(
   ]);
   // Every login sweeps what has expired, so the table never needs a cron job.
   await pool.query('delete from sessions where expires_at <= now()');
+  appMetrics().sessionsCreated.inc();
+  log().info('session created', { userId, expiresAt });
   return { id, expiresAt };
 }
 
@@ -172,9 +176,13 @@ export async function requireUser(request: Request, pool: Pool = getPool()): Pro
 export async function destroySession(request: Request, pool: Pool = getPool()): Promise<void> {
   const id = readCookie(request, SESSION_COOKIE);
   if (!id) return;
-  await pool.query('delete from sessions where id_hash = $1', [hashSessionId(id)]);
+  const result = await pool.query('delete from sessions where id_hash = $1', [hashSessionId(id)]);
   // Piggy-back the sweep: expired rows are cheap to drop here and never pile up.
   await pool.query('delete from sessions where expires_at <= now()');
+  if (result.rowCount) {
+    appMetrics().sessionsEnded.inc();
+    log().info('session ended');
+  }
 }
 
 /**

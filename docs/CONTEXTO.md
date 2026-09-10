@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-09 (cierre de H1 del plan de mejoras; trabajo confirmado en git).
+Última actualización: 2026-09-10 (H1 #5 observabilidad entregado; pendiente de commit).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -9,8 +9,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 ## 1. Qué es y dónde está
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
-- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, 5 commits por delante de `origin/main` (base `e28174b`).
-- **Estado del árbol:** limpio. Todo el trabajo desde la base `e28174b` está confirmado en siete commits agrupados por tema (cierre de H1, 2026-09-09; HEAD `69408f2`), 12 commits por delante de la referencia local `origin/main`, sin push:
+- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, 13 commits por delante de la referencia local `origin/main` (último `fetch` el 27 de agosto; conviene `git fetch` antes de empujar).
+- **Estado del árbol:** HEAD `c03cf6e` con la **observabilidad (H1 #5) sin confirmar** en el árbol de trabajo: `src/server/observability/`, `src/instrumentation.ts`, `src/app/api/metrics/`, cambios en `handler.ts`, `http.ts`, `db.ts`, `repository.ts`, `session.ts`, `stream.ts`, `events.ts`, todas las rutas API, `next.config.ts`, `vitest.config.mts`, `package.json` (cinco paquetes `@opentelemetry/*`), docs y `compose.yaml`. Verificado en verde (sección 3). Los commits anteriores, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -18,6 +18,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `b7f0a92` — Give the interface one face, one material and one anatomy
   - `dd5fcdb` — Verify the interface the way it is used: every control, every pixel, every property
   - `69408f2` — Write down where the work stands and how to pick it up
+  - `c03cf6e` — Record the checkpoint's commits in the context and the checkpoint log
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -28,7 +29,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 | `docs/CHECKPOINTS.md`                              | Registro de cada entrega: qué, cómo se verificó, límites. **Fuente de verdad del avance.**                                                                      |
 | `docs/PLAN_MEJORAS.md`                             | Plan detallado en tres horizontes (H1 consolidar · H2 producto de equipo · H3 plataforma) con backlog por área, victorias rápidas, métricas. Marca ✅ lo hecho. |
 | `docs/PLAN_DISENO.md`                              | Anatomía "Aurora": una sola anatomía de panel/fila/celda/campo para todas las superficies.                                                                      |
-| `docs/AUTHENTIK.md`, `docs/DOCKER.md`, `README.md` | Operación: modo servidor, provider OIDC, contenedores.                                                                                                          |
+| `docs/AUTHENTIK.md`, `docs/DOCKER.md`, `README.md` | Operación: modo servidor, provider OIDC, contenedores; `DOCKER.md` § "Logs, metrics and traces" describe logs, `/api/metrics` y trazas.                         |
 | `AGENTS.md`                                        | Exige leer `node_modules/next/dist/docs/` antes de escribir código Next (APIs distintas a las conocidas).                                                       |
 
 ## 3. Entorno y comandos
@@ -57,6 +58,18 @@ npm run styles:snapshot -- /tmp/antes.json        # con el build anterior sirvie
 npm run styles:snapshot -- /tmp/despues.json
 npm run styles:compare -- /tmp/antes.json /tmp/despues.json   # debe dar 0
 
+# Observabilidad (con el servidor de 3100 arriba)
+curl -si http://127.0.0.1:3100/api/health | grep -i x-request-id          # id por respuesta
+curl -s  http://127.0.0.1:3100/api/metrics | grep '^acgraph_'              # Prometheus
+grep '"msg":"http request"' /tmp/acgraph-3100.log                          # líneas de acceso JSON
+# Trazas: OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 al arrancar; colector falso de prueba en
+# /var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/fake-otlp.mjs (temporal; GET /dump lista spans)
+
+# PostgreSQL desechable para las pruebas *.pg.test.ts (se destruye al parar)
+docker run -d --rm --name acgraph-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=acgraph_test -p 127.0.0.1:55433:5432 postgres:17.11-bookworm
+TEST_DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test npm test
+docker stop acgraph-test-pg
+
 # Docker (proyecto acgraph-foundation; no tocar contenedores consultoria-*)
 docker compose -p acgraph-foundation build app
 ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait --wait-timeout 90 app
@@ -69,7 +82,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 ## 4. Estado del contenedor
 
-`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen del cierre de H1 (`/api/config` → `{"mode":"local"}`). El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
+`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 tras H1 #5 (`/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
 
 ## 5. Decisiones que no hay que rediscutir
 
@@ -83,6 +96,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - **Tipografía:** Geist / Geist Mono autoalojadas. Paleta pizarra-azul (`#0b1020 / #121a2e / #1a2440`).
 - **Movimiento:** lo que abre el teclado no se anima (paleta ⌘K); popovers crecen desde su disparador; tooltips propios (instantáneos entre vecinos, nunca repiten la etiqueta visible); todo sobre transform/opacity; apagado con `prefers-reduced-motion`; materiales respetan `prefers-reduced-transparency` y `prefers-contrast`.
 - **Authentik:** el provider `ac-graph` **no existe** aún; el usuario pidió no configurarlo por ahora. Cuando toque: `docs/AUTHENTIK.md` (redirect `${APP_URL}/api/auth/callback`, PKCE, RS256, `NODE_EXTRA_CA_CERTS` + `extra_hosts` para `auth.localhost`).
+- **Observabilidad:** toda ruta API pasa por `observe(request, { route })` (`withUser`/`withServerMode` lo exigen). Al crear una ruta: declarar su plantilla (`/api/x/[id]`), nunca el path concreto; **ningún id como etiqueta de métrica** (hay prueba que lo comprueba); no registrar query string, cuerpo ni cabeceras; usar `log()` (nunca `console.*`) y `appMetrics()` para contadores nuevos, declarados en `metrics.ts`. Logger y registro Prometheus son propios (sin dependencia); el SDK de OTel solo se carga con `OTEL_EXPORTER_OTLP_ENDPOINT`. En tests, `captureLogs()` de `src/server/testing/logs.ts`; la suite arranca con `LOG_LEVEL=silent`.
 
 ## 6. Límites conocidos (no son bugs pendientes; son alcance)
 
@@ -92,7 +106,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Biblioteca de iconos propios por navegador (no se sincroniza en modo servidor) — H2 #14.
 - Azure y OCI sin iconos oficiales (313/572) — H2 #15.
 - Etiquetas de conector centradas en el segmento más largo; pueden pisar un borde de grupo — H2 #11.
-- Sin observabilidad (logs estructurados, métricas, trazas) — H1 #5.
+- Métricas y presencia por proceso; sin alertas ni envío a colector (decisión del operador). Las rutas de IA no llevan `code` en la línea de acceso (responden con `NextResponse.json` propio).
 - La homologación visual vive en CSS + `PanelHead`; faltan `Row/Tile/Field` como componentes — H1 #2 fase 2.
 - E2E: 1 spec de biblioteca puede fallar en paralelo por IndexedDB compartido (pasa aislado); ver `PLAN_MEJORAS.md` H1 #3 (aislar por worker sigue pendiente aunque el falso intermitente se corrigió).
 
@@ -107,17 +121,17 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Portada: `src/components/library/Library.tsx` (+ `CountUp`), vista previa real `src/lib/store/preview.ts`.
 - App: `src/components/app/` (providers, tooltips, ripple, tema, `PageState` para 404/error).
 - Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`.
+- Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
 - Herramientas: `scripts/{audit-controls,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1042), `e2e/*.spec.ts` (136 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
+- Pruebas: `src/**/*.test.ts` (1094; 1138 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (136 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. `git push` cuando el usuario lo pida (nunca se ha empujado desde esta máquina).
-2. H1 #5 **observabilidad mínima** (logs JSON con `requestId`, `/api/metrics`, OTel opcional) — M.
-3. H1 #6 **bus LISTEN/NOTIFY** para presencia multi-réplica — M; después H1 #7 **roles por diagrama** — L.
-4. Victorias rápidas restantes: enlaces clicables en el chip de repositorio, exportar con/sin metadatos y tema de exportación, ordenar/favoritos en la biblioteca, arrastrar archivo a la portada, salidas animadas con `@starting-style`, descripción accesible, virtualizar listas.
-5. H1 #2 fase 2: `Row/Tile/Field` como componentes y migrar las seis superficies; luego partir `TopBar.tsx` (542) y `Library.tsx` (532).
+1. **Confirmar H1 #5** en un commit (el árbol está verde; la imagen Docker local ya está reconstruida); `git push` cuando el usuario lo pida (nunca se ha empujado desde esta máquina; `git fetch` antes).
+2. H1 #6 **bus LISTEN/NOTIFY** para presencia multi-réplica — M (medible ya con `acgraph_sse_*`); después H1 #7 **roles por diagrama** — L.
+3. Victorias rápidas restantes: enlaces clicables en el chip de repositorio, exportar con/sin metadatos y tema de exportación, ordenar/favoritos en la biblioteca, arrastrar archivo a la portada, salidas animadas con `@starting-style`, descripción accesible, virtualizar listas.
+4. H1 #2 fase 2: `Row/Tile/Field` como componentes y migrar las seis superficies; luego partir `TopBar.tsx` (542) y `Library.tsx` (532).
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

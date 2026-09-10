@@ -1,6 +1,9 @@
+import { performance } from 'node:perf_hooks';
 import { Pool, type PoolClient, type PoolConfig } from 'pg';
 import { serverEnv } from './env';
 import { peekSingleton, resetSingleton, singleton } from './globals';
+import { log } from './observability/log';
+import { appMetrics } from './observability/metrics';
 
 /** Long enough for a workspace import, short enough to stop a runaway query. */
 export const STATEMENT_TIMEOUT_MS = 15_000;
@@ -32,7 +35,7 @@ export function getPool(): Pool {
     const pool = new Pool(poolConfig(env.databaseUrl, env.pgPoolMax));
     // An idle client dropped by the server must not crash the process.
     pool.on('error', (thrown) => {
-      console.error('[db] idle client error:', thrown.message);
+      log().warn('idle database client error', { err: thrown });
     });
     return pool;
   });
@@ -43,17 +46,23 @@ export async function withTransaction<T>(
   work: (client: PoolClient) => Promise<T>,
   pool: Pool = getPool(),
 ): Promise<T> {
+  const { dbTransactions, dbTransactionDuration } = appMetrics();
+  const started = performance.now();
+  let result: 'commit' | 'rollback' = 'rollback';
   const client = await pool.connect();
   try {
     await client.query('begin');
-    const result = await work(client);
+    const value = await work(client);
     await client.query('commit');
-    return result;
+    result = 'commit';
+    return value;
   } catch (error) {
     await client.query('rollback').catch(() => {});
     throw error;
   } finally {
     client.release();
+    dbTransactions.inc({ result });
+    dbTransactionDuration.observe((performance.now() - started) / 1000);
   }
 }
 

@@ -1,6 +1,8 @@
 import { ZodError } from 'zod';
 import { DiagramConflictError } from '@/lib/store/localRepository';
 import { DiagramNotFoundError, VersionNotFoundError } from './diagrams/errors';
+import { annotateRequest, currentRequest } from './observability/context';
+import { log } from './observability/log';
 
 /**
  * HTTP helpers shared by every route handler.
@@ -56,6 +58,8 @@ export function error(
   details: Record<string, unknown> = {},
   init: ResponseInit = {},
 ): Response {
+  // The access line says why a request failed, not just that it did.
+  annotateRequest({ code });
   return json({ code, message, ...details }, { ...init, status });
 }
 
@@ -83,12 +87,17 @@ export function errorResponse(thrown: unknown): Response {
       issues: thrown.issues.map((issue) => ({ path: issue.path, message: issue.message })),
     });
   }
-  // Name and message only: never the request, the body or a stack with values in it.
-  console.error(
-    '[api] unhandled error:',
-    thrown instanceof Error ? `${thrown.name}: ${thrown.message}` : 'non-error thrown',
+  // Name, message and stack frames: never the request, its headers or its body.
+  // The request id goes out with the 500 so a person can quote it and an
+  // operator can find this line.
+  log().error('unhandled error', { err: thrown });
+  const requestId = currentRequest()?.requestId;
+  return error(
+    500,
+    'internal',
+    'Something went wrong on the server.',
+    requestId ? { requestId } : {},
   );
-  return error(500, 'internal', 'Something went wrong on the server.');
 }
 
 /**

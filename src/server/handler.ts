@@ -4,15 +4,18 @@ import { SESSION_COOKIE, assertSameOrigin, readCookie, requireUser } from './aut
 import { PgDiagramRepository } from './diagrams/repository';
 import { serverMode } from './env';
 import { HttpError, errorResponse, serverModeOff } from './http';
+import { annotateRequest } from './observability/context';
+import { observe } from './observability/request';
 import { ensureSchema } from './schema';
 
 /**
  * The common prologue of every server-mode route.
  *
- * Order matters: mode first (local deployments answer 404 without touching a
- * database), then the CSRF check for mutating methods (cheap, no I/O), then
- * the schema, then the session. Anything thrown afterwards becomes a typed
- * JSON error through `errorResponse`.
+ * Order matters: the request is observed first (id, metrics, access line), then
+ * mode (local deployments answer 404 without touching a database), then the
+ * CSRF check for mutating methods (cheap, no I/O), then the schema, then the
+ * session. Anything thrown afterwards becomes a typed JSON error through
+ * `errorResponse`.
  */
 export interface ServerContext {
   user: User;
@@ -22,6 +25,8 @@ export interface ServerContext {
 }
 
 export interface GuardOptions {
+  /** The route template; the only route name metrics and logs ever see. */
+  route: string;
   /** Require the same-origin marker and Origin/Referer check. */
   mutating?: boolean;
 }
@@ -31,23 +36,27 @@ export async function withUser(
   options: GuardOptions,
   handler: (context: ServerContext) => Promise<Response>,
 ): Promise<Response> {
-  if (!serverMode()) return serverModeOff();
-  try {
-    if (options.mutating) assertSameOrigin(request);
-    // No cookie, no session: answer without waking the database.
-    if (!readCookie(request, SESSION_COOKIE)) {
-      throw new HttpError(401, 'unauthenticated', 'Sign in to use the server API.');
+  return observe(request, { route: options.route }, async () => {
+    if (!serverMode()) return serverModeOff();
+    try {
+      if (options.mutating) assertSameOrigin(request);
+      // No cookie, no session: answer without waking the database.
+      if (!readCookie(request, SESSION_COOKIE)) {
+        throw new HttpError(401, 'unauthenticated', 'Sign in to use the server API.');
+      }
+      await ensureSchema();
+      const user = await requireUser(request);
+      const sessionKey = sessionKeyOf(request);
+      annotateRequest({ userId: user.id, sessionKey });
+      return await handler({
+        user,
+        repository: new PgDiagramRepository(user),
+        sessionKey,
+      });
+    } catch (thrown) {
+      return errorResponse(thrown);
     }
-    await ensureSchema();
-    const user = await requireUser(request);
-    return await handler({
-      user,
-      repository: new PgDiagramRepository(user),
-      sessionKey: sessionKeyOf(request),
-    });
-  } catch (thrown) {
-    return errorResponse(thrown);
-  }
+  });
 }
 
 /** For the auth routes, which run before there is a user. */
@@ -56,14 +65,16 @@ export async function withServerMode(
   options: GuardOptions,
   handler: () => Promise<Response>,
 ): Promise<Response> {
-  if (!serverMode()) return serverModeOff();
-  try {
-    if (options.mutating) assertSameOrigin(request);
-    await ensureSchema();
-    return await handler();
-  } catch (thrown) {
-    return errorResponse(thrown);
-  }
+  return observe(request, { route: options.route }, async () => {
+    if (!serverMode()) return serverModeOff();
+    try {
+      if (options.mutating) assertSameOrigin(request);
+      await ensureSchema();
+      return await handler();
+    } catch (thrown) {
+      return errorResponse(thrown);
+    }
+  });
 }
 
 /**

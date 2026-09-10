@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_PG_POOL_MAX,
+  DEFAULT_SERVICE_NAME,
   DEFAULT_SESSION_TTL_HOURS,
   isSecureAppUrl,
   normalizeAppUrl,
+  readObservabilityEnv,
   readServerEnv,
   serverEnv,
   serverMode,
@@ -80,5 +82,56 @@ describe('normalizeAppUrl', () => {
   it('marks cookies Secure only over https', () => {
     expect(isSecureAppUrl({ appUrl: 'https://a.example' })).toBe(true);
     expect(isSecureAppUrl({ appUrl: 'http://localhost:3080' })).toBe(false);
+  });
+});
+
+describe('readObservabilityEnv', () => {
+  it('defaults to info, JSON in production, pretty elsewhere, no token, no traces', () => {
+    expect(readObservabilityEnv({ NODE_ENV: 'production' })).toEqual({
+      logLevel: 'info',
+      logFormat: 'json',
+      metricsToken: null,
+      otlpEndpoint: null,
+      serviceName: DEFAULT_SERVICE_NAME,
+    });
+    expect(readObservabilityEnv({ NODE_ENV: 'development' }).logFormat).toBe('pretty');
+    expect(readObservabilityEnv({}).logFormat).toBe('pretty');
+  });
+
+  it('reads every setting, case-insensitively for the enumerations', () => {
+    expect(
+      readObservabilityEnv({
+        LOG_LEVEL: 'DEBUG',
+        LOG_FORMAT: 'Json',
+        METRICS_TOKEN: ' scrape ',
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'http://collector:4318',
+        OTEL_SERVICE_NAME: 'graph-eu',
+      }),
+    ).toEqual({
+      logLevel: 'debug',
+      logFormat: 'json',
+      metricsToken: 'scrape',
+      otlpEndpoint: 'http://collector:4318',
+      serviceName: 'graph-eu',
+    });
+  });
+
+  it('falls back on unknown levels and formats and treats blanks as unset', () => {
+    const env = readObservabilityEnv({
+      LOG_LEVEL: 'loud',
+      LOG_FORMAT: 'xml',
+      METRICS_TOKEN: '   ',
+      OTEL_EXPORTER_OTLP_ENDPOINT: '',
+      NODE_ENV: 'production',
+    });
+    expect(env.logLevel).toBe('info');
+    expect(env.logFormat).toBe('json');
+    expect(env.metricsToken).toBeNull();
+    expect(env.otlpEndpoint).toBeNull();
+  });
+
+  it('is independent of server mode', () => {
+    expect(readObservabilityEnv({ LOG_LEVEL: 'warn' }).logLevel).toBe('warn');
+    expect(serverMode({ LOG_LEVEL: 'warn' })).toBe(false);
   });
 });

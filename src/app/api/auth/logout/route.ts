@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
  * `{ endSessionUrl }` so the browser can also sign out of Authentik.
  */
 export function POST(request: Request) {
-  return withServerMode(request, { mutating: true }, async () => {
+  return withServerMode(request, { route: '/api/auth/logout', mutating: true }, async () => {
     await destroySession(request);
     const headers = { 'Set-Cookie': clearSessionCookie() };
     const url = await endSessionUrl();

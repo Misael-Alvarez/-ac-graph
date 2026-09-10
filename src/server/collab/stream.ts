@@ -1,4 +1,7 @@
+import { performance } from 'node:perf_hooks';
 import type { User } from '@/lib/domain';
+import { log } from '../observability/log';
+import { appMetrics } from '../observability/metrics';
 import { events, formatSse, type DiagramEvent } from './events';
 import { presence, type PresenceUser } from './presence';
 
@@ -55,6 +58,10 @@ export function openDiagramStream(options: StreamOptions): Response {
   const hub = events();
   const registry = presence();
   const encoder = new TextEncoder();
+  const { sseConnections, sseConnectionsTotal } = appMetrics();
+  // The request's logger, captured now: the stream outlives the request context.
+  const logger = log();
+  const openedAt = performance.now();
 
   let cleanup = () => {};
 
@@ -79,12 +86,20 @@ export function openDiagramStream(options: StreamOptions): Response {
         registry.touch(diagramId, sessionKey, user);
       }, heartbeatMs);
 
+      sseConnections.inc();
+      sseConnectionsTotal.inc();
+      logger.debug('stream opened', { viewers: registry.list(diagramId).length + 1 });
+
       cleanup = () => {
         if (closed) return;
         closed = true;
         clearInterval(heartbeat);
         unsubscribe();
         signal.removeEventListener('abort', cleanup);
+        sseConnections.dec();
+        logger.debug('stream closed', {
+          durationMs: Math.round(performance.now() - openedAt),
+        });
         if (registry.leave(diagramId, sessionKey)) {
           hub.publish(diagramId, { type: 'presence', users: registry.list(diagramId) });
         }

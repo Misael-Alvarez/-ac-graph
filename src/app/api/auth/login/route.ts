@@ -2,6 +2,8 @@ import type { NextRequest } from 'next/server';
 import { beginLogin, safeNextPath } from '@/server/auth/oidc';
 import { authStateCookie } from '@/server/auth/session';
 import { withServerMode } from '@/server/handler';
+import { log } from '@/server/observability/log';
+import { appMetrics } from '@/server/observability/metrics';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * the real cause is in the server log, never in the response.
  */
 export function GET(request: NextRequest) {
-  return withServerMode(request, {}, async () => {
+  return withServerMode(request, { route: '/api/auth/login' }, async () => {
     const next = safeNextPath(request.nextUrl.searchParams.get('next'));
     try {
       const { authorizationUrl, state } = await beginLogin(next);
@@ -27,7 +29,8 @@ export function GET(request: NextRequest) {
         },
       });
     } catch (error) {
-      console.error('[auth] could not start login', error instanceof Error ? error.message : error);
+      appMetrics().logins.inc({ result: 'error' });
+      log().error('could not start login', { err: error });
       const back = new URL(next, request.nextUrl.origin);
       back.searchParams.set('auth_error', 'provider');
       return new Response(null, {

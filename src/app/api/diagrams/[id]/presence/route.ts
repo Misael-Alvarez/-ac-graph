@@ -8,12 +8,14 @@ import { noContent } from '@/server/http';
 
 export const dynamic = 'force-dynamic';
 
+const ROUTE = '/api/diagrams/[id]/presence';
+
 /**
  * Heartbeat and cursor/editing updates for one viewer of one diagram.
  * Omitted fields keep their previous value; `cursor: null` hides the cursor.
  */
-export function POST(request: NextRequest, context: RouteContext<'/api/diagrams/[id]/presence'>) {
-  return withUser(request, { mutating: true }, async ({ user, sessionKey }) => {
+export function POST(request: NextRequest, context: RouteContext<typeof ROUTE>) {
+  return withUser(request, { route: ROUTE, mutating: true }, async ({ user, sessionKey }) => {
     const { id } = await context.params;
     const patch = await parseBody(request, PresenceBodySchema);
     const registry = presence();

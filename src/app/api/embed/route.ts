@@ -2,6 +2,7 @@ import { routeAllConnectors } from '@/lib/engine';
 import { diagramToSvgString } from '@/lib/editor/renderSvg';
 import { safeDecodeDiagram } from '@/lib/share/codec';
 import { themeFromSearch } from '@/lib/share/links';
+import { observe } from '@/server/observability/request';
 
 /**
  * Server-rendered diagram image.
@@ -10,7 +11,11 @@ import { themeFromSearch } from '@/lib/share/links';
  * so this route could exist: the same renderer the editor uses produces the
  * embed, with no headless browser and no drift between the two.
  */
-export async function GET(request: Request) {
+export function GET(request: Request) {
+  return observe(request, { route: '/api/embed' }, () => render(request));
+}
+
+async function render(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const payload = url.searchParams.get('d');
 

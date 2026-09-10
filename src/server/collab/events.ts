@@ -1,4 +1,5 @@
 import { singleton } from '../globals';
+import { appMetrics } from '../observability/metrics';
 import type { PresenceUser } from './presence';
 
 /**
@@ -36,6 +37,7 @@ export class EventHub {
 
   /** Delivers to every subscriber; one throwing listener cannot starve the rest. */
   publish(diagramId: string, event: DiagramEvent): number {
+    appMetrics().sseEvents.inc({ type: event.type });
     const room = this.rooms.get(diagramId);
     if (!room) return 0;
     let delivered = 0;

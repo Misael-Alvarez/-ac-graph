@@ -19,9 +19,12 @@ import { GET as openEvents } from '@/app/api/diagrams/[id]/events/route';
 import { POST as postPresence } from '@/app/api/diagrams/[id]/presence/route';
 import { GET as exportWorkspace } from '@/app/api/workspace/export/route';
 import { POST as importWorkspace } from '@/app/api/workspace/import/route';
+import { GET as scrapeMetrics } from '@/app/api/metrics/route';
 import { createSession, hashSessionId } from './auth/session';
 import { closePool, getPool } from './db';
 import { events } from './collab/events';
+import { appMetrics } from './observability/metrics';
+import { captureLogs } from './testing/logs';
 import {
   dropSchema,
   insertUser,
@@ -489,6 +492,88 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
         ctx({ id: created.id }),
       );
       expect(bad.status).toBe(400);
+    });
+  });
+
+  describe('observability', () => {
+    it('counts saves, conflicts, transactions and sessions, and logs who did what', async () => {
+      const logs = captureLogs();
+      try {
+        const created = await create();
+        const saved = await saveDiagram(
+          request(`/api/diagrams/${created.id}`, {
+            method: 'PUT',
+            cookie: adaCookie,
+            headers: { 'if-match': created.updatedAt, 'x-request-id': 'save-0001' },
+            body: { model: modelWithGroups(2) },
+          }),
+          ctx({ id: created.id }),
+        );
+        expect(saved.status).toBe(200);
+        expect(saved.headers.get('x-request-id')).toBe('save-0001');
+
+        const stale = await saveDiagram(
+          request(`/api/diagrams/${created.id}`, {
+            method: 'PUT',
+            cookie: bobCookie,
+            headers: { 'if-match': created.updatedAt },
+            body: { model: modelWithGroups(3) },
+          }),
+          ctx({ id: created.id }),
+        );
+        expect(stale.status).toBe(412);
+
+        const app = appMetrics();
+        expect(app.diagramSaves.get({ operation: 'save', result: 'ok' })).toBe(1);
+        expect(app.diagramSaves.get({ operation: 'save', result: 'conflict' })).toBe(1);
+        expect(app.httpConflicts.get({ route: '/api/diagrams/[id]' })).toBe(1);
+        expect(
+          app.httpRequests.get({ route: '/api/diagrams/[id]', method: 'PUT', status: 200 }),
+        ).toBe(1);
+        expect(
+          app.httpRequests.get({ route: '/api/diagrams/[id]', method: 'PUT', status: 412 }),
+        ).toBe(1);
+        // The save commits; the stale save rolls back. Creation is a plain insert.
+        expect(app.dbTransactions.get({ result: 'commit' })).toBe(1);
+        expect(app.dbTransactions.get({ result: 'rollback' })).toBe(1);
+
+        const session = await createSession(ada.id, pool);
+        expect(app.sessionsCreated.get()).toBe(1);
+        const ended = await logout(
+          request('/api/auth/logout', { method: 'POST', cookie: session.id }),
+        );
+        expect([200, 204]).toContain(ended.status);
+        expect(app.sessionsEnded.get()).toBe(1);
+
+        const okLine = logs.named('http request').find((line) => line.requestId === 'save-0001');
+        expect(okLine).toMatchObject({
+          method: 'PUT',
+          route: '/api/diagrams/[id]',
+          status: 200,
+          userId: ada.id,
+          diagramId: created.id,
+        });
+        expect(typeof okLine!.sessionKey).toBe('string');
+        const conflictLine = logs
+          .named('http request')
+          .find((line) => line.status === 412 && line.route === '/api/diagrams/[id]');
+        expect(conflictLine).toMatchObject({ userId: bob.id, code: 'conflict' });
+        expect(logs.named('stale revision refused')[0]).toMatchObject({
+          userId: bob.id,
+          diagramId: created.id,
+          operation: 'save',
+        });
+
+        const scrape = await scrapeMetrics(request('/api/metrics'));
+        const text = await scrape.text();
+        expect(text).toContain('acgraph_diagram_saves_total{operation="save",result="conflict"} 1');
+        expect(text).toContain('acgraph_db_pool_clients{state="total"}');
+        expect(text).not.toContain(created.id);
+        expect(text).not.toContain(ada.id);
+        expect(JSON.stringify(logs.records)).not.toContain(adaCookie);
+      } finally {
+        logs.restore();
+      }
     });
   });
 

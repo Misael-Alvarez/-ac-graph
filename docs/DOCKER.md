@@ -85,12 +85,61 @@ environment variables, so this is not a secret manager. Avoid sharing plain
 `docker compose config`, `docker inspect` environment output or private logs;
 use `config --quiet` for validation.
 
-## Optional PostgreSQL
+## Logs, metrics and traces
 
-**PostgreSQL is a future backend sandbox, not current application persistence.**
-There is no database client, `DATABASE_URL`, schema, migration or `depends_on`
-connecting the app to it. The app starts independently. Nothing below moves
-diagrams out of the browser or enables accounts, collaboration or server backups.
+The server is observable in both modes with no extra service. Everything is
+configured through the variables in `.env.example`, which `compose.yaml` passes
+to the container; nothing is read at build time.
+
+**Logs.** One JSON object per line on stdout (`LOG_FORMAT=json`, the production
+default; `pretty` for a terminal), which Docker's `json-file` driver already
+collects. Every API request writes one access record with `requestId`, `method`,
+the route template (`/api/diagrams/[id]`, never the concrete path with its id),
+`path` without the query string, `status`, `durationMs`, the error `code` for
+4xx/5xx, and — once known — `userId`, `sessionKey` (a one-way digest of the
+cookie) and `diagramId`. Health checks and metric scrapes log at `debug` only.
+Cookies, tokens, request bodies and query strings are never logged; keys that look
+like a credential are redacted wherever they appear. `LOG_LEVEL` is `debug`,
+`info` (default), `warn`, `error` or `silent`.
+
+```bash
+docker compose -p acgraph-foundation logs --no-log-prefix app | grep '"status":5'
+docker compose -p acgraph-foundation logs --no-log-prefix app | grep '"requestId":"<id from the 500>"'
+```
+
+Every response carries `x-request-id`. An incoming `x-request-id` from a reverse
+proxy is kept when it is 8–128 characters of `[A-Za-z0-9._-]`, so one id follows
+the request through the proxy and the app; a 500 quotes it in its JSON body.
+
+**Metrics.** `GET /api/metrics` serves the Prometheus text format: request count
+and latency histogram per route template and method, in-flight requests, 412
+conflicts, diagram saves and restores by outcome, sessions created and ended,
+OIDC logins by outcome, open event streams and events published, database
+transactions and pool clients, unhandled errors, plus the usual process, heap,
+event-loop and version gauges and `acgraph_build_info`. Labels are always drawn
+from a closed set — no user, diagram or session id ever becomes a label. The
+endpoint is open by default because the port is bound to loopback; behind a
+public reverse proxy set `METRICS_TOKEN` and scrape with
+`Authorization: Bearer <token>`.
+
+```bash
+curl --silent http://127.0.0.1:3080/api/metrics | grep '^acgraph_http_requests_total'
+```
+
+**Traces.** Off unless `OTEL_EXPORTER_OTLP_ENDPOINT` names an OpenTelemetry
+collector (OTLP over HTTP/JSON, e.g. `http://otel-collector:4318`). When it does,
+Next.js — already instrumented — emits a span per request (`GET /api/diagrams/[id]`),
+per route handler and per outgoing `fetch`, tagged with `OTEL_SERVICE_NAME`
+(default `ac-graph`) and the build stamp as `service.version`; log records then
+carry `traceId` and `spanId`. `OTEL_EXPORTER_OTLP_HEADERS` and
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` follow the OpenTelemetry specification.
+The SDK is loaded only on this path and flushed on `SIGTERM`.
+
+## PostgreSQL
+
+PostgreSQL is the diagram store of **server mode** (see
+[AUTHENTIK.md](AUTHENTIK.md)); `compose.server.yaml` starts it and wires
+`DATABASE_URL`. In local mode it stays off and the app never opens a connection.
 
 The `postgres` profile uses `postgres:17.11-bookworm`, pinned to index digest
 `sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0`
@@ -156,17 +205,21 @@ PostgreSQL, push an image or use cloud credentials.
 
 Current limits:
 
-- Diagrams, preferences and history live in browser IndexedDB/local storage,
-  scoped to the exact origin (scheme, hostname and port). `localhost` and
-  `127.0.0.1` are different origins. Browser cleanup can erase that data; export
-  workspaces for backups. Container or database volumes do not back up diagrams.
-- There is no authentication, server-side diagram repository or multi-user access
-  control. Share links carry diagram data in their URL; treat them as sensitive.
+- In local mode, diagrams, preferences and history live in browser
+  IndexedDB/local storage, scoped to the exact origin (scheme, hostname and
+  port). `localhost` and `127.0.0.1` are different origins. Browser cleanup can
+  erase that data; export workspaces for backups. Container volumes do not back
+  up local-mode diagrams.
+- Server mode has one workspace and no roles; share links carry diagram data in
+  their URL and are not revocable. Treat them as sensitive.
 - Loopback HTTP is a local operating baseline, not an internet-ready deployment.
-  Before remote exposure, add TLS and a reverse proxy, request-size/time limits,
-  authentication and appropriate rate limiting. AI rate limits are process-local.
-- Next's runtime cache is ephemeral and per-container. Shared caching and
-  multi-instance coordination are not configured.
+  Before remote exposure, add TLS and a reverse proxy, request-size/time limits
+  and appropriate rate limiting. AI rate limits are process-local.
+- Next's runtime cache, presence and event fan-out are per process. Shared
+  caching and multi-instance coordination are not configured.
+- Metrics and logs stay inside the container's stdout and `/api/metrics`;
+  shipping them somewhere (Prometheus, Loki, a collector) is the operator's
+  choice. There is no alerting.
 - Builds need network access to Docker Hub, npm and Google Fonts used by the
   existing `next/font` configuration. Fonts are self-hosted after the build.
   There is no offline-build or vulnerability-scan guarantee; review image and

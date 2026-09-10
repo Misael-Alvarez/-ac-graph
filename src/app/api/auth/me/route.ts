@@ -5,5 +5,5 @@ export const dynamic = 'force-dynamic';
 
 /** The signed-in user, or 401. */
 export function GET(request: Request) {
-  return withUser(request, {}, async ({ user }) => json({ user }));
+  return withUser(request, { route: '/api/auth/me' }, async ({ user }) => json({ user }));
 }

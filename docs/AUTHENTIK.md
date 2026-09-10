@@ -61,6 +61,13 @@ workspace.
 | `PGPOOL_MAX`         | no       | Connections per app process, default `10`                                                                                                                    |
 | `POSTGRES_PASSWORD`  | compose  | Password of the `acgraph` database user in the Compose stack                                                                                                 |
 
+Logging, metrics and tracing (`LOG_LEVEL`, `LOG_FORMAT`, `METRICS_TOKEN`,
+`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`) are independent of server
+mode and described in [DOCKER.md](DOCKER.md#logs-metrics-and-traces). In server
+mode the access records additionally carry `userId`, `sessionKey` (a one-way
+digest of the cookie, shared by the tabs of one browser) and `diagramId`, and
+`/api/metrics` counts sessions, logins by outcome, saves and 412 conflicts.
+
 Two things bite when the app runs in Docker:
 
 - **The container must reach `OIDC_ISSUER` under the same URL the browser
@@ -176,4 +183,6 @@ against the Compose stack):
 - **Login errors are a redirect, not a page of their own.** A provider that
   cannot be reached, or a rejected or expired callback, sends the browser back
   to the sign-in page with `?auth_error=…`; the sign-in card shows a generic
-  failure line and the cause is in the server log only.
+  failure line and the cause is in the server log only (`could not start login`
+  / `login callback failed`, with the request id; `acgraph_logins_total{result="error"}`
+  counts them).

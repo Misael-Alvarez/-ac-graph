@@ -9,6 +9,7 @@ import { RateLimiter, callerKey } from '@/lib/ai/rateLimit';
 import { AiDiagramSchema, aiToDsl } from '@/lib/ai/schema';
 import { LOCALES } from '@/lib/i18n/messages';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/ai/prompt';
+import { observe } from '@/server/observability/request';
 
 /** Generous enough for real use, tight enough that one visitor cannot run up a bill. */
 const limiter = new RateLimiter({ capacity: 5, refillPerMinute: 3 });
@@ -26,7 +27,11 @@ const RequestSchema = z.object({
   locale: LocaleSchema.default('en'),
 });
 
-export async function POST(request: Request) {
+export function POST(request: Request) {
+  return observe(request, { route: '/api/ai/generate' }, () => generate(request));
+}
+
+async function generate(request: Request): Promise<Response> {
   const client = getClient();
   if (!client) {
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { serverMode } from '@/server/env';
 import { json } from '@/server/http';
+import { observe } from '@/server/observability/request';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,10 +11,12 @@ export const dynamic = 'force-dynamic';
  * The answer depends only on environment variables, so it never touches the
  * database or the identity provider.
  */
-export function GET() {
-  if (!serverMode()) return json({ mode: 'local' });
-  return json({
-    mode: 'server',
-    auth: { loginUrl: '/api/auth/login', logoutUrl: '/api/auth/logout' },
+export function GET(request: Request) {
+  return observe(request, { route: '/api/config' }, () => {
+    if (!serverMode()) return json({ mode: 'local' });
+    return json({
+      mode: 'server',
+      auth: { loginUrl: '/api/auth/login', logoutUrl: '/api/auth/logout' },
+    });
   });
 }
