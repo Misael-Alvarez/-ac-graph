@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`) y #14 iconos en servidor** (entregado hoy, pendiente de commit y push). Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #9 comentarios anclados, #11 conectores editables.
+> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`) y #14 iconos en servidor (`0285974`)** en `origin/main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `0285974`. Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #9 comentarios anclados, #11 conectores editables.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -601,7 +601,6 @@ Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comen
 
 ## Siguiente tarea exacta
 
-1. Confirmar H2 #14 (iconos en servidor) en un commit y `git push`; reconstruir la imagen Docker local.
-2. Seguir H2: #9 comentarios anclados (L), #11 conectores editables (L).
-3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Seguir H2: #9 comentarios anclados (L), #11 conectores editables (L).
+2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
