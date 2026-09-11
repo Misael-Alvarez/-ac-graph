@@ -73,6 +73,32 @@ export const ConnectorIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** A tinted zone: a dashed panel with a corner tab, nothing inside it. */
+export const RegionIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2.5" strokeDasharray="3 2.5" />
+    <path d="M6.5 8h5" />
+  </Icon>
+);
+
+/** A square of paper with its corner turned up. */
+export const NoteIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v8.5l-6 6H5.5A1.5 1.5 0 0 1 4 18.5z" />
+    <path d="M14 20v-4.5a1.5 1.5 0 0 1 1.5-1.5H20" />
+    <path d="M8 9h8M8 12.5h5" />
+  </Icon>
+);
+
+/** The letter T on a baseline: free text. */
+export const TextIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 6.5V4.5h14v2" />
+    <path d="M12 4.5v15" />
+    <path d="M9 19.5h6" />
+  </Icon>
+);
+
 export const UndoIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M9 14L4 9l5-5" />

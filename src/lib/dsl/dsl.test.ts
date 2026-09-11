@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DiagramModel } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { TEMPLATES } from '@/lib/editor/templates';
 import { parseDsl } from './parse';
@@ -179,10 +180,16 @@ describe('parseDsl diagnostics', () => {
     expect(diagnostics[0].to).toBeGreaterThan(0);
   });
 
-  it('reports a missing required field', () => {
+  it('reads a document with nothing on it yet as an empty page', () => {
     const { model, diagnostics } = parseDsl('version: 1\n');
+    expect(model!.shapes).toEqual([]);
+    expect(diagnostics).toEqual([]);
+  });
+
+  it('reports a missing required field', () => {
+    const { model, diagnostics } = parseDsl('nodes:\n  api:\n    label: API\n');
     expect(model).toBeNull();
-    expect(diagnostics.some((d) => d.message.includes('nodes'))).toBe(true);
+    expect(diagnostics.some((d) => d.message.startsWith('nodes.api'))).toBe(true);
   });
 
   it('reports an unknown service and anchors it to the node', () => {
@@ -250,6 +257,75 @@ describe('serializeDsl', () => {
     const model = parseDsl(SAMPLE).model!;
     const once = serializeDsl(model);
     expect(serializeDsl(parseDsl(once).model!)).toBe(once);
+  });
+
+  it('round-trips the notes, texts and regions with their geometry and colour', () => {
+    const model = parseDsl(SAMPLE).model!;
+    const note = E.addDecoration(
+      model,
+      'note',
+      100,
+      900,
+      '**Todo**\n- migrate the queue\n\n- review',
+    );
+    note.w = 260;
+    note.h = 200;
+    note.fill = '#fbcfe8';
+    const text = E.addDecoration(model, 'text', 40, 20, '# Phase 2');
+    text.fill = '#0f62fe';
+    const region = E.addDecoration(model, 'region', -40, -40, 'DMZ');
+    region.w = 1400;
+    region.h = 700;
+
+    const source = serializeDsl(model);
+    expect(source).toContain('notes:');
+    expect(source).toMatch(/\n  todo:\n/);
+    expect(source).toMatch(/\n  phase-2:\n    kind: text\n/);
+    expect(source).toMatch(/\n  dmz:\n    kind: region\n/);
+    expect(source).toContain('at: [100, 900]');
+    expect(source).toContain('size: [260, 200]');
+    expect(source).toMatch(/text: \|-\n\s+\*\*Todo\*\*\n/);
+
+    const round = parseDsl(source).model!;
+    const back = round.shapes.filter((s) => isDecorative(s));
+    expect(back.map((s) => s.type)).toEqual(['note', 'text', 'region']);
+    expect(back[0]).toMatchObject({
+      x: 100,
+      y: 900,
+      w: 260,
+      h: 200,
+      fill: '#fbcfe8',
+      title: '**Todo**\n- migrate the queue\n\n- review',
+    });
+    expect(back[1]).toMatchObject({ x: 40, y: 20, title: '# Phase 2', fill: '#0f62fe' });
+    expect(back[2]).toMatchObject({ x: -40, y: -40, w: 1400, h: 700, title: 'DMZ' });
+    // The architecture came through untouched beside them.
+    expect(nodesOf(round)).toHaveLength(nodesOf(model).length);
+    // And twice is the same as once.
+    expect(serializeDsl(round)).toBe(source);
+  });
+
+  it('places a note that says nothing about where below the diagram', () => {
+    const { model, diagnostics } = parseDsl(
+      `${SAMPLE}notes:\n  a: { text: first }\n  b: { text: second }\n`,
+    );
+    expect(diagnostics).toEqual([]);
+    const [a, b] = model!.shapes.filter((s) => s.type === 'note');
+    const architecture = E.contentBBox({
+      ...model!,
+      shapes: model!.shapes.filter((s) => s.type !== 'note'),
+    });
+    expect(a.y).toBeGreaterThan(architecture.y + architecture.h);
+    expect(b.y).toBeGreaterThan(a.y + a.h);
+    expect(a.title).toBe('first');
+  });
+
+  it('accepts a page with notes and no nodes yet', () => {
+    const { model, diagnostics } = parseDsl(
+      'notes:\n  hello:\n    text: Start here\n    at: [10, 10]\n',
+    );
+    expect(diagnostics).toEqual([]);
+    expect(model!.shapes.map((s) => s.type)).toEqual(['note']);
   });
 
   it('uses the compact arrow form for plain edges', () => {
@@ -649,6 +725,25 @@ describe('views round-trip', () => {
     for (const id of security.include!) {
       expect(E.getShape(back, id), id).toBeDefined();
     }
+  });
+
+  it('lets a view include and place a note', () => {
+    const { model } = withView();
+    const note = E.addDecoration(model, 'note', 0, 0, 'Only in security');
+    model.views[1].include!.push(note.id);
+    model.views[1].place![note.id] = { x: 900, y: 900, w: note.w, h: note.h };
+
+    const source = serializeDsl(model);
+    expect(source).toMatch(/include:\n(\s+- .*\n)*\s+- only-in-security\n/);
+    expect(source).toMatch(/only-in-security: \[900, 900\]/);
+
+    const back = parseDsl(source).model!;
+    const resolved = E.resolveView(back, back.views[1].id);
+    const shown = resolved.shapes.find((s) => s.type === 'note')!;
+    expect(shown).toBeDefined();
+    expect([shown.x, shown.y]).toEqual([900, 900]);
+    // In the main view it is where the document put it.
+    expect(back.shapes.find((s) => s.type === 'note')).toMatchObject({ x: 0, y: 0 });
   });
 
   it('keeps the view narrowed to the same two services', () => {

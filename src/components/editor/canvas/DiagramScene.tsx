@@ -1,4 +1,5 @@
 import type { DiagramModel, Shape } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import type { CanvasTheme } from '@/lib/design/tokens';
 import { ConnectorLayer } from './ConnectorLayer';
 import {
@@ -6,18 +7,36 @@ import {
   ContainerShape,
   GroupShape,
   ItemShape,
+  NoteShape,
+  RegionShape,
+  TextShape,
   type ShapeInteraction,
+  type ShapeRenderProps,
 } from './shapes';
 
-/** Paint order: boundaries sit behind groups, which sit behind their items. */
-const PAINT_ORDER: Shape['type'][] = ['boundary', 'group', 'container', 'item'];
+/**
+ * Paint order: a region is a wash under everything; boundaries sit behind
+ * groups, which sit behind their items; notes and texts are written on top.
+ */
+const PAINT_ORDER: Shape['type'][] = [
+  'region',
+  'boundary',
+  'group',
+  'container',
+  'item',
+  'note',
+  'text',
+];
 
-const RENDERERS = {
+const RENDERERS: Record<Shape['type'], (props: ShapeRenderProps) => React.ReactElement> = {
+  region: RegionShape,
   boundary: BoundaryShape,
   group: GroupShape,
   container: ContainerShape,
   item: ItemShape,
-} as const;
+  note: NoteShape,
+  text: TextShape,
+};
 
 export interface DiagramSceneProps {
   model: DiagramModel;
@@ -88,11 +107,16 @@ export function DiagramScene({
   return (
     <>
       <g>
-        {PAINT_ORDER.map((type) => (
-          <g key={type}>
-            {model.shapes
-              .filter((s) => s.type === type && !hiddenByCollapse(s))
-              .map((shape, index) => {
+        {PAINT_ORDER.map((type) => {
+          const layer = model.shapes.filter((s) => s.type === type && !hiddenByCollapse(s));
+          // The decoration's layers exist only when there is decoration: a
+          // diagram with no regions or notes — every one made before they
+          // existed — keeps exactly the tree it had, so the style snapshots
+          // and anything else that walks it are undisturbed.
+          if (!layer.length && isDecorative({ type })) return null;
+          return (
+            <g key={type}>
+              {layer.map((shape, index) => {
                 const Renderer = RENDERERS[type];
                 const count = summarised.get(shape.id);
                 const rendered = (
@@ -120,8 +144,9 @@ export function DiagramScene({
                   <g key={shape.id}>{rendered}</g>
                 );
               })}
-          </g>
-        ))}
+            </g>
+          );
+        })}
       </g>
       <ConnectorLayer connectors={model.connectors} theme={theme} {...connectorInteraction} />
     </>

@@ -84,6 +84,12 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   the SVG carries a spoken description of the diagram, as the canvas does for
   screen readers. A repository chip that names a host is a link, in the editor
   and in the export.
+- **Write on it.** A region tints the part of the picture you are talking
+  about, a note is a square of yellow paper with `**bold**`, bullets and
+  headings, a text is a caption with nothing behind it. None of them is a
+  service: the analysis, the cloud switch and the arrows leave them alone, the
+  YAML keeps them in a `notes:` section, and the export draws them as the
+  screen does.
 - **Present it.** `F5` (or More › Present) drops every panel and bar and shows
   the diagram alone on the theme's background: arrow keys step through the
   views with the camera gliding between them, a legend names the tones on
@@ -127,6 +133,7 @@ the palette hints and the `?` sheet all read that table, so they cannot drift.
 | `⌘J`                | AI assistant                                                |
 | `⌘/` `⌘B` `⌘H` `⌘I` | Code panel, service browser, history, insights              |
 | `V B U G I C H`     | Select, boundary, sub-boundary, group, item, connector, pan |
+| `R N T`             | Region, note, text                                          |
 | `Space` + drag      | Pan · `⌘` + wheel zooms at the cursor                       |
 | `⌘1` / `⌘0`         | Fit to view / reset zoom                                    |
 | `F5`                | Present · `←` `→` step through views · `Esc` leaves         |

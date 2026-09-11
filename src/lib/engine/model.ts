@@ -1,5 +1,5 @@
 import type { DiagramModel, Shape } from '@/lib/domain';
-import { CURRENT_SCHEMA_VERSION } from '@/lib/domain';
+import { CURRENT_SCHEMA_VERSION, isDecorative } from '@/lib/domain';
 import { G } from './constants';
 import { uid } from './ids';
 
@@ -213,6 +213,68 @@ export function addItemToContainer(model: DiagramModel, containerId: string): Sh
   const group = container.parentId ? getShape(model, container.parentId) : undefined;
   if (group) relayoutGroup(model, group);
   return item;
+}
+
+/**
+ * The decoration: what a reader writes *on* the architecture, not into it.
+ *
+ * None of these has a parent, an icon or a place in the cloud hierarchy. A
+ * region is a tinted zone painted under everything, a note is a square of
+ * paper laid over it, a text is a caption with nothing behind it. Their
+ * `title` is the whole of what they say, in the little markup `richText`
+ * reads; their `fill` is the region's tint, the note's paper or the text's ink.
+ */
+export const DECORATION_SIZE = {
+  region: { w: 640, h: 400 },
+  note: { w: 220, h: 160 },
+  text: { w: 260, h: 60 },
+} as const;
+
+export type DecorationType = keyof typeof DECORATION_SIZE;
+
+const DECORATION_PREFIX: Record<DecorationType, string> = { region: 'rg', note: 'nt', text: 'tx' };
+
+/** A fresh id for a decoration, minted ahead so the caller can select it at once. */
+export function decorationId(type: DecorationType): string {
+  return uid(DECORATION_PREFIX[type]);
+}
+
+export function addDecoration(
+  model: DiagramModel,
+  type: DecorationType,
+  x: number,
+  y: number,
+  title = '',
+  id: string = decorationId(type),
+): Shape {
+  const s: Shape = {
+    id,
+    type,
+    parentId: null,
+    x,
+    y,
+    ...DECORATION_SIZE[type],
+    title,
+  };
+  model.shapes.push(s);
+  return s;
+}
+
+/**
+ * Carries the decoration of one model into another.
+ *
+ * A rewrite from the assistant or from the DSL describes the architecture,
+ * which is the cloud family and nothing else; the notes a reader wrote beside
+ * it are not something the rewrite knows about, so they would vanish with it.
+ * Appended after the new shapes: the ids are the reader's own and cannot
+ * collide with freshly minted ones.
+ */
+export function carryDecorations(from: DiagramModel, into: DiagramModel): DiagramModel {
+  const kept = from.shapes.filter(isDecorative);
+  if (!kept.length) return into;
+  const present = new Set(into.shapes.map((s) => s.id));
+  const added = kept.filter((s) => !present.has(s.id)).map((s) => structuredClone(s));
+  return added.length ? { ...into, shapes: [...into.shapes, ...added] } : into;
 }
 
 /* ── mutation ───────────────────────────────────────────── */

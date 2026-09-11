@@ -25,8 +25,25 @@ export function renderThumbnail(model: DiagramModel, dark = false): string {
     `<rect x="${box.x - pad}" y="${box.y - pad}" width="${box.w + pad * 2}" height="${box.h + pad * 2}" fill="${theme.sheet}"/>`,
   ];
 
-  for (const shape of model.shapes) {
-    if (shape.type === 'container') continue;
+  // Regions first, so they sit under what they tint; texts not at all, since
+  // at this size a line of words is a smudge.
+  const shapes = [...model.shapes].sort(
+    (a, b) => Number(b.type === 'region') - Number(a.type === 'region'),
+  );
+  for (const shape of shapes) {
+    if (shape.type === 'container' || shape.type === 'text') continue;
+    if (shape.type === 'region') {
+      parts.push(
+        `<rect x="${r(shape.x)}" y="${r(shape.y)}" width="${r(shape.w)}" height="${r(shape.h)}" rx="10" fill="${theme.regionTint}" stroke="${theme.regionStroke}" stroke-width="${r(stroke)}" stroke-dasharray="${r(stroke * 6)} ${r(stroke * 4)}"/>`,
+      );
+      continue;
+    }
+    if (shape.type === 'note') {
+      parts.push(
+        `<rect x="${r(shape.x)}" y="${r(shape.y)}" width="${r(shape.w)}" height="${r(shape.h)}" rx="3" fill="${theme.notePaper}"/>`,
+      );
+      continue;
+    }
     if (shape.type === 'boundary') {
       parts.push(
         `<rect x="${r(shape.x)}" y="${r(shape.y)}" width="${r(shape.w)}" height="${r(shape.h)}" rx="8" fill="none" stroke="${theme.groupStroke}" stroke-width="${r(stroke * 1.5)}"/>`,

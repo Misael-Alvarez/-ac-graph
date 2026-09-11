@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 cerrado; H2 #10 modo presentación entregado; ver commits en §1).
+Última actualización: 2026-09-10 (H1 cerrado; H2 #10 presentación y #12 notas/texto/regiones entregados; ver commits en §1).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `91435f5` (H2 #10 presentación). Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio tras el commit de H2 #12 (ver `git log -1`). Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -27,6 +27,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `315baaf` — Give the anatomy a home in code: Row, Tile, Field and the rest as components
   - `723e67a` — Record the close of H1
   - `91435f5` — Present the diagram: no chrome, one view per arrow key, a legend, and a PDF page per view
+  - `8a21202` — Record the presentation commit in the context and the checkpoint log
+  - (siguiente) — Write on the architecture: regions, notes and free text, in the document and out of the analysis
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -54,7 +56,7 @@ npm run typecheck && npm run format:check && npm run lint && npm test && npm run
 (PORT=3100 HOSTNAME=127.0.0.1 ANTHROPIC_API_KEY= nohup npm start > /tmp/acgraph-3100.log 2>&1 &)
 kill $(lsof -tnP -iTCP:3100 -sTCP:LISTEN)     # para pararlo
 
-# E2E funcionales (139), visuales (24) y auditoría de controles (88)
+# E2E funcionales (144), visuales (24) y auditoría de controles (95)
 E2E_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
 E2E_BASE_URL=http://127.0.0.1:3100 npm run test:visual          # compara con e2e/__screenshots__
 E2E_BASE_URL=http://127.0.0.1:3100 npm run test:visual:update   # acepta nuevas líneas base (decisión humana)
@@ -94,7 +96,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 ## 4. Estado del contenedor
 
-`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 en `91435f5` (H2 #10 presentación; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
+`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 tras el commit de H2 #12 (notas; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
 
 ## 5. Decisiones que no hay que rediscutir
 
@@ -110,6 +112,9 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - **Movimiento:** lo que abre el teclado no se anima (paleta ⌘K); popovers crecen desde su disparador; tooltips propios (instantáneos entre vecinos, nunca repiten la etiqueta visible); todo sobre transform/opacity; apagado con `prefers-reduced-motion`; materiales respetan `prefers-reduced-transparency` y `prefers-contrast`. **Salidas**: todo lo que entra animado sale animado y más corto (diálogos 140 ms, menús/popovers 120 ms, toast 180 ms) con `usePresence` + keyframes `*-out`; al añadir una superficie nueva, envolver su estado de apertura con `usePresence` y usar `presence.key` para que reabrir empiece limpio.
 - **Sin virtualización de listas:** explorador y selector muestran una nube (≤128 filas) o ≤120 resultados; `content-visibility: auto` se probó y se retiró (hace saltar el scroll). No reabrir salvo que las listas crezcan de verdad.
 - **Enlaces en chips:** solo cuando el valor nombra un host (`repositoryUrl`); `org/repo` es etiqueta. No adivinar forges.
+- **Decoración (H2 #12):** `region`, `note` y `text` son formas de `Shape.type` con `isDecorative(shape)`: sin padre ni icono, fuera del análisis, las reglas, el diff, el cambio de nube y la leyenda; **no colisionan, no son obstáculo de rutas, no anclan conectores** (reducer y herramienta lo rechazan), `autoLayout` no las mueve ni estira fronteras por ellas, el lazo solo coge una región si la encierra. Su texto vive en **`title`** (markdown ligero de `src/lib/editor/richText.ts`, ajuste de líneas calculado — **nunca `foreignObject`**); `fill` es papel/tinte/tinta. En el DSL van en `notes:` con geometría inline; `nodes:` es opcional. Las capas `region`/`note`/`text` de `DiagramScene` solo se emiten si hay decoración (el árbol SVG de un diagrama sin ella no cambia: la instantánea de estilos depende de ello). Al añadir una forma nueva: enum del dominio, `PAINT_ORDER`/`RENDERERS`, `preview.ts`, `thumbnail.ts`, `Minimap`, `ShapeHero`/`ShapeInspector`, `serialize`/`parse`, i18n `inspector.type.*` y `tool.*`, dock, `useKeyboard.TOOLS`, `shortcuts.ts`, audit.
+- **Esquema 4:** `parseDiagramModel` resella toda versión ≤ 4 con la actual y **rechaza** una mayor («Written by a newer version»). Bumpear `CURRENT_SCHEMA_VERSION` solo con cambios aditivos; si algún día hay que transformar, escribir el migrador antes de subir el número.
+- **El clic tras colocar no es de nadie:** las herramientas actúan en `pointerdown` y el `click` siguiente llegaba a la tarjeta de debajo con Seleccionar ya activo (`placed` en `Canvas.tsx`). No quitarlo.
 - **Presentación (H2 #10):** `ui.presenting` no se persiste; mientras dura, el chrome **no se monta** (no se oculta) y el editor es de solo lectura (`locked = readOnly || presenting` en `EditorProvider`: la misma guarda que un lector). **Sin botón «Presentar» en la barra superior**: se probó y desplazaba 17 px el centro de la barra (22 líneas base visuales); el acceso es F5, «Más › Presentar» y la paleta. Esc sube un nivel de drill si lo hay y si no sale; la cámara vuelve a donde estaba al salir. Las capas de la presentación (`.presentation*` en `globals.css`) van antes de `.breadcrumb`.
 - **Authentik:** el provider `ac-graph` **no existe** aún; el usuario pidió no configurarlo por ahora. Cuando toque: `docs/AUTHENTIK.md` (redirect `${APP_URL}/api/auth/callback`, PKCE, RS256, `NODE_EXTRA_CA_CERTS` + `extra_hosts` para `auth.localhost`).
 - **Roles por diagrama:** la autorización vive en `PgDiagramRepository` (nunca solo en la UI): cada lectura hace join con `diagram_members` del actor y cada escritura lee el rol con el `for update`. Extraño → `DiagramForbiddenError` (403 `no_access` con `owner.name`); inexistente → 404. El propietario es `owner_id` (una sola fila `owner`, intocable, sin transferencia). El editor de un lector es el editor completo con la escritura quitada: guarda única en `dispatch` (`guardDispatch`) **y** controles desactivados a la vista; al añadir un control que escribe, comprobar `readOnly` de `useEditor()` o `enabled` del comando. Los cambios de acceso viajan como evento `access` y el cliente reacciona en vivo. La sección «Personas» solo existe en modo servidor (`useMembersApi()`); se audita con `npm run audit:roles`, no con `audit:controls`.
@@ -124,6 +129,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Biblioteca de iconos propios por navegador (no se sincroniza en modo servidor) — H2 #14.
 - Azure y OCI sin iconos oficiales (313/572) — H2 #15.
 - Etiquetas de conector centradas en el segmento más largo; pueden pisar un borde de grupo — H2 #11.
+- Decoración: mover una región no arrastra lo que hay encima; sin edición de texto sobre el lienzo; anchos de glifo estimados (±3 %); la IA conserva notas pero no las genera; Mermaid las omite; el dock de diez herramientas desborda en la disposición móvil (ya lo hacía con siete).
 - Métricas por proceso (Prometheus agrega por `instance`); sin alertas ni envío a colector (decisión del operador). Las rutas de IA no llevan `code` en la línea de acceso (responden con `NextResponse.json` propio).
 - La paleta ⌘K conserva su búsqueda propia (`palette-search`) y el menú contextual su fila (`context-menu-item`): unificarlos con `SearchField`/`MenuItem` cambiaría el DOM. `useCommands.ts` (~300 líneas) sigue siendo un solo hook.
 - E2E: 1 spec de biblioteca puede fallar en paralelo por IndexedDB compartido (pasa aislado); ver `PLAN_MEJORAS.md` H1 #3 (aislar por worker sigue pendiente aunque el falso intermitente se corrigió).
@@ -134,6 +140,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Reducer e historial: `src/lib/editor/reducer.ts`, `actions.ts` (`coalesceKey`), `uiState.ts` (paneles, menú, acento, find).
 - Guardado: `src/lib/store/{saveCoordinator,draftJournal,draftSession,localRepository,httpRepository}.ts`; `useDiagramDocument.ts`.
 - Lienzo: `src/components/editor/canvas/` (`Canvas.tsx` encuadre y cámara que se desliza, `ConnectorLayer.tsx`, `shapes/`, `Defs.tsx`); metadatos → marcas: `src/lib/editor/meta.ts` (`legendFor` para la leyenda de la presentación).
+- Decoración: `src/lib/editor/richText.ts` (marcado y ajuste), `src/components/editor/canvas/shapes/{RegionShape,NoteShape,TextShape,RichText}.tsx`, `addDecoration`/`carryDecorations`/`DECORATION_SIZE` en `src/lib/engine/model.ts`, acción `addDecoration`, `NoteSpecSchema` en `src/lib/dsl/schema.ts`, `NOTE_PAPERS`/`FillPresets swatches` en `inspector/fields.tsx`, iconos `RegionIcon`/`NoteIcon`/`TextIcon`.
 - Presentación: `src/components/editor/chrome/Presentation.tsx` (capa: título, vista, paginador, leyenda, teclas), `presenting`/`setPresenting` en `uiState.ts`, atajo `present` (F5) en `shortcuts.ts`, comandos `present`/`exportPdfViews` en `useCommands.ts`, Esc en `useKeyboard.ts`, PDF multipágina `rastersToPdf` en `pdf.ts` + `downloadPdfPages` en `export.ts`.
 - Chrome: `src/components/editor/chrome/` (`TopBar` + `ExportMenu`/`MoreMenu`/`AccountMenu`/`menuProps.ts`, `ToolDock`, `InspectorPanel` + `inspector/`, `ServiceBrowser`, `IconPicker`, `CustomIcons`, `CommandPalette`, `FindBar`, `VersionPanel`, `InsightsPanel`, `Minimap`, `Modals`); componentes de sistema en `src/components/ui/`.
 - Iconos propios: `src/lib/icons/{customIcons,iconLibrary}.ts`.
@@ -143,12 +150,12 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica). Roles: `src/server/diagrams/{repository,errors,schemas}.ts`, rutas `src/app/api/diagrams/[id]/members/**`, cliente `src/lib/store/httpRepository.ts` (`MembersApi`), solo lectura `src/lib/editor/readOnly.ts` + `readOnly` en `EditorProvider`, UI `ShareDialog.tsx` (`SharePeople`) y `Library.tsx`.
 - Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
 - Herramientas: `scripts/{audit-controls,audit-roles,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1161; +57 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (139 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
+- Pruebas: `src/**/*.test.ts` (1198; +57 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (144 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **H2 en curso: #10 presentación hecho.** Seguir por `PLAN_MEJORAS.md` con H2: #12 notas/texto/regiones (L, primer paso de F2: figuras decorativas que no son servicios — nota adhesiva, texto libre, región de fondo — con su marca en el inspector, exportación y descripción accesible), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
+1. **H2 en curso: #10 presentación y #12 notas/texto/regiones hechos.** Seguir por `PLAN_MEJORAS.md` con H2: #20 plantillas propias (S: guardar el diagrama actual como plantilla del workspace, con vista previa real de `preview.ts`, y ofrecerla en la galería junto a las de fábrica; en modo servidor puede apoyarse en los roles), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

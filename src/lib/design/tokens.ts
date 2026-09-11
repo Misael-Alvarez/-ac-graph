@@ -247,6 +247,11 @@ export interface CanvasTheme {
   divider: string;
   /** Drop shadow applied to cards. */
   shadow: string;
+  /** A note's paper when the author picked no colour: the yellow of a sticky. */
+  notePaper: string;
+  /** A region's tint when the author picked no colour, and its edge. */
+  regionTint: string;
+  regionStroke: string;
 }
 
 export const lightCanvas: CanvasTheme = {
@@ -266,6 +271,9 @@ export const lightCanvas: CanvasTheme = {
   connectorLabelText: '#3c4043',
   divider: '#e8eaed',
   shadow: 'rgba(15, 18, 23, 0.10)',
+  notePaper: '#fde68a',
+  regionTint: '#eef2f8',
+  regionStroke: '#c4cddd',
 };
 
 export const darkCanvas: CanvasTheme = {
@@ -285,6 +293,9 @@ export const darkCanvas: CanvasTheme = {
   connectorLabelText: '#d3dae8',
   divider: '#1f2a44',
   shadow: 'rgba(0, 0, 0, 0.55)',
+  notePaper: '#d9b846',
+  regionTint: '#141d33',
+  regionStroke: '#2c3a5c',
 };
 
 /**

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AiError, requestDiagram, requestReview } from '@/lib/ai/requests';
+import { carryDecorations } from '@/lib/engine';
 import { useEditor } from '../EditorProvider';
 import { CloseIcon } from '@/components/icons/ToolIcons';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
@@ -82,7 +83,12 @@ export function AiDialog() {
           ui.locale,
           controller.signal,
         );
-        dispatch({ type: 'replaceModel', model: result.model });
+        // The assistant rewrites the architecture; the notes written beside it
+        // are the reader's and not its to lose.
+        dispatch({
+          type: 'replaceModel',
+          model: hasDiagram ? carryDecorations(doc.model, result.model) : result.model,
+        });
         dispatchUi({ type: 'clearSelection' });
         setSummary(result.summary);
         setDropped(result.dropped);

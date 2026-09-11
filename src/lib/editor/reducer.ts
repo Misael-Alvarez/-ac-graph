@@ -1,5 +1,6 @@
 import { applyPatches, current, enablePatches, produceWithPatches, type Patch } from 'immer';
 import type { DiagramModel } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import type { SwitchCloudResult } from '@/lib/engine';
 import type { EditorAction } from './actions';
@@ -139,6 +140,11 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       return item ? madeIds(item.id) : NOTHING;
     }
 
+    case 'addDecoration': {
+      const s = E.addDecoration(draft, action.kind, action.x, action.y, '', action.id);
+      return madeIds(s.id);
+    }
+
     case 'deleteShapes': {
       for (const id of action.ids) E.deleteShape(draft, id);
       return NOTHING;
@@ -220,6 +226,11 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     }
 
     case 'addConnector': {
+      // An arrow means a call, and decoration makes none: the analysis, the
+      // DSL and the diff would all drop it on the floor, so it is not drawn.
+      const source = E.getShape(draft, action.sourceId);
+      const target = E.getShape(draft, action.targetId);
+      if (!source || !target || isDecorative(source) || isDecorative(target)) return NOTHING;
       const c = E.addConnector(draft, action.sourceId, action.targetId);
       return madeIds(c.id);
     }

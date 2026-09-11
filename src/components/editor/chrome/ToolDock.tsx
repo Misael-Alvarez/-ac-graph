@@ -11,8 +11,11 @@ import {
   ConnectorIcon,
   GroupIcon,
   ItemIcon,
+  NoteIcon,
+  RegionIcon,
   SelectIcon,
   SubBoundaryIcon,
+  TextIcon,
 } from '@/components/icons/ToolIcons';
 
 interface ToolDefinition {
@@ -29,6 +32,11 @@ export const TOOLS: ToolDefinition[] = [
   { mode: 'group', labelKey: 'tool.group', shortcut: 'G', Icon: GroupIcon },
   { mode: 'item', labelKey: 'tool.item', shortcut: 'I', Icon: ItemIcon },
   { mode: 'connector', labelKey: 'tool.connector', shortcut: 'C', Icon: ConnectorIcon },
+  /* The decoration, after the cloud family: what is written beside the
+     architecture comes after what is in it. */
+  { mode: 'region', labelKey: 'tool.region', shortcut: 'R', Icon: RegionIcon },
+  { mode: 'note', labelKey: 'tool.note', shortcut: 'N', Icon: NoteIcon },
+  { mode: 'text', labelKey: 'tool.text', shortcut: 'T', Icon: TextIcon },
 ];
 
 /** Floating vertical tool dock. */

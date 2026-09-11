@@ -300,6 +300,9 @@ for (const [name, expectSel] of [
 for (const [tool, prefix] of [
   ['boundary', 'bd_'],
   ['group', 'grp_'],
+  ['region', 'rg_'],
+  ['note', 'nt_'],
+  ['text', 'tx_'],
 ]) {
   const n0 = await page.locator(`.canvas-surface [data-shape-id^="${prefix}"]`).count();
   await page.locator(`[data-tool="${tool}"]`).click();
@@ -307,6 +310,60 @@ for (const [tool, prefix] of [
   await settle();
   const n1 = await page.locator(`.canvas-surface [data-shape-id^="${prefix}"]`).count();
   check(`dock: herramienta ${tool} coloca`, n1 === n0 + 1, `${n0}->${n1}`);
+  // A note lands with its text field focused; the undo must reach the drawing from there.
+  await page.keyboard.press('Meta+z');
+  await settle(200);
+}
+// Decoration: what a note says reaches the canvas, its paper changes, a region never collides
+{
+  await page.locator('[data-tool="note"]').click();
+  await page.locator('.canvas-surface').click({ position: { x: 300, y: 720 } });
+  await settle();
+  const field = page.locator('.inspector textarea');
+  const landed = await field.waitFor({ timeout: 2000 }).then(
+    () => true,
+    () => false,
+  );
+  check(
+    'nota: se coloca ya seleccionada con el texto listo',
+    landed,
+    `notas=${await page.locator('.canvas-surface [data-shape-id^="nt_"]').count()} inspector=${(
+      await page
+        .locator('.inspector')
+        .innerText()
+        .catch(() => '—')
+    )
+      .slice(0, 60)
+      .replace(/\n/g, ' ')}`,
+  );
+  if (landed) await field.fill('# Auditoría\n- una **prueba**');
+  await settle(200);
+  const drawn = await page.locator('.canvas-surface text').allTextContents();
+  check(
+    'nota: el texto llega al lienzo con su marcado',
+    drawn.some((t) => t.includes('Auditoría')) && drawn.some((t) => t.includes('prueba')),
+    drawn.filter((t) => /Auditoría|prueba/.test(t)).join(' | '),
+  );
+  await page.getByRole('button', { name: 'Rosa' }).click();
+  await settle(200);
+  const paper = await page
+    .locator('.canvas-surface path[data-shape-id^="nt_"]')
+    .getAttribute('fill');
+  check('nota: el papel cambia de color', paper === '#fbcfe8', paper);
+  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('Meta+z');
+  await settle(200);
+
+  const g = await page.locator('.canvas-surface rect[data-shape-id^="grp_"]').first().boundingBox();
+  await page.locator('[data-tool="region"]').click();
+  await page.locator('.canvas-surface').click({ position: { x: g.x - 40, y: g.y - 40 } });
+  await settle();
+  check(
+    'región: sobre un grupo no marca colisión',
+    (await page.locator('.canvas-surface [data-shape-id^="rg_"]').count()) === 1 &&
+      (await page.locator('.collision-outline').count()) === 0,
+  );
   await page.keyboard.press('Meta+z');
   await settle(200);
 }
@@ -385,7 +442,8 @@ for (const [tool, prefix] of [
   await page.getByLabel('Subtítulo').fill('Cobros y reembolsos');
   await settle(250);
   check('inspector: subtítulo → tarjeta', (await card()).includes('Cobros y reembolsos'));
-  await page.getByLabel('Nota').fill('Nota visible');
+  // The dock's Nota tool answers to the same name: the field is the textbox.
+  await page.getByRole('textbox', { name: 'Nota' }).fill('Nota visible');
   await settle(250);
   check('inspector: nota → tarjeta', (await card()).includes('Nota visible'));
   await page.getByLabel('Tecnología').fill('Go 1.23');

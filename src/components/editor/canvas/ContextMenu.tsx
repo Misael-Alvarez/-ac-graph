@@ -191,6 +191,29 @@ export function ContextMenu() {
             variant: 'outer',
           }),
       },
+      {
+        id: 'addNote',
+        labelKey: 'menu.addNote',
+        run: () =>
+          dispatch({ type: 'addDecoration', kind: 'note', x: target.canvasX, y: target.canvasY }),
+      },
+      {
+        id: 'addText',
+        labelKey: 'menu.addText',
+        run: () =>
+          dispatch({ type: 'addDecoration', kind: 'text', x: target.canvasX, y: target.canvasY }),
+      },
+      {
+        id: 'addRegion',
+        labelKey: 'menu.addRegion',
+        run: () =>
+          dispatch({
+            type: 'addDecoration',
+            kind: 'region',
+            x: target.canvasX,
+            y: target.canvasY,
+          }),
+      },
       SEPARATOR,
       {
         id: 'browse',

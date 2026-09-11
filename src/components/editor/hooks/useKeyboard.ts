@@ -17,6 +17,9 @@ const TOOLS = new Set<ToolMode>([
   'group',
   'item',
   'connector',
+  'region',
+  'note',
+  'text',
   'pan',
 ]);
 

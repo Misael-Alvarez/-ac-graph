@@ -8,7 +8,16 @@
 import type { CloudProvider, DiagramModel } from '@/lib/domain';
 
 export type ToolMode =
-  'select' | 'boundary' | 'subboundary' | 'group' | 'item' | 'connector' | 'pan';
+  | 'select'
+  | 'boundary'
+  | 'subboundary'
+  | 'group'
+  | 'item'
+  | 'connector'
+  | 'region'
+  | 'note'
+  | 'text'
+  | 'pan';
 
 /**
  * Whether exports carry the AION Cloud signature footer.

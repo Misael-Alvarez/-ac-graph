@@ -370,6 +370,61 @@ describe('connectors', () => {
   });
 });
 
+describe('decoration', () => {
+  it('places a region, a note and a text, selectable by the id the caller minted', () => {
+    let state = initialDocState(createEmptyModel());
+    state = run(
+      state,
+      { type: 'addDecoration', kind: 'region', x: 0, y: 0 },
+      { type: 'addDecoration', kind: 'note', x: 10, y: 10, id: 'nt_mine' },
+      { type: 'addDecoration', kind: 'text', x: 20, y: 20 },
+    );
+    expect(state.model.shapes.map((s) => s.type)).toEqual(['region', 'note', 'text']);
+    expect(state.model.shapes[1].id).toBe('nt_mine');
+    expect(state.lastCreated).toEqual([state.model.shapes[2].id]);
+    expect(state.model.shapes.every((s) => s.parentId === null && s.title === '')).toBe(true);
+  });
+
+  it('is written to, moved, resized and undone like any shape', () => {
+    let state = run(initialDocState(createEmptyModel()), {
+      type: 'addDecoration',
+      kind: 'note',
+      x: 0,
+      y: 0,
+      id: 'nt_1',
+    });
+    state = run(
+      state,
+      { type: 'setShapeProps', id: 'nt_1', patch: { title: '**Todo**', fill: '#fbcfe8' } },
+      { type: 'moveShapes', ids: ['nt_1'], dx: 50, dy: 60, viewId: null },
+      { type: 'resizeShape', id: 'nt_1', w: 300, h: 240, viewId: null },
+    );
+    expect(getShape(state.model, 'nt_1')).toMatchObject({
+      title: '**Todo**',
+      fill: '#fbcfe8',
+      x: 50,
+      y: 60,
+      w: 300,
+      h: 240,
+      manualSize: true,
+    });
+    state = run(state, { type: 'undo' }, { type: 'undo' }, { type: 'undo' });
+    expect(getShape(state.model, 'nt_1')).toMatchObject({ title: '', x: 0, y: 0, w: 220 });
+  });
+
+  it('refuses an arrow to or from decoration', () => {
+    let state = run(initialDocState(createEmptyModel()), { type: 'addGroup', x: 0, y: 0 });
+    const item = state.model.shapes.find((s) => s.type === 'item')!;
+    state = run(state, { type: 'addDecoration', kind: 'note', x: 600, y: 0, id: 'nt_1' });
+    state = run(
+      state,
+      { type: 'addConnector', sourceId: item.id, targetId: 'nt_1' },
+      { type: 'addConnector', sourceId: 'nt_1', targetId: item.id },
+    );
+    expect(state.model.connectors).toEqual([]);
+  });
+});
+
 describe('clipboard and layout', () => {
   it('pastes a copy and reports the new ids', () => {
     const { state, groupId } = withOneGroup();

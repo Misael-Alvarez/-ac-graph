@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { G } from './constants';
 import {
   addBoundary,
+  addDecoration,
   addGroup,
+  carryDecorations,
+  DECORATION_SIZE,
   addItemToContainer,
   children,
   collectDescendantIds,
@@ -247,5 +250,64 @@ describe('a new boundary', () => {
     const model = createEmptyModel();
     expect(addBoundary(model, 0, 0, 'outer').icon).toBeUndefined();
     expect(addBoundary(model, 0, 0, 'sub').icon).toBeUndefined();
+  });
+});
+
+describe('addDecoration', () => {
+  it('places each kind with its own size, id prefix and no parent', () => {
+    const m = createEmptyModel();
+    const region = addDecoration(m, 'region', 10, 20, 'DMZ');
+    const note = addDecoration(m, 'note', 30, 40);
+    const text = addDecoration(m, 'text', 50, 60, '# Phase 2');
+    expect(region).toMatchObject({ type: 'region', x: 10, y: 20, title: 'DMZ', parentId: null });
+    expect(region.id.startsWith('rg_')).toBe(true);
+    expect([region.w, region.h]).toEqual([DECORATION_SIZE.region.w, DECORATION_SIZE.region.h]);
+    expect(note.id.startsWith('nt_')).toBe(true);
+    expect(note.title).toBe('');
+    expect(text.id.startsWith('tx_')).toBe(true);
+    expect(text.title).toBe('# Phase 2');
+    expect(m.shapes).toHaveLength(3);
+    expect(region.icon).toBeUndefined();
+  });
+
+  it('is deleted like any other shape, without touching the rest', () => {
+    const m = createEmptyModel();
+    addGroup(m, 0, 0);
+    const note = addDecoration(m, 'note', 0, 0);
+    deleteShape(m, note.id);
+    expect(m.shapes.some((s) => s.id === note.id)).toBe(false);
+    expect(m.shapes.filter((s) => s.type === 'group')).toHaveLength(1);
+  });
+});
+
+describe('carryDecorations', () => {
+  it('brings the notes of the old model into the new one', () => {
+    const before = createEmptyModel();
+    addGroup(before, 0, 0);
+    const note = addDecoration(before, 'note', 10, 10, 'keep me');
+    const region = addDecoration(before, 'region', 0, 0, 'zone');
+    const after = createEmptyModel();
+    addGroup(after, 100, 100);
+
+    const merged = carryDecorations(before, after);
+    expect(merged.shapes.map((s) => s.id)).toEqual([
+      ...after.shapes.map((s) => s.id),
+      note.id,
+      region.id,
+    ]);
+    // Copies, not the old objects: the previous model may still be read.
+    expect(merged.shapes.find((s) => s.id === note.id)).not.toBe(note);
+    expect(merged.shapes.find((s) => s.id === note.id)).toEqual(note);
+  });
+
+  it('returns the new model untouched when there is nothing to carry, or it is already there', () => {
+    const before = createEmptyModel();
+    addGroup(before, 0, 0);
+    const after = createEmptyModel();
+    expect(carryDecorations(before, after)).toBe(after);
+
+    const note = addDecoration(before, 'note', 0, 0);
+    const withNote = { ...after, shapes: [structuredClone(note)] };
+    expect(carryDecorations(before, withNote)).toBe(withNote);
   });
 });

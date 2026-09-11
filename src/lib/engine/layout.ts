@@ -1,4 +1,5 @@
 import type { DiagramModel } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import { ALIGN_SNAP_DIST } from './constants';
 import { contentBBox } from './geometry';
 import { collectDescendantIds, getShape, relayoutGroup } from './model';
@@ -90,7 +91,9 @@ export function autoLayout(model: DiagramModel): void {
   }
 
   if (boundaries.length) {
-    const bb = contentBBox(model);
+    // Around the architecture only: a note parked in a corner is not something
+    // a cloud boundary should stretch to enclose.
+    const bb = contentBBox({ ...model, shapes: model.shapes.filter((s) => !isDecorative(s)) });
     boundaries.forEach((b, i) => {
       b.x = bb.x - 40 - i * 20;
       b.y = bb.y - 60 - i * 20;

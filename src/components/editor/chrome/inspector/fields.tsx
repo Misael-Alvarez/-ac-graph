@@ -141,12 +141,28 @@ const FILL_PRESETS = ['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion'] as const;
 export function FillPresets({
   value,
   kind,
+  swatches,
   onChange,
 }: {
   value?: string;
   kind: 'fill' | 'border';
+  /** Another set of colours than the clouds': a note's papers, say. */
+  swatches?: { color: string; label: string }[];
   onChange: (fill: string | undefined) => void;
 }) {
+  const options =
+    swatches ??
+    FILL_PRESETS.flatMap((provider) => {
+      const palette = PROVIDER_COLORS[provider];
+      if (!palette) return [];
+      return [
+        {
+          color: kind === 'fill' ? palette.fill : palette.border,
+          label: CATEGORY_SHORT_LABELS[provider] ?? provider,
+          accent: palette.border,
+        },
+      ];
+    });
   return (
     <div className="fill-presets" role="group">
       <button
@@ -157,28 +173,35 @@ export function FillPresets({
         aria-pressed={value === undefined}
         onClick={() => onChange(undefined)}
       />
-      {FILL_PRESETS.map((provider) => {
-        const palette = PROVIDER_COLORS[provider];
-        if (!palette) return null;
-        const color = kind === 'fill' ? palette.fill : palette.border;
-        return (
-          <button
-            key={provider}
-            type="button"
-            className={`fill-swatch${value === color ? ' is-active' : ''}`}
-            style={
-              { '--chip-color': color, '--cloud-color': palette.border } as React.CSSProperties
-            }
-            title={CATEGORY_SHORT_LABELS[provider] ?? provider}
-            aria-label={CATEGORY_SHORT_LABELS[provider] ?? provider}
-            aria-pressed={value === color}
-            onClick={() => onChange(color)}
-          />
-        );
-      })}
+      {options.map(({ color, label, ...rest }) => (
+        <button
+          key={color}
+          type="button"
+          className={`fill-swatch${value === color ? ' is-active' : ''}`}
+          style={
+            {
+              '--chip-color': color,
+              '--cloud-color': 'accent' in rest ? rest.accent : mixHex(color, '#000000', 0.25),
+            } as React.CSSProperties
+          }
+          title={label}
+          aria-label={label}
+          aria-pressed={value === color}
+          onClick={() => onChange(color)}
+        />
+      ))}
     </div>
   );
 }
+
+/** The papers a note comes in: the colours of the pad on every desk. */
+export const NOTE_PAPERS = [
+  { color: '#fde68a', labelKey: 'color.yellow' },
+  { color: '#fbcfe8', labelKey: 'color.pink' },
+  { color: '#bbf7d0', labelKey: 'color.green' },
+  { color: '#bfdbfe', labelKey: 'color.blue' },
+  { color: '#ddd6fe', labelKey: 'color.violet' },
+] as const;
 
 /**
  * The fill colour, as a swatch and as text.

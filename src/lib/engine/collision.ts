@@ -1,4 +1,5 @@
 import type { BBox, DiagramModel, Shape } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import { bbox, geometricallyContains, rectsOverlap } from './geometry';
 import { isRelated } from './model';
 
@@ -48,6 +49,9 @@ export function checkCollisions(model: DiagramModel): Set<string> {
         tested.add(pairKey);
 
         if (isRelated(model, A.id, B.id)) continue;
+        // Decoration lies over or under the architecture by design: a note on a
+        // group or a region behind one is the point, not a mistake.
+        if (isDecorative(A) || isDecorative(B)) continue;
         // A boundary is a container by design: things sitting inside it are fine.
         if (A.type === 'boundary' && geometricallyContains(bbox(A), bbox(B))) continue;
         if (B.type === 'boundary' && geometricallyContains(bbox(B), bbox(A))) continue;

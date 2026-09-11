@@ -1,7 +1,8 @@
 import type { DiagramModel, Shape } from '@/lib/domain';
 import { contentBBox } from '@/lib/engine';
-import { canvasTheme, isDarkCanvas, mixHex } from '@/lib/design/tokens';
+import { canvasTheme, isColor, isDarkCanvas, mixHex, readableTextOn } from '@/lib/design/tokens';
 import { paletteFor, themedFill } from '@/lib/editor/providers';
+import { firstLine } from '@/lib/editor/richText';
 import {
   connectorLabel,
   connectorTags,
@@ -37,12 +38,61 @@ export function renderPreview(model: DiagramModel, dark = false): string {
     `<rect x="${r(vb.x)}" y="${r(vb.y)}" width="${r(vb.w)}" height="${r(vb.h)}" fill="${theme.sheet}"/>`,
   ];
 
-  // Same order the canvas paints: boundaries, groups, containers, items.
-  const order: Record<Shape['type'], number> = { boundary: 0, group: 1, container: 2, item: 3 };
+  // Same order the canvas paints: regions, boundaries, groups, containers,
+  // items, then the notes and texts written over them.
+  const order: Record<Shape['type'], number> = {
+    region: 0,
+    boundary: 1,
+    group: 2,
+    container: 3,
+    item: 4,
+    note: 5,
+    text: 6,
+  };
   const shapes = [...model.shapes].sort((a, b) => order[a.type] - order[b.type]);
 
   for (const shape of shapes) {
     const palette = paletteFor(shape.icon?.key ?? iconOfSubtree(shape, byId));
+    if (shape.type === 'region') {
+      const tint = isColor(shape.fill) ? shape.fill : theme.regionTint;
+      parts.push(
+        rect(
+          shape,
+          16,
+          tint,
+          theme.regionStroke,
+          1.25,
+          '7 5',
+          isColor(shape.fill) && !isDark ? 0.6 : 1,
+        ),
+      );
+      if (shape.title) {
+        parts.push(
+          text(shape.x + 16, shape.y + 24, shape.title.toUpperCase(), 12, 600, theme.subtitleText),
+        );
+      }
+      continue;
+    }
+    if (shape.type === 'note') {
+      const paper = isColor(shape.fill) ? shape.fill : theme.notePaper;
+      parts.push(rect(shape, 3, paper, mixHex(paper, '#000000', 0.14), 1));
+      parts.push(
+        text(
+          shape.x + 14,
+          shape.y + 28,
+          firstLine(shape.title ?? ''),
+          13,
+          500,
+          readableTextOn(paper, theme),
+        ),
+      );
+      continue;
+    }
+    if (shape.type === 'text') {
+      const ink = isColor(shape.fill) ? shape.fill : theme.titleText;
+      parts.push(text(shape.x + 4, shape.y + 22, firstLine(shape.title ?? ''), 15, 500, ink));
+      continue;
+    }
     if (shape.type === 'boundary') {
       parts.push(
         rect(shape, 16, 'none', mixHex(theme.groupStroke, palette.border, 0.5), 1.5, '10 6'),

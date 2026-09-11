@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportToMarkdown } from './markdown';
-import { addGroup, children, createEmptyModel } from './model';
+import { addDecoration, addGroup, children, createEmptyModel } from './model';
 import { addConnector } from './routing';
 
 function groupNamed(m: ReturnType<typeof createEmptyModel>, title: string, itemTitle: string) {
@@ -21,6 +21,19 @@ describe('exportToMarkdown', () => {
     expect(md).toContain('## Services');
     expect(md).toContain('### Frontend');
     expect(md).toContain('- CloudFront');
+  });
+
+  it('writes the notes and texts as they were typed, and no region', () => {
+    const m = createEmptyModel();
+    groupNamed(m, 'Compute', 'Lambda');
+    addDecoration(m, 'note', 0, 0, '**Todo**\n- migrate');
+    addDecoration(m, 'text', 0, 0, '# Phase 2');
+    addDecoration(m, 'region', 0, 0, 'DMZ');
+    addDecoration(m, 'note', 0, 0, '');
+    const md = exportToMarkdown(m);
+    expect(md).toContain('## Notes\n\n**Todo**\n- migrate\n\n# Phase 2\n');
+    expect(md).not.toContain('DMZ');
+    expect(exportToMarkdown(createEmptyModel())).not.toContain('## Notes');
   });
 
   it('appends the subtitle after an em dash', () => {

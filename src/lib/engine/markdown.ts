@@ -1,7 +1,7 @@
 import type { DiagramModel } from '@/lib/domain';
 import { getShape } from './model';
 
-/** Renders the diagram as a Markdown outline: boundaries, services by group, connections. */
+/** Renders the diagram as a Markdown outline: boundaries, services by group, connections, notes. */
 export function exportToMarkdown(model: DiagramModel): string {
   const lines: string[] = ['# Architecture Diagram\n'];
 
@@ -35,6 +35,15 @@ export function exportToMarkdown(model: DiagramModel): string {
         `${src.title || src.id} -> ${tgt.title || tgt.id}${c.label ? ` : ${c.label}` : ''}`,
       );
     }
+  }
+
+  // The notes and texts, as written: their markup is Markdown's own, so a
+  // `**bold**` on the canvas is bold on the page too. Regions are captions of
+  // a picture that is not here, and are left out.
+  const notes = model.shapes.filter((s) => (s.type === 'note' || s.type === 'text') && s.title);
+  if (notes.length) {
+    lines.push('', '## Notes', '');
+    for (const note of notes) lines.push(note.title!.trim(), '');
   }
 
   return lines.join('\n');

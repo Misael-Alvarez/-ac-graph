@@ -1,7 +1,9 @@
 import { Document, YAMLMap, YAMLSeq } from 'yaml';
 import type { DiagramModel, Shape } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
+import { firstLine } from '@/lib/editor/richText';
 import { serviceDescriptions } from '@/lib/i18n/serviceCopy';
 import { DSL_VERSION } from './schema';
 import { dominantCloud, shortenService, type CloudPrefix } from './services';
@@ -172,6 +174,28 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
   document.nodes = nodes;
   if (edges.length) document.edges = edges;
 
+  // The decoration, each with its own geometry: there is no service to derive
+  // a size from and no layer of the layout to fall back on, so a note that
+  // lost its place would have nowhere to go.
+  const decorations = model.shapes.filter(isDecorative);
+  const decorationKeyById = new Map<string, string>();
+  if (decorations.length) {
+    const takenNoteKeys = new Set<string>();
+    const notes: Record<string, unknown> = {};
+    for (const shape of decorations) {
+      const key = toKey(firstLine(shape.title ?? '') || shape.type, takenNoteKeys);
+      decorationKeyById.set(shape.id, key);
+      const spec: Record<string, unknown> = {};
+      if (shape.type !== 'note') spec.kind = shape.type;
+      if (shape.title) spec.text = shape.title;
+      spec.at = [Math.round(shape.x), Math.round(shape.y)];
+      spec.size = [Math.round(shape.w), Math.round(shape.h)];
+      if (shape.fill) spec.fill = shape.fill;
+      notes[key] = spec;
+    }
+    document.notes = notes;
+  }
+
   if (includeLayout && records.length) {
     const layout: Record<string, [number, number]> = {};
     for (const record of records) {
@@ -183,7 +207,11 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
   if (model.rules?.length) document.rules = model.rules;
 
   if (model.views.length) {
-    const groupIdByKey = new Map(records.map((r) => [r.group.id, r.key]));
+    // A view names nodes by key, and notes by theirs.
+    const groupIdByKey = new Map([
+      ...records.map((r): [string, string] => [r.group.id, r.key]),
+      ...decorationKeyById,
+    ]);
     const views: Record<string, unknown> = {};
     // Slugged from the name like every other key in the document. The view's own
     // id is a nanoid, which is the right thing in the model and unreadable in a
@@ -225,6 +253,10 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
     }
   };
   flowPairs(yaml.get('layout', true));
+  const notesNode = yaml.get('notes', true);
+  if (isYAMLMap(notesNode)) {
+    for (const pair of notesNode.items) flowPairs(pair.value);
+  }
   const viewsNode = yaml.get('views', true);
   if (isYAMLMap(viewsNode)) {
     for (const pair of viewsNode.items) {

@@ -92,14 +92,35 @@ export const ViewSpecSchema = z.object({
   place: z.record(z.string(), PositionSchema).optional(),
 });
 
+/**
+ * What is written beside the architecture: a note, a free text or a region.
+ *
+ * Unlike a node, a note has no service to derive anything from — no label, no
+ * size, no place in a layer of the auto-layout — so it carries its own
+ * geometry inline rather than in `layout`, and is keyed like everything else
+ * so a view can `include` it. `text` is the little markup the canvas reads:
+ * `**bold**`, `- ` bullets, `# ` headings.
+ */
+export const NoteSpecSchema = z.object({
+  kind: z.enum(['note', 'text', 'region']).default('note'),
+  text: z.string().default(''),
+  /** Where it sits; a note that says nothing about it is put below the diagram. */
+  at: PositionSchema.optional(),
+  size: z.tuple([z.number(), z.number()]).optional(),
+  /** The note's paper, the region's tint or the text's ink. */
+  fill: z.string().optional(),
+});
+
 export const DslDocumentSchema = z.object({
   version: z.number().default(DSL_VERSION),
   /** Default cloud used to resolve unprefixed service names. */
   cloud: z.enum(['aws', 'azure', 'gcp', 'oci', 'ibm']).optional(),
   title: z.string().optional(),
   boundaries: z.record(z.string(), BoundarySpecSchema).optional(),
-  nodes: z.record(z.string(), NodeEntrySchema),
+  /** Absent for a page that so far only has notes on it. */
+  nodes: z.record(z.string(), NodeEntrySchema).default({}),
   edges: z.array(z.union([EdgeLongSchema, z.record(z.string(), z.string())])).default([]),
+  notes: z.record(z.string(), NoteSpecSchema).optional(),
   layout: z.record(z.string(), PositionSchema).optional(),
   views: z.record(z.string(), ViewSpecSchema).optional(),
   /** Standards this architecture holds itself to. See lib/rules. */
@@ -109,6 +130,7 @@ export const DslDocumentSchema = z.object({
 export type Position = z.infer<typeof PositionSchema>;
 export type NodeSpec = z.infer<typeof NodeSpecSchema>;
 export type BoundarySpec = z.infer<typeof BoundarySpecSchema>;
+export type NoteSpec = z.infer<typeof NoteSpecSchema>;
 export type DslDocument = z.infer<typeof DslDocumentSchema>;
 
 /** An edge after both notations have been reduced to one shape. */

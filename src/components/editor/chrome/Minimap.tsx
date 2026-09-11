@@ -102,6 +102,21 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
       >
         <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill={theme.sheet} />
         {model.shapes
+          .filter((s) => s.type === 'region')
+          .map((s) => (
+            <rect
+              key={s.id}
+              x={s.x}
+              y={s.y}
+              width={s.w}
+              height={s.h}
+              rx={8}
+              fill={theme.regionTint}
+              stroke={theme.regionStroke}
+              strokeWidth={strokeScale}
+            />
+          ))}
+        {model.shapes
           .filter((s) => s.type === 'boundary')
           .map((s) => (
             <rect
@@ -149,6 +164,20 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
                 providerColors.generic
               }
               opacity={0.7}
+            />
+          ))}
+        {model.shapes
+          .filter((s) => s.type === 'note')
+          .map((s) => (
+            <rect
+              key={s.id}
+              x={s.x}
+              y={s.y}
+              width={s.w}
+              height={s.h}
+              rx={2}
+              fill={theme.notePaper}
+              opacity={0.85}
             />
           ))}
         {view && (

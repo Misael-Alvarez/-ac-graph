@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addConnector, addGroup, createEmptyModel } from '@/lib/engine';
+import { addConnector, addDecoration, addGroup, createEmptyModel } from '@/lib/engine';
 import { translate } from '@/lib/i18n/messages';
 import { describeDiagram } from './describe';
 
@@ -28,6 +28,18 @@ describe('describeDiagram', () => {
     expect(text).toBe(
       'Diagram with 2 groups, 2 services and 1 connections. Groups: API (Gateway); Data (Postgres). Connections: Gateway to Postgres (SQL).',
     );
+  });
+
+  it('reads the notes out, as words, after the architecture', () => {
+    const model = createEmptyModel();
+    addGroup(model, 0, 0);
+    addDecoration(model, 'note', 0, 0, '# **Todo**\n- migrate the `queue`');
+    addDecoration(model, 'region', 0, 0, 'DMZ');
+    addDecoration(model, 'text', 0, 0, '');
+    const text = describeDiagram(model, t);
+    expect(text).toMatch(/\. Notes: Todo migrate the queue; DMZ\.$/);
+    // Still one group and one service: decoration is not counted.
+    expect(text).toContain('Diagram with 1 groups, 1 services');
   });
 
   it('caps long lists and says how many more there are', () => {

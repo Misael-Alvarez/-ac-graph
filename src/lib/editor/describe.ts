@@ -2,6 +2,7 @@ import type { DiagramModel } from '@/lib/domain';
 import { getShape } from '@/lib/engine';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { connectorLabel } from './meta';
+import { plainText } from './richText';
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
@@ -9,6 +10,7 @@ type Translate = (key: MessageKey, values?: Record<string, string | number>) => 
 const MAX_GROUPS = 12;
 const MAX_SERVICES_PER_GROUP = 8;
 const MAX_CONNECTIONS = 20;
+const MAX_NOTES = 6;
 
 /**
  * The diagram as one paragraph a screen reader can speak.
@@ -68,6 +70,19 @@ export function describeDiagram(model: DiagramModel, t: Translate): string {
   }
   if (connectionTexts.length)
     parts.push(t('a11y.connections', { list: connectionTexts.join('; ') }));
+
+  // What the author wrote beside the architecture is for the reader above all,
+  // and a reader who cannot see the paper should still be told what is on it.
+  // A region says only its caption; the markup is read out as words.
+  const notes = model.shapes
+    .filter((shape) => shape.type === 'note' || shape.type === 'text' || shape.type === 'region')
+    .map((shape) => plainText(shape.title ?? ''))
+    .filter(Boolean);
+  if (notes.length) {
+    const said = notes.slice(0, MAX_NOTES);
+    if (notes.length > MAX_NOTES) said.push(t('a11y.more', { count: notes.length - MAX_NOTES }));
+    parts.push(t('a11y.notes', { list: said.join('; ') }));
+  }
 
   return parts.join(' ');
 }

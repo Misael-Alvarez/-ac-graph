@@ -306,7 +306,27 @@ export function compile(
 
   E.routeAllConnectors(model);
 
+  // The decoration, once the architecture has settled: a note without a place
+  // of its own goes below whatever there is, and each one below the last.
+  const decorationByKey = new Map<string, Shape>();
+  if (document.notes) {
+    const below = model.shapes.length ? E.contentBBox(model) : { x: MARGIN, y: 0, w: 0, h: 0 };
+    let autoY = below.y + below.h + 60;
+    for (const [key, spec] of Object.entries(document.notes)) {
+      const [x, y] = spec.at ?? [below.x, autoY];
+      const shape = E.addDecoration(model, spec.kind, x, y, spec.text);
+      if (spec.size) [shape.w, shape.h] = spec.size;
+      if (spec.fill) shape.fill = spec.fill;
+      if (!spec.at) autoY += shape.h + 24;
+      decorationByKey.set(key, shape);
+    }
+  }
+
   if (document.rules?.length) model.rules = document.rules;
+
+  /** What a view's key names: a node's group, or a note. */
+  const shapeOfKey = (key: string): Shape | undefined =>
+    groupOfNode(key) ?? decorationByKey.get(key);
 
   // Views last: they name nodes, and a node's group only has its final position
   // once the boundaries above have finished pushing things around.
@@ -319,7 +339,7 @@ export function compile(
       };
 
       if (spec.include) {
-        const ids = spec.include.map(groupOfNode).filter((g): g is Shape => Boolean(g));
+        const ids = spec.include.map(shapeOfKey).filter((g): g is Shape => Boolean(g));
         if (ids.length !== spec.include.length) {
           diagnostics.push({
             severity: 'warning',
@@ -333,7 +353,7 @@ export function compile(
       }
 
       for (const [nodeId, [x, y]] of Object.entries(spec.place ?? {})) {
-        const group = groupOfNode(nodeId);
+        const group = shapeOfKey(nodeId);
         if (!group) continue;
         // The document places the group; the container and item inside it move
         // by the same delta, which is what dragging the group did to produce it.

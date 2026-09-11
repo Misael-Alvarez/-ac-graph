@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { CURRENT_SCHEMA_VERSION, parseDiagramModel, safeParseDiagramModel } from './diagram';
+import {
+  CURRENT_SCHEMA_VERSION,
+  isDecorative,
+  parseDiagramModel,
+  safeParseDiagramModel,
+} from './diagram';
 
 const FIXTURES = ['public/aion-agents-arch.json', 'public/aion-agents-aws.json'];
 
@@ -18,6 +23,45 @@ describe('parseDiagramModel', () => {
     const raw = JSON.parse(readFileSync(FIXTURES[0], 'utf8'));
     expect(raw.schemaVersion).toBeUndefined();
     expect(parseDiagramModel(raw).schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('re-stamps every earlier version with the current one', () => {
+    // The changes so far are additive, so a document from any earlier build is
+    // a valid document of this one — and says so once read.
+    for (const version of [1, 2, 3]) {
+      const model = parseDiagramModel({
+        schemaVersion: version,
+        canvas: { w: 100, h: 100 },
+        shapes: [],
+        connectors: [],
+      });
+      expect(model.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    }
+  });
+
+  it('refuses a document written by a newer build', () => {
+    const r = safeParseDiagramModel({
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
+      canvas: { w: 100, h: 100 },
+      shapes: [],
+      connectors: [],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].message).toMatch(/newer version/);
+  });
+
+  it('reads the decorative shapes, and knows them from the cloud family', () => {
+    const model = parseDiagramModel({
+      canvas: { w: 100, h: 100 },
+      shapes: [
+        { id: 'r', type: 'region', parentId: null, x: 0, y: 0, w: 1, h: 1, title: 'DMZ' },
+        { id: 'n', type: 'note', parentId: null, x: 0, y: 0, w: 1, h: 1, title: '**Todo**' },
+        { id: 't', type: 'text', parentId: null, x: 0, y: 0, w: 1, h: 1, title: '# Phase 2' },
+        { id: 'g', type: 'group', parentId: null, x: 0, y: 0, w: 1, h: 1 },
+      ],
+      connectors: [],
+    });
+    expect(model.shapes.map(isDecorative)).toEqual([true, true, true, false]);
   });
 
   it('fills in connector defaults', () => {

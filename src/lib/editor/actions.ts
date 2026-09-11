@@ -1,5 +1,5 @@
 import type { Connector, CustomIcon, DiagramModel, Shape } from '@/lib/domain';
-import type { AlignEdge, ClipboardPayload, DistributeAxis } from '@/lib/engine';
+import type { AlignEdge, ClipboardPayload, DecorationType, DistributeAxis } from '@/lib/engine';
 import type { CloudTarget } from '@/data/cloudEquivalents';
 import type { Locale } from '@/lib/i18n/messages';
 
@@ -42,6 +42,8 @@ export type EditorAction =
       service?: { key: string; label: string; description?: string; category: string };
     }
   | { type: 'addItem'; containerId: string }
+  /** A region, a note or a free text: decoration, placed where the reader pressed. */
+  | { type: 'addDecoration'; kind: DecorationType; x: number; y: number; id?: string }
   | { type: 'deleteShapes'; ids: string[] }
   /* Geometry uses the resolved view and optional drill scope, in one undo step. */
   | ({

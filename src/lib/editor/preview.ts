@@ -61,13 +61,23 @@ export function previewResize(model: DiagramModel, id: string, w: number, h: num
   return preview;
 }
 
-/** Shapes intersecting a lasso rectangle, ignoring containers. */
+/**
+ * Shapes a lasso rectangle picks up, ignoring containers.
+ *
+ * Touching is enough for everything but a region: a lasso drawn across the
+ * services *on* a region is meant for the services, and would otherwise drag
+ * the zone under them along on the next move. A region has to be enclosed.
+ */
 export function shapesInLasso(
   model: DiagramModel,
   box: { x: number; y: number; w: number; h: number },
 ): string[] {
   return model.shapes
-    .filter((s) => s.type !== 'container' && E.rectsOverlap(E.bbox(s), box))
+    .filter((s) => {
+      if (s.type === 'container') return false;
+      if (s.type === 'region') return E.geometricallyContains(box, E.bbox(s));
+      return E.rectsOverlap(E.bbox(s), box);
+    })
     .map((s) => s.id);
 }
 

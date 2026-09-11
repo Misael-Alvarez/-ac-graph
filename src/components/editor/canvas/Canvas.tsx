@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Shape } from '@/lib/domain';
+import { isDecorative } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { iconKeysIn } from '@/lib/engine';
 import { canvasTheme } from '@/lib/design/tokens';
@@ -250,9 +251,22 @@ export function Canvas() {
     if (svg && document.activeElement !== svg) svg.focus({ preventScroll: true });
   }, []);
 
+  /**
+   * Whether the press that just happened placed a shape.
+   *
+   * A placing tool acts on the press, and the tool is back to `select` before
+   * the browser fires the click that follows it. When that press was over a
+   * card — a note dropped onto a group, a boundary drawn over a frame — the
+   * click then arrives at the card with the select tool active and selects
+   * it, taking the selection off what was just placed. The click after a
+   * placement is nobody's.
+   */
+  const placed = useRef(false);
+
   const onBackgroundPointerDown = useCallback(
     (e: React.PointerEvent) => {
       takeKeyboard();
+      placed.current = false;
       // Presenting: the sheet is something to move, not something to draw on.
       if (e.button === 1 || spaceHeld || ui.tool === 'pan' || ui.presenting) {
         e.preventDefault();
@@ -264,17 +278,42 @@ export function Canvas() {
       const point = toCanvas(ui.viewport, toLocal(e));
       switch (ui.tool) {
         case 'boundary':
+          placed.current = true;
           dispatch({ type: 'addBoundary', x: snap(point.x), y: snap(point.y), variant: 'outer' });
           dispatchUi({ type: 'setTool', tool: 'select' });
           break;
         case 'subboundary':
+          placed.current = true;
           dispatch({ type: 'addBoundary', x: snap(point.x), y: snap(point.y), variant: 'sub' });
           dispatchUi({ type: 'setTool', tool: 'select' });
           break;
         case 'group':
+          placed.current = true;
           dispatch({ type: 'addGroup', x: snap(point.x), y: snap(point.y) });
           dispatchUi({ type: 'setTool', tool: 'select' });
           break;
+        case 'region':
+        case 'note':
+        case 'text': {
+          placed.current = true;
+          // Placed and selected in one go, with the text field ready: a note is
+          // put down to be written on, and a second press to get there is the
+          // press that makes people give up on notes.
+          const id = E.decorationId(ui.tool);
+          dispatch({
+            type: 'addDecoration',
+            kind: ui.tool,
+            x: snap(point.x),
+            y: snap(point.y),
+            id,
+          });
+          dispatchUi({ type: 'setTool', tool: 'select' });
+          dispatchUi({ type: 'select', ids: [id] });
+          requestAnimationFrame(() => {
+            document.querySelector<HTMLInputElement>('.inspector .input')?.focus();
+          });
+          break;
+        }
         default:
           dispatchUi({ type: 'clearSelection' });
           tools.startLasso(e);
@@ -297,6 +336,7 @@ export function Canvas() {
   const onShapePointerDown = useCallback(
     (e: React.PointerEvent, id: string) => {
       takeKeyboard();
+      placed.current = false;
       // Presenting: a press on a card drags the sheet like a press beside it.
       if (ui.presenting) {
         if (e.button === 0) {
@@ -318,9 +358,15 @@ export function Canvas() {
     (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
       if (ui.presenting) return;
+      if (placed.current) {
+        placed.current = false;
+        return;
+      }
       const shape = E.getShape(view, id);
 
       if (ui.tool === 'connector') {
+        // Decoration makes no calls; the arrow waits for a card.
+        if (shape && isDecorative(shape)) return;
         if (!ui.connectorSourceId) dispatchUi({ type: 'setConnectorSource', id });
         else if (ui.connectorSourceId !== id) {
           dispatch({ type: 'addConnector', sourceId: ui.connectorSourceId, targetId: id });

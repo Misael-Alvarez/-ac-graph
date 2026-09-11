@@ -5,7 +5,15 @@ import type { CustomIcon, Shape } from '@/lib/domain';
 import { isCustomIconKey } from '@/lib/icons/customIcons';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { paletteFor, providerOf } from '@/lib/editor/providers';
-import { BoundaryIcon, GroupIcon, SubBoundaryIcon } from '@/components/icons/ToolIcons';
+import { firstLine } from '@/lib/editor/richText';
+import {
+  BoundaryIcon,
+  GroupIcon,
+  NoteIcon,
+  RegionIcon,
+  SubBoundaryIcon,
+  TextIcon,
+} from '@/components/icons/ToolIcons';
 
 export function shapeTypeKey(shape: Shape): MessageKey {
   if (shape.type === 'boundary') {
@@ -19,7 +27,22 @@ function TypeGlyph({ shape }: { shape: Shape }) {
   if (shape.type === 'boundary') {
     return shape.variant === 'sub' ? <SubBoundaryIcon size={22} /> : <BoundaryIcon size={22} />;
   }
+  if (shape.type === 'region') return <RegionIcon size={22} />;
+  if (shape.type === 'note') return <NoteIcon size={22} />;
+  if (shape.type === 'text') return <TextIcon size={22} />;
   return <GroupIcon size={22} />;
+}
+
+/**
+ * Whether the hero's title is the shape's name, to be typed into.
+ *
+ * A note or a text has no name apart from what it says, and what it says can
+ * run to several lines — which a single-line field would fold into one the
+ * moment it was touched. Those two show their first line here and are edited
+ * in the panel's text field instead.
+ */
+export function heroIsEditable(shape: Shape): boolean {
+  return shape.type !== 'note' && shape.type !== 'text';
 }
 
 /**
@@ -71,14 +94,20 @@ export function ShapeHero({
         )}
       </span>
       <div className="inspector-hero-text">
-        <input
-          className="input inspector-hero-title"
-          value={shape.title ?? ''}
-          aria-label={titleLabel}
-          placeholder={titleLabel}
-          spellCheck={false}
-          onChange={(e) => onRename(e.target.value)}
-        />
+        {heroIsEditable(shape) ? (
+          <input
+            className="input inspector-hero-title"
+            value={shape.title ?? ''}
+            aria-label={titleLabel}
+            placeholder={titleLabel}
+            spellCheck={false}
+            onChange={(e) => onRename(e.target.value)}
+          />
+        ) : (
+          <p className="inspector-hero-title is-static">
+            {firstLine(shape.title ?? '') || typeLabel}
+          </p>
+        )}
         <div className="inspector-hero-meta">
           <span className="inspector-type">{typeLabel}</span>
           {providerLabel && (

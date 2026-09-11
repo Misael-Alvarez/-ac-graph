@@ -100,6 +100,25 @@ describe('lasso helpers', () => {
     expect(hits.every((id) => getShape(model, id)!.type !== 'container')).toBe(true);
   });
 
+  it('takes a region only when the lasso encloses it', () => {
+    const { model } = twoGroups();
+    model.shapes.push({
+      id: 'rg_1',
+      type: 'region',
+      parentId: null,
+      x: -100,
+      y: -100,
+      w: 1500,
+      h: 600,
+    });
+    // Across the services on the region: the services, not the zone under them.
+    const across = shapesInLasso(model, { x: -10, y: -10, w: 600, h: 400 });
+    expect(across).not.toContain('rg_1');
+    expect(across.length).toBeGreaterThan(0);
+    // Around the whole zone: the zone too.
+    expect(shapesInLasso(model, { x: -200, y: -200, w: 2000, h: 1000 })).toContain('rg_1');
+  });
+
   it('selects nothing when the lasso is empty space', () => {
     const { model } = twoGroups();
     expect(shapesInLasso(model, { x: 5000, y: 5000, w: 100, h: 100 })).toEqual([]);

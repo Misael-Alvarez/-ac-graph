@@ -10,10 +10,41 @@
 import { z } from 'zod';
 import { RuleSchema } from '@/lib/rules/schema';
 
-/** Bumped whenever a stored model needs a migration. */
-export const CURRENT_SCHEMA_VERSION = 3;
+/**
+ * Bumped whenever a stored model needs a migration.
+ *
+ * 4: `region`, `note` and `text` shapes. Additive, so every earlier document
+ * reads unchanged and is re-stamped on the way in; a document written by a
+ * *later* build is refused rather than opened with whatever this build happens
+ * to understand of it.
+ */
+export const CURRENT_SCHEMA_VERSION = 4;
 
-export const ShapeTypeSchema = z.enum(['boundary', 'group', 'container', 'item']);
+/**
+ * What a shape is, in paint order.
+ *
+ * `boundary`, `group`, `container` and `item` are the cloud family: a service
+ * is an item inside a container inside a group, and the analysis, the DSL and
+ * the cloud switch all read that hierarchy. The other three are decoration —
+ * a tinted `region` under everything, a `note` and a free `text` over it — and
+ * mean nothing to any of those: they are for the reader, not for the model.
+ */
+export const ShapeTypeSchema = z.enum([
+  'region',
+  'boundary',
+  'group',
+  'container',
+  'item',
+  'note',
+  'text',
+]);
+
+const DECORATIVE_TYPES: ReadonlySet<string> = new Set(['region', 'note', 'text']);
+
+/** Whether a shape is decoration: drawn, never counted, connected or analysed. */
+export function isDecorative(shape: { type: string }): boolean {
+  return DECORATIVE_TYPES.has(shape.type);
+}
 export const BoundaryVariantSchema = z.enum(['outer', 'sub']);
 export const ConnectorStyleSchema = z.enum(['solid', 'dashed']);
 export const StackedGapSchema = z.enum(['tight', 'wide']);
@@ -164,9 +195,11 @@ export const ShapeSchema = z
     y: z.number(),
     w: z.number(),
     h: z.number(),
+    /** The name — or, for a note and a text, the whole of what they say. */
     title: z.string().optional(),
     subtitle: z.string().optional(),
     note: z.string().optional(),
+    /** A colour of the author's: a card's fill, a region's tint, a note's paper, a text's ink. */
     fill: z.string().optional(),
     icon: IconRefSchema.optional(),
     variant: BoundaryVariantSchema.optional(),
@@ -211,8 +244,18 @@ export const CustomIconSchema = z.object({
 });
 
 export const DiagramModelSchema = z.object({
-  /** Absent in pre-versioned files written by the original editor. */
-  schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
+  /**
+   * Absent in pre-versioned files written by the original editor. Every
+   * version up to the current one reads as the current one — the changes so
+   * far have all been additive — and comes out stamped with it; a higher one
+   * is a document from a newer build, and is refused rather than quietly read
+   * as less than it is.
+   */
+  schemaVersion: z
+    .number()
+    .max(CURRENT_SCHEMA_VERSION, { message: 'Written by a newer version of AC Graph' })
+    .default(CURRENT_SCHEMA_VERSION)
+    .transform(() => CURRENT_SCHEMA_VERSION),
   canvas: z.object({ w: z.number(), h: z.number() }),
   shapes: z.array(ShapeSchema),
   connectors: z.array(ConnectorSchema),

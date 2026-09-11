@@ -94,6 +94,31 @@ describe('autoLayout', () => {
     expect(bd.w).toBeGreaterThan(group.w);
   });
 
+  it('fits boundaries around the architecture, not around the notes', () => {
+    const m = createEmptyModel();
+    const { group } = groupWithItem(m, 0, 0, 'A');
+    m.shapes.push({
+      id: 'bd',
+      type: 'boundary',
+      parentId: null,
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 10,
+      variant: 'outer',
+    });
+    m.shapes.push({ id: 'nt', type: 'note', parentId: null, x: 4000, y: 4000, w: 220, h: 160 });
+
+    autoLayout(m);
+
+    const bd = m.shapes.find((s) => s.id === 'bd')!;
+    const note = m.shapes.find((s) => s.id === 'nt')!;
+    expect(bd.x + bd.w).toBeLessThan(note.x);
+    expect(bd.x + bd.w).toBeGreaterThan(group.x + group.w);
+    // And the note stayed where it was put: layout is for the cloud family.
+    expect([note.x, note.y]).toEqual([4000, 4000]);
+  });
+
   it('reroutes connectors after moving everything', () => {
     const m = createEmptyModel();
     const a = groupWithItem(m, 0, 0, 'A');

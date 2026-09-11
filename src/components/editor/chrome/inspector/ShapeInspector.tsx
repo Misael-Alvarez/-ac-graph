@@ -17,6 +17,7 @@ import {
   FillField,
   FillPresets,
   LIFECYCLES,
+  NOTE_PAPERS,
 } from './fields';
 import { ShapeHero, shapeTypeKey } from './ShapeHero';
 
@@ -81,6 +82,30 @@ export function ShapeInspector({
   // itself.
   const patchMeta = (values: Partial<NodeMeta>) => patch({ meta: { ...shape.meta, ...values } });
 
+  const theme = canvasTheme(ui.dark);
+  // What the colour *is* for each kind of thing, said in its own word: a card
+  // is filled, a region tinted, a note is paper and a text is ink.
+  const colour = {
+    label:
+      shape.type === 'note'
+        ? t('inspector.paper')
+        : shape.type === 'region'
+          ? t('inspector.tint')
+          : shape.type === 'text'
+            ? t('inspector.ink')
+            : t('inspector.fill'),
+    fallback:
+      shape.type === 'note'
+        ? theme.notePaper
+        : shape.type === 'region'
+          ? theme.regionTint
+          : shape.type === 'text'
+            ? theme.titleText
+            : shape.type === 'item'
+              ? theme.itemFill
+              : theme.groupFill,
+  };
+
   return (
     <aside className="inspector" aria-label={t('inspector.title')} onFocus={nextBurst}>
       <ShapeHero
@@ -92,6 +117,21 @@ export function ShapeInspector({
         customBadge={t('icons.customBadge')}
         onRename={(title) => patch({ title })}
       />
+
+      {(shape.type === 'note' || shape.type === 'text') && (
+        <Section title={t('inspector.content')}>
+          <Field label={t('inspector.text')}>
+            <textarea
+              className="input is-multiline"
+              value={shape.title ?? ''}
+              rows={shape.type === 'note' ? 6 : 3}
+              spellCheck={false}
+              onChange={(e) => patch({ title: e.target.value })}
+            />
+          </Field>
+          <p className="inspector-note">{t('inspector.textHint')}</p>
+        </Section>
+      )}
 
       {shape.type === 'item' && (
         <Section title={t('inspector.content')}>
@@ -136,15 +176,18 @@ export function ShapeInspector({
         )}
         <FillPresets
           value={shape.fill}
-          kind={shape.type === 'container' ? 'border' : 'fill'}
+          kind={shape.type === 'container' || shape.type === 'text' ? 'border' : 'fill'}
+          swatches={
+            shape.type === 'note'
+              ? NOTE_PAPERS.map((paper) => ({ color: paper.color, label: t(paper.labelKey) }))
+              : undefined
+          }
           onChange={(fill) => patch({ fill })}
         />
         <FillField
-          label={t('inspector.fill')}
+          label={colour.label}
           value={shape.fill}
-          fallback={
-            shape.type === 'item' ? canvasTheme(ui.dark).itemFill : canvasTheme(ui.dark).groupFill
-          }
+          fallback={colour.fallback}
           onChange={(fill) => patch({ fill })}
         />
       </Section>
