@@ -49,6 +49,7 @@ function toMeta(record: DiagramRecord): DiagramMeta {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     thumbnail: record.thumbnail,
+    template: record.template,
   };
 }
 
@@ -142,6 +143,7 @@ export class LocalDiagramRepository implements DiagramRepository {
       createdAt: ts,
       updatedAt: ts,
       thumbnail: null,
+      template: input.template ?? false,
       model: input.model,
     });
     const db = await this.db();

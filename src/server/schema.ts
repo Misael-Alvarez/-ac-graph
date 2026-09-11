@@ -123,6 +123,16 @@ export const MIGRATIONS: readonly Migration[] = [
         on conflict do nothing;
     `,
   },
+  {
+    id: 7,
+    name: 'diagram_template',
+    // A diagram saved to be started from. One flag rather than a table of its
+    // own: a template keeps a diagram's history, members and export, and the
+    // home page tells the two apart by this alone.
+    sql: `
+      alter table diagrams add column if not exists template boolean not null default false;
+    `,
+  },
 ];
 
 /** Arbitrary but fixed: every replica must ask for the same advisory lock. */

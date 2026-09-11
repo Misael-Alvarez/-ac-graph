@@ -53,6 +53,26 @@ describe('create / get / list', () => {
     expect((await repo.list()).map((d) => d.title)).toEqual(['A', 'B']);
   });
 
+  it('keeps a starting point apart from the diagrams, and a copy of it is a diagram', async () => {
+    const template = await repo.create({
+      title: 'Base',
+      model: modelWithGroups(2),
+      template: true,
+    });
+    await repo.create({ title: 'Work', model: createEmptyModel() });
+    expect(template.template).toBe(true);
+    expect((await repo.list()).map((d) => [d.title, d.template])).toEqual([
+      ['Work', false],
+      ['Base', true],
+    ]);
+    // Saving it keeps it a template; a record written before the flag reads as a diagram.
+    const saved = await repo.save(template.id, modelWithGroups(3));
+    expect(saved.template).toBe(true);
+    const copy = await repo.duplicate(template.id);
+    expect(copy.template).toBe(false);
+    expect(copy.model.shapes).toHaveLength(9);
+  });
+
   it('gives every diagram a distinct id', async () => {
     const ids = new Set<string>();
     for (let i = 0; i < 50; i++) {

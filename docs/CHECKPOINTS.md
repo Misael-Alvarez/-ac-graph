@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`) y #12 notas, texto y regiones (`4b1882f`)** en `origin/main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `4b1882f`. Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #20 plantillas propias, #14 iconos en servidor, #9 comentarios, #11 conectores.
+> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`) y #20 plantillas propias** (entregado hoy, pendiente de commit y push). Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #14 iconos en servidor, #9 comentarios, #11 conectores.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -457,6 +457,39 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 - El menu contextual y `MenuItem` siguen siendo marcados distintos (`context-menu-item` sin icono ni texto secundario); unificarlos exigiria cambiar el DOM.
 - No hay `@testing-library/react`: las pruebas de render usan `react-dom/client` + `act` en happy-dom (patron de `usePresence.test.ts`).
 
+## H2 #20 del plan de mejoras / plantillas propias (cerrado, 2026-09-10)
+
+**Base:** `77e00d4` (`main`). Tercera entrega de H2: «"Guardar como punto de partida" desde el editor; las plantillas del usuario aparecen en la portada con miniatura real; se pueden compartir en el workspace (H1 #7)».
+
+### Entregado
+
+**Una plantilla es un diagrama marcado** (`template: boolean` en `DiagramMeta`, migracion 7 `diagrams.template`, `CreateDiagramInput.template`), no una tabla aparte: conserva historial, miembros y exportacion del workspace sin una linea nueva, y en modo servidor **compartirla es invitar** como a cualquier diagrama (H1 #7): quien la recibe como lector la ve entre sus puntos de partida, puede empezar desde ella y no puede tocarla. La portada la distingue solo por la marca: **nunca cuenta como diagrama** (estado vacio, «N diagramas», carpetas, favoritos, busqueda y orden miran solo los diagramas; «puntos de partida» la suma). Duplicar una plantilla da un diagrama; guardar cambios en ella la deja plantilla; un documento anterior a la marca se lee como diagrama.
+
+**Guardar como plantilla** — comando `saveAsTemplate` en el menu «Mas › Documento» (bajo «Plantillas…», con pista) y en la paleta ⌘K; crea una **copia** del modelo completo con el titulo del documento (el diagrama abierto sigue siendo lo que era) y confirma con un aviso. Habilitado con algo en el lienzo; **permitido a un lector** (lee y crea, como duplicar).
+
+**Portada**: las plantillas propias van **detras de «Lienzo en blanco» y delante de las de fabrica**, dibujadas de verdad con `renderPreview` sobre su modelo — leido una vez por revision (`id@updatedAt`), porque la lista solo trae metadatos — asi que son correctas en ambos temas y muestran «Tuya · guardada hoy» y sus numeros. La tarjeta es una caja (`template-card is-rich is-yours`) con la cara como boton (`template-open`) y dos acciones en la esquina al pasar el puntero: **Editar plantilla** (abre `/d/<id>`, la plantilla misma) y **Eliminar** (con la misma confirmacion que un diagrama; «Salir» para una compartida). Sin plantillas propias la portada es identica a la de antes (`home-*` intactas).
+
+**Diálogo «Plantillas…» del editor**: lee las propias al abrirse y las lista primero bajo **«Tuyas»**, luego **«Incluidas»** (`GroupHeader`); sin propias, el diálogo no cambia. De paso se arreglo un fallo antiguo: el `template-grid` repartia cinco tarjetas de icono+texto en 72 px cada una dentro de un diálogo de 480 px — cinco tiras con las palabras cortadas — y ahora va a dos columnas.
+
+### Pruebas ejecutadas
+
+| Comprobacion                                         | Resultado                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                           | 1199 pruebas (antes 1198) sin PostgreSQL; **1258 con `TEST_DATABASE_URL`** (contenedor desechable): IndexedDB (marca, orden, guardar conserva, duplicar da diagrama), `PgDiagramRepository` (marca, compartir a un lector, copia del lector, exportar/importar), API (`POST /api/diagrams` con `template`, lista)    |
+| `npm run typecheck`, `lint`, `format:check`, `build` | Correctos                                                                                                                                                                                                                                                                                                            |
+| `styles:compare` (build de #12 vs. nuevo)            | Diferencias solo en la paleta (fila nueva), el menu Mas (item nuevo con pista) y el diálogo de plantillas (la rejilla a dos columnas: el arreglo)                                                                                                                                                                    |
+| Playwright funcional                                 | **146 de 146** (2 nuevas en `e2e/templates.spec.ts`: guardar, aparecer dibujada tras el lienzo en blanco, no contar como diagrama, empezar desde ella crea un diagrama con su nombre y sus 7 grupos; editar en sitio, «Tuyas» en el diálogo, comando en la paleta, eliminar con confirmacion y la pagina desaparece) |
+| Playwright visual                                    | 24 de 24 sin tocar lineas base                                                                                                                                                                                                                                                                                       |
+| `npm run audit:controls`                             | **100 de 100** (antes 95): Guardar como plantilla avisa; el diálogo la lista bajo Tuyas; la portada la dibuja; empezar desde ella crea un diagrama; eliminarla la quita                                                                                                                                              |
+| Capturas revisadas                                   | Menu Mas, aviso, diálogo con «Tuyas»/«Incluidas» y portada con la tarjeta propia, en ambos temas                                                                                                                                                                                                                     |
+
+### Limites conocidos
+
+- Sin nombre ni descripcion propios al guardar: la plantilla toma el titulo del documento y se renombra editandola.
+- Editar una plantilla es editar un diagrama: la barra no dice que lo que hay abierto es una plantilla (una insignia en la barra desplazaria su centro; ver la decision de #10).
+- Las plantillas propias no aparecen en el diálogo «Nuevo diagrama» de la portada (solo iconos de fabrica); la portada ya las ofrece en «Puntos de partida».
+- La IA y el CLI/MCP no distinguen plantillas de diagramas.
+
 ## H2 #12 del plan de mejoras / notas, texto y regiones (cerrado, 2026-09-10)
 
 **Base:** `8a21202` (`main`). Segunda entrega de H2 y primer paso de F2 del plan maestro: «Nuevos tipos de forma: `note` (post-it con markdown ligero), `text` (etiqueta libre), `region` (zona coloreada sin semantica). Entran en esquema, reducer, render, DSL (`notes:`), exportaciones y analisis (ignorados)».
@@ -536,6 +569,7 @@ Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comen
 
 ## Siguiente tarea exacta
 
-1. Seguir H2: #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
-2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Confirmar H2 #20 (plantillas propias) en un commit y `git push`; reconstruir la imagen Docker local.
+2. Seguir H2: #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
+3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.

@@ -155,6 +155,14 @@ export const TrashIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** A pencil: open to change. */
+export const PencilIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M14.5 5.5l4 4L8 20H4v-4z" />
+    <path d="M12.5 7.5l4 4" />
+  </Icon>
+);
+
 export const CopyIcon = (p: IconProps) => (
   <Icon {...p}>
     <rect x="9" y="9" width="12" height="12" rx="2" />

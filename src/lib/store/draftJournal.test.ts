@@ -12,6 +12,7 @@ const record: DiagramRecord = {
   description: '',
   folder: null,
   thumbnail: null,
+  template: false,
   createdAt: base,
   updatedAt: base,
   model: createEmptyModel(),

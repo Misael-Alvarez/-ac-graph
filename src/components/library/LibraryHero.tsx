@@ -26,6 +26,7 @@ const CLOUD_COUNT = new Set(
 export function LibraryHero({
   t,
   diagramCount,
+  ownTemplates = 0,
   showcase,
   onNew,
   onBrowseTemplates,
@@ -33,6 +34,8 @@ export function LibraryHero({
 }: {
   t: Translate;
   diagramCount: number;
+  /** Starting points of the reader's own, counted with the built-in ones. */
+  ownTemplates?: number;
   /** The template drawn large on the right; opens as a new diagram when pressed. */
   showcase: TemplatePreview | undefined;
   onNew: () => void;
@@ -139,7 +142,7 @@ export function LibraryHero({
             <span>{t('library.statClouds')}</span>
           </li>
           <li className="library-stat">
-            <CountUp className="tabular" value={TEMPLATES.length + 1} />
+            <CountUp className="tabular" value={TEMPLATES.length + 1 + ownTemplates} />
             <span>{t('library.statTemplates')}</span>
           </li>
         </ul>

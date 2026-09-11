@@ -1423,6 +1423,12 @@ textarea:focus-visible {
   gap: var(--space-2);
 }
 
+/* A template card is an icon beside two lines of text: five of them in a
+   480px dialog were five slivers with the words cut off. Two to a row. */
+.template-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
 .dialog.is-narrow {
   max-width: 420px;
 }
@@ -6383,6 +6389,67 @@ select.input.is-choice {
 .template-card.is-rich small {
   margin-top: 3px;
   line-height: 1.45;
+}
+
+/* One of the reader's own: the card is a box, the face inside it is the
+   button, and the actions sit in the corner as they do on a diagram card. */
+.template-card.is-yours {
+  position: relative;
+}
+
+.template-card.is-yours:focus-within {
+  border-color: var(--accent);
+}
+
+.template-open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.template-open:focus-visible {
+  box-shadow: none;
+}
+
+.template-open .template-text {
+  display: block;
+}
+
+.template-actions {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.template-card.is-yours:hover .template-actions,
+.template-card.is-yours:focus-within .template-actions {
+  opacity: 1;
+  transform: none;
+}
+
+.template-actions .icon-button {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--elevation-1);
+}
+
+/* The dialog's two groups, when the reader has templates of their own. */
+.template-group-title {
+  margin: var(--space-3) 0 var(--space-2);
 }
 
 @media (max-width: 960px) {

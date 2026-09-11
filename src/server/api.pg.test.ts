@@ -180,6 +180,22 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
   });
 
   describe('diagrams', () => {
+    it('creates a starting point when asked, and lists it as one', async () => {
+      const response = await createDiagram(
+        request('/api/diagrams', {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { title: 'Base', model: modelWithGroups(1), template: true },
+        }),
+      );
+      expect(response.status).toBe(201);
+      expect((await response.json()).template).toBe(true);
+      const list = await (
+        await listDiagrams(request('/api/diagrams', { cookie: adaCookie }))
+      ).json();
+      expect(list.map((d: DiagramRecord) => [d.title, d.template])).toEqual([['Base', true]]);
+    });
+
     it('creates, lists, reads — for members only', async () => {
       const created = await create('First');
       expect(created.ownerId).toBe(ada.id);

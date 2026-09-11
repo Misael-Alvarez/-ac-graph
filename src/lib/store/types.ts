@@ -5,6 +5,8 @@ export interface CreateDiagramInput {
   model: DiagramModel;
   description?: string;
   folder?: string | null;
+  /** Save it as a starting point, not as a diagram. */
+  template?: boolean;
 }
 
 export interface SaveOptions {

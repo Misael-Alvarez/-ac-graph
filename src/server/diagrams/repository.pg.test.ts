@@ -94,6 +94,30 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       expect(saved.role).toBe('editor');
       expect(saved.model.shapes).toHaveLength(3);
     });
+
+    it('keeps a starting point as one, shares it like a diagram, and copies it as a diagram', async () => {
+      const template = await repo.create({
+        title: 'Base',
+        model: modelWithGroups(2),
+        template: true,
+      });
+      expect(template.template).toBe(true);
+      expect((await repo.get(template.id))?.template).toBe(true);
+      expect((await repo.list()).map((d) => [d.title, d.template])).toEqual([['Base', true]]);
+      // Editing it keeps the flag; the update writes every other column.
+      expect((await repo.save(template.id, modelWithGroups(3))).template).toBe(true);
+      // A viewer of a shared template sees it flagged, and their copy is a diagram of their own.
+      await repo.setMember(template.id, 'bob@example.com', 'viewer');
+      expect((await asBob.list()).map((d) => [d.template, d.role])).toEqual([[true, 'viewer']]);
+      const copy = await asBob.duplicate(template.id);
+      expect(copy.template).toBe(false);
+      expect(copy.model.shapes).toHaveLength(9);
+      // And it travels through a workspace dump as what it is.
+      const dump = await repo.exportWorkspace();
+      await pool.query('delete from diagrams');
+      await asBob.importWorkspace(dump);
+      expect((await asBob.list()).find((d) => d.title === 'Base')?.template).toBe(true);
+    });
   });
 
   describe('roles', () => {

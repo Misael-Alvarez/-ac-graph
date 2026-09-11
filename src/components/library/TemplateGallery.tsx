@@ -1,9 +1,10 @@
 'use client';
 
-import type { DiagramModel } from '@/lib/domain';
+import type { DiagramMeta, DiagramModel } from '@/lib/domain';
 import type { Template } from '@/lib/editor/templates';
 import type { MessageKey } from '@/lib/i18n/messages';
-import { PlusIcon } from '@/components/icons/ToolIcons';
+import { relativeDay } from '@/lib/i18n/relativeDay';
+import { PencilIcon, PlusIcon, TrashIcon } from '@/components/icons/ToolIcons';
 import { Glyph } from '@/components/icons/Glyph';
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
@@ -16,18 +17,47 @@ export interface TemplatePreview {
   src: string;
 }
 
+/** One of the reader's own starting points, drawn the same way. */
+export interface OwnTemplatePreview {
+  meta: DiagramMeta;
+  model: DiagramModel;
+  src: string;
+}
+
+/** How much a starting point holds, in the two numbers that say it. */
+function TemplateMeta({ t, model }: { t: Translate; model: DiagramModel }) {
+  return (
+    <span className="template-meta">
+      <span>
+        {t('status.shapes', { count: model.shapes.filter((s) => s.type === 'item').length })}
+      </span>
+      <span>·</span>
+      <span>{t('status.connectors', { count: model.connectors.length })}</span>
+    </span>
+  );
+}
+
 /**
  * Starting points, always: a real drawing of each, not an icon. A blank sheet
- * first, then every template with what it produces and how much is in it.
+ * first, then the reader's own templates — theirs come before the house's —
+ * then every built-in template with what it produces and how much is in it.
  */
 export function TemplateGallery({
   t,
   previews,
+  yours = [],
   onPick,
+  onEdit,
+  onRemove,
 }: {
   t: Translate;
   previews: TemplatePreview[];
+  yours?: OwnTemplatePreview[];
   onPick: (title: string, model?: DiagramModel) => void;
+  /** Open one of the reader's templates to change it. */
+  onEdit?: (meta: DiagramMeta) => void;
+  /** Delete one of the reader's templates — or leave a shared one. The card only asks. */
+  onRemove?: (meta: DiagramMeta) => void;
 }) {
   return (
     <section className="library-start" id="library-start">
@@ -49,6 +79,61 @@ export function TemplateGallery({
             <small>{t('library.blankHint')}</small>
           </span>
         </button>
+        {yours.map(({ meta, model, src }) => {
+          const shared = meta.role !== undefined && meta.role !== 'owner';
+          return (
+            /* Not a button itself: the actions in its corner are buttons, and a
+               button holds no other. The face is the button, and fills it. */
+            <div key={meta.id} className="template-card is-rich is-yours">
+              <button
+                type="button"
+                className="template-open"
+                onClick={() => onPick(meta.title, structuredClone(model))}
+              >
+                <span className="template-thumb">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL */}
+                  <img src={src} alt="" />
+                  <span className="template-glyph">
+                    <Glyph name="templates" size={14} />
+                  </span>
+                </span>
+                <span className="template-text">
+                  <b>{meta.title}</b>
+                  <small>
+                    {t(shared ? 'library.templateShared' : 'library.templateYours', {
+                      when: relativeDay(meta.updatedAt, t),
+                    })}
+                  </small>
+                  <TemplateMeta t={t} model={model} />
+                </span>
+              </button>
+              <div className="template-actions">
+                {onEdit && !(shared && meta.role === 'viewer') && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    title={t('library.editTemplate')}
+                    aria-label={`${t('library.editTemplate')}: ${meta.title}`}
+                    onClick={() => onEdit(meta)}
+                  >
+                    <PencilIcon size={14} />
+                  </button>
+                )}
+                {onRemove && (
+                  <button
+                    type="button"
+                    className={`icon-button${shared ? '' : ' is-danger'}`}
+                    title={t(shared ? 'share.leave' : 'action.delete')}
+                    aria-label={`${t(shared ? 'share.leave' : 'action.delete')}: ${meta.title}`}
+                    onClick={() => onRemove(meta)}
+                  >
+                    <TrashIcon size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
         {previews.map(({ template, model, src }) => (
           <button
             key={template.id}
@@ -66,15 +151,7 @@ export function TemplateGallery({
             <span className="template-text">
               <b>{t(template.nameKey)}</b>
               <small>{t(template.descriptionKey)}</small>
-              <span className="template-meta">
-                <span>
-                  {t('status.shapes', {
-                    count: model.shapes.filter((s) => s.type === 'item').length,
-                  })}
-                </span>
-                <span>·</span>
-                <span>{t('status.connectors', { count: model.connectors.length })}</span>
-              </span>
+              <TemplateMeta t={t} model={model} />
             </span>
           </button>
         ))}

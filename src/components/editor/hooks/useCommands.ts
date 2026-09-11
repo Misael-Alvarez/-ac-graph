@@ -22,6 +22,7 @@ import {
 import { DEFAULT_VIEWPORT, fitToBox } from '@/lib/editor/viewport';
 import { createEmptyModel } from '@/lib/engine';
 import { useEditor } from '../EditorProvider';
+import { useRepository } from '@/components/app/RepositoryProvider';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
 
 export interface Command {
@@ -69,6 +70,7 @@ const EDITING_COMMANDS = new Set([
 export function useCommands(): CommandSet {
   const { doc, ui, view, views, dispatch, dispatchUi, canUndo, canRedo, readOnly, t, title } =
     useEditor();
+  const repository = useRepository();
   const selectedIds = useMemo(
     () => new Set(view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id)),
     [view, ui.selectedIds],
@@ -241,6 +243,27 @@ export function useCommands(): CommandSet {
       command('templates', 'action.templates', 'templates', () =>
         dispatchUi({ type: 'setModal', modal: 'templates' }),
       ),
+      // A copy of the whole model, marked as a starting point: the diagram
+      // being worked on stays what it is. A read and a create, like
+      // duplicating, so a viewer of a shared diagram may keep one too.
+      command(
+        'saveAsTemplate',
+        'action.saveAsTemplate',
+        'templates',
+        () => {
+          void repository
+            .create({
+              title: title.trim() || t('app.untitled'),
+              model: structuredClone(doc.model),
+              template: true,
+            })
+            .then(
+              () => dispatchUi({ type: 'toast', message: t('toast.templateSaved') }),
+              () => dispatchUi({ type: 'toast', message: t('toast.templateFailed') }),
+            );
+        },
+        doc.model.shapes.length > 0,
+      ),
       command('switchCloud', 'action.switchCloud', 'cloud', () =>
         dispatchUi({ type: 'setModal', modal: 'switchCloud' }),
       ),
@@ -351,6 +374,7 @@ export function useCommands(): CommandSet {
     chromeInsets,
     stem,
     title,
+    repository,
   ]);
 
   return useMemo(() => {

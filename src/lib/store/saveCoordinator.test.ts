@@ -36,6 +36,7 @@ function setup() {
     description: '',
     folder: null,
     thumbnail: null,
+    template: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     model: model(100),

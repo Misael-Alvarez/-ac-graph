@@ -90,6 +90,10 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   service: the analysis, the cloud switch and the arrows leave them alone, the
   YAML keeps them in a `notes:` section, and the export draws them as the
   screen does.
+- **Keep it as a starting point.** More › Save as template puts a copy of the
+  diagram among the templates on the home page, drawn for real, with edit and
+  delete on hover; start from it as from any of the built-in ones, and in
+  server mode share it by inviting people, like a diagram.
 - **Present it.** `F5` (or More › Present) drops every panel and bar and shows
   the diagram alone on the theme's background: arrow keys step through the
   views with the camera gliding between them, a legend names the tones on

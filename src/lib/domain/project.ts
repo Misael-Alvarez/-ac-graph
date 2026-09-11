@@ -33,6 +33,14 @@ export const DiagramMetaSchema = z.object({
   /** Inline SVG preview used by the library grid. */
   thumbnail: z.string().nullable().default(null),
   /**
+   * A starting point rather than a piece of work: saved from a diagram to be
+   * started from, shown among the templates on the home page and never in the
+   * list of diagrams. Everything else about it — history, members, export —
+   * is a diagram's, which is what lets a team share one (H1 #7) for free.
+   * Absent on every record made before templates of one's own existed.
+   */
+  template: z.boolean().default(false),
+  /**
    * The reader's own role. Set by the server, where diagrams have members;
    * absent in the browser-only store, where whoever holds the data owns it.
    */

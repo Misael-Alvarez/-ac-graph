@@ -13,6 +13,7 @@ export const CreateDiagramBodySchema = z.object({
   model: DiagramModelSchema,
   description: z.string().max(5000).optional(),
   folder: z.string().max(500).nullable().optional(),
+  template: z.boolean().optional(),
 });
 
 export const MetaPatchSchema = z

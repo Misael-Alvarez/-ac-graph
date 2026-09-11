@@ -48,6 +48,13 @@ export function MoreMenu({ menu, onToggle, onClose, pick, chord, off }: MenuProp
             onSelect={() => pick('templates')}
           />
           <MenuItem
+            icon={<SaveIcon size={15} />}
+            label={t('action.saveAsTemplate')}
+            hint={t('action.saveAsTemplateHint')}
+            disabled={off('saveAsTemplate')}
+            onSelect={() => pick('saveAsTemplate')}
+          />
+          <MenuItem
             icon={<CloudIcon size={15} />}
             label={t('action.switchCloud')}
             disabled={off('switchCloud')}

@@ -749,6 +749,57 @@ for (const [tool, prefix] of [
     (await page.evaluate(() => window.scrollY)) > 100,
   );
 }
+// Templates of one's own: saved from the editor, offered on the home page, deleted from it
+{
+  await openTemplate();
+  await page.locator('.topbar button[aria-label="Más"]').click();
+  await settle(200);
+  await page.getByRole('menuitem', { name: 'Guardar como plantilla' }).click();
+  await settle(400);
+  check(
+    'más: Guardar como plantilla confirma con un aviso',
+    (await page.locator('.toast').count()) === 1 &&
+      /punto de partida/.test(await page.locator('.toast').innerText()),
+  );
+  await page.locator('.topbar button[aria-label="Más"]').click();
+  await settle(200);
+  await page.getByRole('menuitem', { name: /^Plantillas/ }).click();
+  await settle(400);
+  check(
+    'plantillas: el diálogo del editor la lista bajo Tuyas',
+    (await page.locator('.dialog .template-card.is-yours').count()) === 1,
+  );
+  await page.keyboard.press('Escape');
+  await settle(200);
+  await page.goto(base + '/');
+  await page.waitForSelector('.library-start');
+  await settle(800);
+  const yours = page.locator('.library-templates .template-card.is-yours');
+  check(
+    'portada: la plantilla propia es un punto de partida dibujado',
+    (await yours.count()) === 1 &&
+      /^data:image\/svg/.test(
+        (await yours.locator('.template-thumb img').getAttribute('src')) ?? '',
+      ),
+  );
+  const diagrams0 = await page.locator('.library-grid .library-card').count();
+  await yours.locator('.template-open').click();
+  await page.waitForSelector('.canvas-surface');
+  await settle(500);
+  await page.goto(base + '/');
+  await page.waitForSelector('.library-start');
+  await settle(800);
+  check(
+    'portada: empezar desde la plantilla crea un diagrama',
+    (await page.locator('.library-grid .library-card').count()) === diagrams0 + 1,
+  );
+  await yours.hover();
+  await yours.locator('.icon-button[aria-label^="Eliminar"]').click({ force: true });
+  await settle(300);
+  await page.getByRole('button', { name: 'Eliminar' }).last().click();
+  await settle(500);
+  check('portada: eliminar la plantilla la quita', (await yours.count()) === 0);
+}
 // Library: favourites, sort, and a file dropped on the page
 {
   await page.goto(base + '/');

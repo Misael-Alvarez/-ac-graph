@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { DiagramMeta } from '@/lib/domain';
+import type { DiagramMeta, DiagramModel } from '@/lib/domain';
 import { createEmptyModel } from '@/lib/engine';
 import { TEMPLATES } from '@/lib/editor/templates';
 import { thumbnailDataUrl } from '@/lib/store/thumbnail';
@@ -34,7 +34,12 @@ export function Library() {
   const { user, state: authState, signOut } = useUser();
   const { dark, toggle: toggleTheme } = useTheme();
 
-  const [items, setItems] = useState<DiagramMeta[]>([]);
+  const [all, setAll] = useState<DiagramMeta[]>([]);
+  // The reader's own starting points are diagrams too, but never among the
+  // diagrams: they have their own place, below, beside the built-in ones.
+  const items = useMemo(() => all.filter((item) => !item.template), [all]);
+  const templates = useMemo(() => all.filter((item) => item.template), [all]);
+  const [templateModels, setTemplateModels] = useState<Record<string, DiagramModel>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [folder, setFolder] = useState<string | null>(null);
@@ -55,11 +60,42 @@ export function Library() {
   // leaves the current list on screen rather than flashing a spinner.
   const refresh = useCallback(async () => {
     try {
-      setItems(await repository.list());
+      setAll(await repository.list());
     } finally {
       setLoading(false);
     }
   }, [repository]);
+
+  // A starting point is shown as the drawing it produces, so its model is
+  // read — once per revision; the list carries only the metadata. There are
+  // few of them, and a page that read every diagram's model would be slow for
+  // pictures nobody asked for.
+  useEffect(() => {
+    let cancelled = false;
+    const missing = templates.filter((meta) => !templateModels[`${meta.id}@${meta.updatedAt}`]);
+    if (!missing.length) return;
+    void Promise.all(
+      missing.map(async (meta) => [meta, await repository.get(meta.id)] as const),
+    ).then((loaded) => {
+      if (cancelled) return;
+      setTemplateModels((current) => {
+        const next: Record<string, DiagramModel> = {};
+        // Keep only the revisions still listed, so a deleted or re-saved
+        // template does not leave its old drawing behind.
+        for (const meta of templates) {
+          const key = `${meta.id}@${meta.updatedAt}`;
+          if (current[key]) next[key] = current[key];
+        }
+        for (const [meta, record] of loaded) {
+          if (record) next[`${meta.id}@${meta.updatedAt}`] = record.model;
+        }
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [templates, templateModels, repository]);
 
   useEffect(() => {
     if (!ready) return;
@@ -171,6 +207,14 @@ export function Library() {
     [locale, dark],
   );
   const showcase = previews.find((p) => p.template.id === 'microservices') ?? previews[0];
+  const yours = useMemo(
+    () =>
+      templates.flatMap((meta) => {
+        const model = templateModels[`${meta.id}@${meta.updatedAt}`];
+        return model ? [{ meta, model, src: thumbnailDataUrl(renderPreview(model, dark)) }] : [];
+      }),
+    [templates, templateModels, dark],
+  );
 
   const showTemplates = () =>
     document
@@ -215,6 +259,7 @@ export function Library() {
       <LibraryHero
         t={t}
         diagramCount={items.length}
+        ownTemplates={templates.length}
         showcase={showcase}
         onNew={() => setPicking(true)}
         onBrowseTemplates={showTemplates}
@@ -297,7 +342,10 @@ export function Library() {
           <TemplateGallery
             t={t}
             previews={previews}
+            yours={yours}
             onPick={(title, model) => void create(title, model)}
+            onEdit={(meta) => router.push(`/d/${meta.id}`)}
+            onRemove={(meta) => setDeleting(meta)}
           />
         )}
       </main>

@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { DiagramMeta, DiagramModel } from '@/lib/domain';
 import { safeParseDiagramModel } from '@/lib/domain';
+import { useRepository } from '@/components/app/RepositoryProvider';
 import { TEMPLATES } from '@/lib/editor/templates';
 import { markdownToDiagram } from '@/lib/editor/markdownImport';
 import { ImportError, detectFormat, importArchitecture } from '@/lib/import';
@@ -18,6 +20,7 @@ import { Kbd } from '@/components/ui/Kbd';
 import { Glyph } from '@/components/icons/Glyph';
 import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { spellChord } from '@/lib/editor/platform';
+import { relativeDay } from '@/lib/i18n/relativeDay';
 import { exitProps, usePresence, type Presence } from '@/lib/editor/usePresence';
 import { MineSection, UploadForm, useIconLibrary } from './CustomIcons';
 import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
@@ -105,6 +108,103 @@ function Dialog({
 /** The modals this component owns; the share and AI dialogs are their own components. */
 const OWNED = new Set(['templates', 'markdown', 'switchCloud', 'icons', 'shortcuts']);
 
+/**
+ * The templates: the reader's own first, when there are any, then the house's.
+ *
+ * The reader's are read from the repository when the dialog opens — they are
+ * diagrams marked as starting points — and drawn as the built-in ones are,
+ * icon and name; a template of one's own has no glyph of its own, so it wears
+ * the templates' mark. Without any, the dialog is exactly what it was.
+ */
+function TemplatesDialog({ onClose, ...exit }: { onClose: () => void } & ExitProps) {
+  const { ui, dispatch, dispatchUi, t } = useEditor();
+  const repository = useRepository();
+  const [yours, setYours] = useState<DiagramMeta[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void repository
+      .list()
+      .then((items) => {
+        if (!cancelled) setYours(items.filter((item) => item.template));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [repository]);
+
+  const load = (model: DiagramModel) => {
+    dispatch({ type: 'replaceModel', model });
+    dispatchUi({ type: 'clearSelection' });
+    onClose();
+  };
+
+  return (
+    <Dialog
+      title={t('modal.templates.title')}
+      onClose={onClose}
+      closeLabel={t('modal.close')}
+      {...exit}
+    >
+      <p className="dialog-subtitle">{t('modal.templates.subtitle')}</p>
+      {yours.length > 0 && (
+        <>
+          <GroupHeader as="h3" className="template-group-title" count={yours.length}>
+            {t('modal.templates.yours')}
+          </GroupHeader>
+          <div className="template-grid">
+            {yours.map((meta, index) => (
+              <button
+                key={meta.id}
+                type="button"
+                className="template-card is-yours"
+                style={{ '--i': index } as React.CSSProperties}
+                onClick={() => {
+                  void repository.get(meta.id).then((record) => {
+                    if (record) load(structuredClone(record.model));
+                  });
+                }}
+              >
+                <span className="template-icon">
+                  <Glyph name="templates" size={20} />
+                </span>
+                <span>
+                  <b>{meta.title}</b>
+                  <small>
+                    {t('library.templateYours', { when: relativeDay(meta.updatedAt, t) })}
+                  </small>
+                </span>
+              </button>
+            ))}
+          </div>
+          <GroupHeader as="h3" className="template-group-title" count={TEMPLATES.length}>
+            {t('modal.templates.builtIn')}
+          </GroupHeader>
+        </>
+      )}
+      <div className="template-grid">
+        {TEMPLATES.map((template, index) => (
+          <button
+            key={template.id}
+            type="button"
+            className="template-card"
+            style={{ '--i': index } as React.CSSProperties}
+            onClick={() => load(template.build(ui.locale))}
+          >
+            <span className="template-icon">
+              <Glyph name={template.icon} size={20} />
+            </span>
+            <span>
+              <b>{t(template.nameKey)}</b>
+              <small>{t(template.descriptionKey)}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </Dialog>
+  );
+}
+
 export function Modals() {
   const { ui, dispatch, dispatchUi, t } = useEditor();
   const close = () => dispatchUi({ type: 'setModal', modal: null });
@@ -115,39 +215,7 @@ export function Modals() {
   const exit = { key: presence.key, closing: presence.closing, onExited: presence.onExited };
 
   if (modal === 'templates') {
-    return (
-      <Dialog
-        title={t('modal.templates.title')}
-        onClose={close}
-        closeLabel={t('modal.close')}
-        {...exit}
-      >
-        <p className="dialog-subtitle">{t('modal.templates.subtitle')}</p>
-        <div className="template-grid">
-          {TEMPLATES.map((template, index) => (
-            <button
-              key={template.id}
-              type="button"
-              className="template-card"
-              style={{ '--i': index } as React.CSSProperties}
-              onClick={() => {
-                dispatch({ type: 'replaceModel', model: template.build(ui.locale) });
-                dispatchUi({ type: 'clearSelection' });
-                close();
-              }}
-            >
-              <span className="template-icon">
-                <Glyph name={template.icon} size={20} />
-              </span>
-              <span>
-                <b>{t(template.nameKey)}</b>
-                <small>{t(template.descriptionKey)}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </Dialog>
-    );
+    return <TemplatesDialog onClose={close} {...exit} />;
   }
 
   if (modal === 'markdown') return <MarkdownDialog onClose={close} {...exit} />;

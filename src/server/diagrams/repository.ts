@@ -55,6 +55,7 @@ interface DiagramRow {
   created_at: string;
   updated_at: string;
   thumbnail: string | null;
+  template: boolean;
   model: unknown;
   /** The actor's role, from the membership join; null when not a member. */
   role: Role | null;
@@ -77,7 +78,7 @@ interface MemberRow extends UserRow {
 }
 
 const META_COLUMNS =
-  'd.id, d.owner_id, d.title, d.description, d.folder, d.created_at, d.updated_at, d.thumbnail';
+  'd.id, d.owner_id, d.title, d.description, d.folder, d.created_at, d.updated_at, d.thumbnail, d.template';
 const RECORD_COLUMNS = `${META_COLUMNS}, d.model`;
 const ACCESS_COLUMNS = 'm.role, (select u.name from users u where u.id = d.owner_id) as owner_name';
 const VERSION_COLUMNS = 'id, diagram_id, created_at, label, model';
@@ -102,6 +103,7 @@ function toMeta(row: MetaRow): DiagramMeta {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     thumbnail: row.thumbnail,
+    template: row.template,
     role: row.role ?? undefined,
   });
 }
@@ -181,6 +183,7 @@ export class PgDiagramRepository implements DiagramRepository {
       createdAt: ts,
       updatedAt: ts,
       thumbnail: null,
+      template: input.template ?? false,
       model: input.model,
       role: 'owner',
     });
@@ -535,8 +538,8 @@ export class PgDiagramRepository implements DiagramRepository {
 async function insertDiagram(db: Queryable, record: DiagramRecord): Promise<void> {
   await db.query(
     `insert into diagrams
-       (id, owner_id, title, description, folder, created_at, updated_at, thumbnail, model)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)`,
+       (id, owner_id, title, description, folder, created_at, updated_at, thumbnail, template, model)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
     [
       record.id,
       record.ownerId,
@@ -546,6 +549,7 @@ async function insertDiagram(db: Queryable, record: DiagramRecord): Promise<void
       record.createdAt,
       record.updatedAt,
       record.thumbnail,
+      record.template,
       JSON.stringify(record.model),
     ],
   );
