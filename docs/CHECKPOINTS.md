@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo (`723e67a` en `origin/main`). **H2 empezado: #10 modo presentacion** entregado hoy, pendiente de commit y push. Contenedor local en http://127.0.0.1:3080 con `315baaf` (reconstruir). Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #12 notas/texto/regiones, #20 plantillas propias, #14 iconos en servidor, #9 comentarios, #11 conectores.
+> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo (`723e67a` en `origin/main`). **H2 empezado: #10 modo presentacion** en `91435f5` (`origin/main`); arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con ese commit. Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #12 notas/texto/regiones, #20 plantillas propias, #14 iconos en servidor, #9 comentarios, #11 conectores.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -496,7 +496,6 @@ Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comen
 
 ## Siguiente tarea exacta
 
-1. Confirmar H2 #10 (presentacion) en un commit y `git push`; reconstruir la imagen Docker local.
-2. Seguir H2: #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
-3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Seguir H2: #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
+2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
