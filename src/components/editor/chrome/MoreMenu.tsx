@@ -2,6 +2,7 @@
 
 import {
   CloudIcon,
+  CommentIcon,
   EraseIcon,
   FolderIcon,
   ImportIcon,
@@ -92,6 +93,13 @@ export function MoreMenu({ menu, onToggle, onClose, pick, chord, off, label }: M
             shortcut={chord('toggleMinimap')}
             active={ui.minimapOpen}
             onSelect={() => pick('toggleMinimap')}
+          />
+          <MenuItem
+            icon={<CommentIcon size={15} />}
+            label={t('comments.title')}
+            shortcut={chord('toggleComments')}
+            active={ui.commentsOpen}
+            onSelect={() => pick('toggleComments')}
           />
           <MenuItem
             icon={<PresentIcon size={15} />}

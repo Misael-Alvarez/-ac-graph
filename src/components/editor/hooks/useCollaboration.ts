@@ -8,11 +8,13 @@ import {
   throttle,
   type AccessEvent,
   type CollabStatus,
+  type CommentEvent,
   type PresenceUser,
   type SavedEvent,
 } from '@/lib/collab/client';
 import { toCanvas } from '@/lib/editor/viewport';
 import { useRepository, useRepositoryMode } from '@/components/app/RepositoryProvider';
+import { useUser } from '@/components/app/AuthProvider';
 import { useEditor } from '../EditorProvider';
 
 export interface Collaboration {
@@ -27,6 +29,10 @@ export interface Collaboration {
   deletedBy: string | null;
   /** Bumps whenever anyone's access to this diagram changes, so lists of people refresh. */
   accessVersion: number;
+  /** Bumps whenever a conversation on this diagram changes, so the threads refresh. */
+  commentsVersion: number;
+  /** The last comment somebody else made, for the toast. */
+  lastRemoteComment: CommentEvent | null;
 }
 
 const CURSOR_INTERVAL_MS = 80;
@@ -54,6 +60,7 @@ export function useCollaboration(
   const mode = useRepositoryMode();
   const repository = useRepository();
   const { ui } = useEditor();
+  const selfId = useUser().user.id;
   const enabled = mode === 'server';
 
   const [status, setStatus] = useState<CollabStatus | 'off'>(enabled ? 'connecting' : 'off');
@@ -61,11 +68,13 @@ export function useCollaboration(
   const [lastRemoteSave, setLastRemoteSave] = useState<SavedEvent | null>(null);
   const [deletedBy, setDeletedBy] = useState<string | null>(null);
   const [accessVersion, setAccessVersion] = useState(0);
+  const [commentsVersion, setCommentsVersion] = useState(0);
+  const [lastRemoteComment, setLastRemoteComment] = useState<CommentEvent | null>(null);
 
   // Handlers read the latest props without re-subscribing on every render.
-  const latest = useRef({ doc, onRemoteModel, onRemoteTitle, onAccess });
+  const latest = useRef({ doc, onRemoteModel, onRemoteTitle, onAccess, selfId });
   useEffect(() => {
-    latest.current = { doc, onRemoteModel, onRemoteTitle, onAccess };
+    latest.current = { doc, onRemoteModel, onRemoteTitle, onAccess, selfId };
   });
 
   useEffect(() => {
@@ -102,6 +111,12 @@ export function useCollaboration(
         if (cancelled) return;
         setAccessVersion((n) => n + 1);
         latest.current.onAccess(event);
+      },
+      onComment: (event) => {
+        if (cancelled) return;
+        setCommentsVersion((n) => n + 1);
+        // Our own comment comes back too; the panel already shows it.
+        if (event.by.id !== latest.current.selfId) setLastRemoteComment(event);
       },
       onDeleted: () => {
         if (!cancelled) setDeletedBy(users.find((u) => !u.self)?.name ?? '');
@@ -171,5 +186,14 @@ export function useCollaboration(
     return () => clearTimeout(timer);
   }, [lastRemoteSave, clearRemoteSave]);
 
-  return { enabled, status, users, lastRemoteSave, deletedBy, accessVersion };
+  return {
+    enabled,
+    status,
+    users,
+    lastRemoteSave,
+    deletedBy,
+    accessVersion,
+    commentsVersion,
+    lastRemoteComment,
+  };
 }

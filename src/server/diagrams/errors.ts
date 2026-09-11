@@ -45,3 +45,20 @@ export class MembershipError extends Error {
     this.name = 'MembershipError';
   }
 }
+
+/** A thread id that points at nothing on this diagram. */
+export class ThreadNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Thread not found: ${id}`);
+    this.name = 'ThreadNotFoundError';
+  }
+}
+
+/** Deleting a thread is the author's or the owner's; this person is neither. */
+export class ThreadForbiddenError extends Error {
+  constructor(id: string) {
+    super('Only the author of a thread or the owner of the diagram may delete it.');
+    this.name = 'ThreadForbiddenError';
+    void id;
+  }
+}

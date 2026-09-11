@@ -52,6 +52,17 @@ describe('decode', () => {
       sessionKey: 's',
     });
 
+    const commented: BusMessage = {
+      ...saved,
+      event: {
+        type: 'comment',
+        threadId: 'thr_1',
+        action: 'replied',
+        by: { id: 'usr_1', name: 'A' },
+      },
+    };
+    expect(decode(JSON.stringify(commented))).toEqual(commented);
+
     expect(decode('not json')).toBeNull();
     expect(
       decode('{"v":2,"origin":"r","diagramId":"d","kind":"leave","sessionKey":"s"}'),

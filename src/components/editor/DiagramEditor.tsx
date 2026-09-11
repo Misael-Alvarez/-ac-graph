@@ -21,6 +21,9 @@ import { CodePanel } from './code/CodePanel';
 import { AiDialog } from './ai/AiDialog';
 import { CommandPalette } from './chrome/CommandPalette';
 import { InsightsPanel } from './chrome/InsightsPanel';
+import { ContextMenu } from './canvas/ContextMenu';
+import { CommentsPanel } from './comments/CommentsPanel';
+import { CommentsProvider } from './comments/CommentsProvider';
 import { InspectorPanel } from './chrome/InspectorPanel';
 import { Minimap } from './chrome/Minimap';
 import { Modals } from './chrome/Modals';
@@ -206,6 +209,23 @@ function EditorShell({
     });
   }, [collab.lastRemoteSave, dispatchUi, t]);
 
+  // Somebody else spoke: said in a toast, since the pin may be off screen.
+  useEffect(() => {
+    const event = collab.lastRemoteComment;
+    if (!event || event.action === 'deleted' || event.action === 'reopened') return;
+    dispatchUi({
+      type: 'toast',
+      message: t(
+        event.action === 'created'
+          ? 'live.commented'
+          : event.action === 'replied'
+            ? 'live.replied'
+            : 'live.resolvedThread',
+        { name: event.by.name },
+      ),
+    });
+  }, [collab.lastRemoteComment, dispatchUi, t]);
+
   const acceptRemote = () => {
     const theirs = document_.acceptRemote();
     if (theirs) applyRemote(theirs);
@@ -216,157 +236,172 @@ function EditorShell({
   const presenting = ui.presenting;
 
   return (
-    <div className={`editor-root${presenting ? ' is-presenting' : ''}`}>
-      {!presenting && <TopBar title={title} status={status} onRename={onRename} collab={collab} />}
-      {!presenting && remoteConflict && (
-        <div className="editor-banner is-signal" role="alert">
-          <span className="editor-banner-text">
-            {t('live.remoteConflict', {
-              name: collab.users.find((u) => !u.self)?.name ?? '—',
-            })}
-          </span>
-          <button
-            type="button"
-            className="button"
-            onClick={() => downloadProject(remoteConflict.mine, 'mis-cambios.json')}
-          >
-            {t('live.keepMine')}
-          </button>
-          <button
-            type="button"
-            className="button is-primary"
-            disabled={!remoteConflict.theirs}
-            onClick={acceptRemote}
-          >
-            {t('live.loadRemote')}
-          </button>
-        </div>
-      )}
-      {!presenting && document_.accessRevokedBy !== null && (
-        <div className="editor-banner is-danger" role="alert">
-          <span className="editor-banner-text">
-            {t('access.revoked', { name: document_.accessRevokedBy || '—' })}
-          </span>
-          <button
-            type="button"
-            className="button"
-            onClick={() => downloadProject(doc.model, 'copia-local.json')}
-          >
-            {t('live.keepMine')}
-          </button>
-        </div>
-      )}
-      {!presenting && collab.deletedBy !== null && (
-        <div className="editor-banner is-danger" role="alert">
-          <span className="editor-banner-text">
-            {t('live.deleted', { name: collab.deletedBy || '—' })}
-          </span>
-          <button
-            type="button"
-            className="button"
-            onClick={() => downloadProject(doc.model, 'copia-local.json')}
-          >
-            {t('live.keepMine')}
-          </button>
-        </div>
-      )}
-      {!presenting && recoveryUnavailable && (
-        <p className="editor-banner" role="alert">
-          <span className="editor-banner-text">{t('persistence.recoveryUnavailable')}</span>
-        </p>
-      )}
-      {!presenting && status === 'error' && !readOnly && (
-        <div className="editor-banner is-danger" role="alert">
-          <span className="editor-banner-text">{t('persistence.failed')}</span>
-          <button type="button" className="button" onClick={() => void onRetry().catch(() => {})}>
-            {t('persistence.retry')}
-          </button>
-          <button type="button" className="button" onClick={() => downloadProject(doc.model)}>
-            {t('export.json')}
-          </button>
-        </div>
-      )}
-      {!presenting && recoveryConflict && (
-        <div className="editor-banner" role="alert">
-          <span className="editor-banner-text">{t('persistence.conflict')}</span>
-          <button
-            type="button"
-            className="button"
-            onClick={() => downloadProject(recoveryConflict, 'recovered-draft.json')}
-          >
-            {t('persistence.downloadDraft')}
-          </button>
-        </div>
-      )}
-      <div className="editor-split">
-        {!presenting && ui.browserOpen && <ServiceBrowser />}
-        <main className="editor-stage">
-          <Canvas />
-          <RemoteCursors users={collab.users} />
-          {presenting ? (
-            <Presentation />
-          ) : (
-            <>
-              <Breadcrumb />
-              <ViewBar />
-              {ui.findOpen && <FindBar />}
-              <ToolDock />
-              <InspectorPanel />
-              <ZoomControls size={size} />
-              <Minimap size={size} />
-            </>
-          )}
-        </main>
-        {!presenting && ui.codeOpen && <CodePanel />}
-        {!presenting && ui.versionsOpen && (
-          <VersionPanel onSnapshot={onSnapshot} onRestore={onRestore} revision={revision} />
+    <CommentsProvider
+      diagramId={documentId}
+      version={collab.commentsVersion}
+      // The owner tidies any thread; in the browser's own store there is only the owner.
+      canModerate={document_.role === 'owner'}
+    >
+      <div className={`editor-root${presenting ? ' is-presenting' : ''}`}>
+        {!presenting && (
+          <TopBar title={title} status={status} onRename={onRename} collab={collab} />
         )}
-        {!presenting && ui.insightsOpen && <InsightsPanel size={size} />}
-      </div>
-      {!presenting && <StatusBar status={status} />}
+        {!presenting && remoteConflict && (
+          <div className="editor-banner is-signal" role="alert">
+            <span className="editor-banner-text">
+              {t('live.remoteConflict', {
+                name: collab.users.find((u) => !u.self)?.name ?? '—',
+              })}
+            </span>
+            <button
+              type="button"
+              className="button"
+              onClick={() => downloadProject(remoteConflict.mine, 'mis-cambios.json')}
+            >
+              {t('live.keepMine')}
+            </button>
+            <button
+              type="button"
+              className="button is-primary"
+              disabled={!remoteConflict.theirs}
+              onClick={acceptRemote}
+            >
+              {t('live.loadRemote')}
+            </button>
+          </div>
+        )}
+        {!presenting && document_.accessRevokedBy !== null && (
+          <div className="editor-banner is-danger" role="alert">
+            <span className="editor-banner-text">
+              {t('access.revoked', { name: document_.accessRevokedBy || '—' })}
+            </span>
+            <button
+              type="button"
+              className="button"
+              onClick={() => downloadProject(doc.model, 'copia-local.json')}
+            >
+              {t('live.keepMine')}
+            </button>
+          </div>
+        )}
+        {!presenting && collab.deletedBy !== null && (
+          <div className="editor-banner is-danger" role="alert">
+            <span className="editor-banner-text">
+              {t('live.deleted', { name: collab.deletedBy || '—' })}
+            </span>
+            <button
+              type="button"
+              className="button"
+              onClick={() => downloadProject(doc.model, 'copia-local.json')}
+            >
+              {t('live.keepMine')}
+            </button>
+          </div>
+        )}
+        {!presenting && recoveryUnavailable && (
+          <p className="editor-banner" role="alert">
+            <span className="editor-banner-text">{t('persistence.recoveryUnavailable')}</span>
+          </p>
+        )}
+        {!presenting && status === 'error' && !readOnly && (
+          <div className="editor-banner is-danger" role="alert">
+            <span className="editor-banner-text">{t('persistence.failed')}</span>
+            <button type="button" className="button" onClick={() => void onRetry().catch(() => {})}>
+              {t('persistence.retry')}
+            </button>
+            <button type="button" className="button" onClick={() => downloadProject(doc.model)}>
+              {t('export.json')}
+            </button>
+          </div>
+        )}
+        {!presenting && recoveryConflict && (
+          <div className="editor-banner" role="alert">
+            <span className="editor-banner-text">{t('persistence.conflict')}</span>
+            <button
+              type="button"
+              className="button"
+              onClick={() => downloadProject(recoveryConflict, 'recovered-draft.json')}
+            >
+              {t('persistence.downloadDraft')}
+            </button>
+          </div>
+        )}
+        <div className="editor-split">
+          {!presenting && ui.browserOpen && <ServiceBrowser />}
+          <main className="editor-stage">
+            <Canvas />
+            <RemoteCursors users={collab.users} />
+            {presenting ? (
+              <Presentation />
+            ) : (
+              <>
+                <Breadcrumb />
+                <ViewBar />
+                {ui.findOpen && <FindBar />}
+                <ToolDock />
+                <InspectorPanel />
+                <ZoomControls size={size} />
+                <Minimap size={size} />
+                {/* After the inspector, and outside the canvas host: that host
+                    isolates its stacking, so a menu drawn inside it sat under
+                    the inspector whenever the two met — which, with a side
+                    panel narrowing the stage, was most of the right half. */}
+                <ContextMenu />
+              </>
+            )}
+          </main>
+          {!presenting && ui.codeOpen && <CodePanel />}
+          {!presenting && ui.versionsOpen && (
+            <VersionPanel onSnapshot={onSnapshot} onRestore={onRestore} revision={revision} />
+          )}
+          {!presenting && ui.insightsOpen && <InsightsPanel size={size} />}
+          {!presenting && ui.commentsOpen && <CommentsPanel size={size} />}
+        </div>
+        {!presenting && <StatusBar status={status} />}
 
-      <CommandPalette />
-      <Modals />
-      <AiDialog />
-      <ShareDialog accessVersion={collab.accessVersion} />
-      <Toast />
-      <CloudSwitchAnnouncer />
+        <CommandPalette />
+        <Modals />
+        <AiDialog />
+        <ShareDialog accessVersion={collab.accessVersion} />
+        <Toast />
+        <CloudSwitchAnnouncer />
 
-      <input
-        ref={fileInput}
-        data-open-project
-        type="file"
-        accept=".json"
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const reader = new FileReader();
-          const failed = () => dispatchUi({ type: 'toast', message: t('toast.invalidFile') });
-          reader.onload = () => {
-            try {
-              const parsed = safeParseDiagramModel(JSON.parse(String(reader.result) || 'null'));
-              if (!parsed.success) {
+        <input
+          ref={fileInput}
+          data-open-project
+          type="file"
+          accept=".json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            const failed = () => dispatchUi({ type: 'toast', message: t('toast.invalidFile') });
+            reader.onload = () => {
+              try {
+                const parsed = safeParseDiagramModel(JSON.parse(String(reader.result) || 'null'));
+                if (!parsed.success) {
+                  failed();
+                  return;
+                }
+                dispatch({ type: 'replaceModel', model: parsed.data });
+                dispatchUi({ type: 'clearSelection' });
+              } catch {
                 failed();
-                return;
               }
-              dispatch({ type: 'replaceModel', model: parsed.data });
-              dispatchUi({ type: 'clearSelection' });
+            };
+            reader.onerror = failed;
+            reader.onabort = failed;
+            try {
+              reader.readAsText(file);
             } catch {
               failed();
             }
-          };
-          reader.onerror = failed;
-          reader.onabort = failed;
-          try {
-            reader.readAsText(file);
-          } catch {
-            failed();
-          }
-          e.target.value = '';
-        }}
-      />
-    </div>
+            e.target.value = '';
+          }}
+        />
+      </div>
+    </CommentsProvider>
   );
 }
 

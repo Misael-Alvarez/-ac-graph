@@ -38,6 +38,13 @@ export interface AccessEvent {
   by: { id: string; name: string };
 }
 
+/** A conversation on the diagram changed; the list is to be fetched again. */
+export interface CommentEvent {
+  threadId: string;
+  action: 'created' | 'replied' | 'resolved' | 'reopened' | 'deleted';
+  by: { id: string; name: string };
+}
+
 export type CollabStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
 
 export interface SubscriptionHandlers {
@@ -46,6 +53,7 @@ export interface SubscriptionHandlers {
   onDeleted?: () => void;
   onMeta?: (event: MetaEvent) => void;
   onAccess?: (event: AccessEvent) => void;
+  onComment?: (event: CommentEvent) => void;
   onStatus?: (status: CollabStatus) => void;
 }
 
@@ -178,6 +186,10 @@ export function subscribeToDiagram(
     next.addEventListener('access', (event) => {
       const data = parseData<AccessEvent>((event as MessageEvent).data);
       if (data && typeof data.userId === 'string') handlers.onAccess?.(data);
+    });
+    next.addEventListener('comment', (event) => {
+      const data = parseData<CommentEvent>((event as MessageEvent).data);
+      if (data && typeof data.threadId === 'string') handlers.onComment?.(data);
     });
     next.addEventListener('deleted', () => {
       stop();

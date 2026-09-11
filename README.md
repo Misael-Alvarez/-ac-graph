@@ -106,6 +106,12 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
 - **A library that keeps up.** Sort by recent edit, name or creation, star what
   matters, and drop any file on the page — a project export, YAML, Mermaid,
   Terraform, a Kubernetes manifest, OpenAPI or a Markdown outline — to import it.
+- **Talk about it.** Right-click a shape or the sheet and leave a comment;
+  threads pin to what they are about, follow it when it moves, and open in a
+  panel where they are answered, resolved and reopened. A viewer may comment
+  too. Comments live beside the diagram, not in it: they are never undone
+  with a keystroke, never bump the revision, and in server mode they reach
+  everyone in the room as they are written.
 - **One icon library for the team.** In server mode an icon anyone uploads
   is kept for the whole workspace, stored once however many times it is
   uploaded, and offered to every editor; in the browser-only mode the library
@@ -140,6 +146,7 @@ the palette hints and the `?` sheet all read that table, so they cannot drift.
 | `⌘E`                | Export menu · `⌘S` JSON · `⌘⇧S` share                       |
 | `⌘J`                | AI assistant                                                |
 | `⌘/` `⌘B` `⌘H` `⌘I` | Code panel, service browser, history, insights              |
+| `⌘⇧C`               | Comments                                                    |
 | `V B U G I C H`     | Select, boundary, sub-boundary, group, item, connector, pan |
 | `R N T`             | Region, note, text                                          |
 | `Space` + drag      | Pan · `⌘` + wheel zooms at the cursor                       |

@@ -1,3 +1,4 @@
+import type { CommentAnchor } from '@/lib/domain';
 import type { Locale } from '@/lib/i18n/messages';
 import { DEFAULT_VIEWPORT, type Viewport } from './viewport';
 import type { BrandMode, ExportTheme, ToolMode } from './types';
@@ -59,6 +60,15 @@ export interface UiState {
   /** Version history panel. */
   versionsOpen: boolean;
   insightsOpen: boolean;
+  /** The conversations panel; shares the column with the three above. */
+  commentsOpen: boolean;
+  /**
+   * Where the next comment will be pinned, chosen from the context menu: a
+   * shape or a point on the sheet. Null means "whatever is selected".
+   */
+  commentDraft: CommentAnchor | null;
+  /** The thread the panel should scroll to and light up, after a pin was pressed. */
+  commentFocus: string | null;
   /** Nodes the open comparison says are new or altered, for the canvas. */
   diffHighlight: { added: string[]; changed: string[] } | null;
   /**
@@ -103,6 +113,9 @@ export const initialUiState: UiState = {
   presenting: false,
   versionsOpen: false,
   insightsOpen: false,
+  commentsOpen: false,
+  commentDraft: null,
+  commentFocus: null,
   diffHighlight: null,
   activeViewId: null,
   drillPath: [],
@@ -138,6 +151,11 @@ export type UiAction =
   | { type: 'toggleCode' }
   | { type: 'toggleVersions' }
   | { type: 'toggleInsights' }
+  | { type: 'toggleComments' }
+  /** Opens the panel — on a thread, or with a comment ready to write somewhere. */
+  | { type: 'openComments'; threadId?: string; draft?: CommentAnchor }
+  | { type: 'setCommentDraft'; anchor: CommentAnchor | null }
+  | { type: 'setCommentFocus'; threadId: string | null }
   | { type: 'setDiffHighlight'; highlight: UiState['diffHighlight'] }
   | { type: 'toggleBrowser' }
   | { type: 'setPaletteOpen'; open: boolean }
@@ -252,16 +270,63 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
     case 'toggleMinimap':
       return { ...state, minimapOpen: !state.minimapOpen };
 
+    // The four side panels share one column, so opening one closes the others.
     case 'toggleCode':
-      // The two side panels share the same column, so only one can be open.
-      return { ...state, codeOpen: !state.codeOpen, versionsOpen: false, insightsOpen: false };
+      return {
+        ...state,
+        codeOpen: !state.codeOpen,
+        versionsOpen: false,
+        insightsOpen: false,
+        commentsOpen: false,
+      };
 
     case 'toggleVersions':
-      return { ...state, versionsOpen: !state.versionsOpen, codeOpen: false, insightsOpen: false };
+      return {
+        ...state,
+        versionsOpen: !state.versionsOpen,
+        codeOpen: false,
+        insightsOpen: false,
+        commentsOpen: false,
+      };
 
-    // The three share one column, so opening one closes the others.
     case 'toggleInsights':
-      return { ...state, insightsOpen: !state.insightsOpen, codeOpen: false, versionsOpen: false };
+      return {
+        ...state,
+        insightsOpen: !state.insightsOpen,
+        codeOpen: false,
+        versionsOpen: false,
+        commentsOpen: false,
+      };
+
+    case 'toggleComments':
+      return {
+        ...state,
+        commentsOpen: !state.commentsOpen,
+        codeOpen: false,
+        versionsOpen: false,
+        insightsOpen: false,
+        // Closing the panel drops what was about to be written there.
+        commentDraft: state.commentsOpen ? null : state.commentDraft,
+        commentFocus: null,
+      };
+
+    case 'openComments':
+      return {
+        ...state,
+        commentsOpen: true,
+        codeOpen: false,
+        versionsOpen: false,
+        insightsOpen: false,
+        contextMenu: null,
+        commentDraft: action.draft ?? state.commentDraft,
+        commentFocus: action.threadId ?? null,
+      };
+
+    case 'setCommentDraft':
+      return { ...state, commentDraft: action.anchor };
+
+    case 'setCommentFocus':
+      return { ...state, commentFocus: action.threadId };
 
     case 'setDiffHighlight':
       return { ...state, diffHighlight: action.highlight };

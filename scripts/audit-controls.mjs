@@ -661,6 +661,56 @@ for (const [tool, prefix] of [
   await page.keyboard.press('Meta+z');
   await settle(200);
 }
+// Comments: from the menu to the panel to a pin, and back out again
+{
+  await openTemplate();
+  const g = await page.locator('.canvas-surface rect[data-shape-id^="grp_"]').first().boundingBox();
+  await page.mouse.click(g.x + 30, g.y + 12, { button: 'right' });
+  await settle(300);
+  await page.getByRole('menuitem', { name: 'Comentar…' }).click();
+  await settle(400);
+  const panel = page.locator('.side-panel[aria-label="Comentarios"]');
+  check(
+    'comentar: el menú abre el panel sobre la forma',
+    (await panel.count()) === 1 &&
+      /^En /.test((await panel.locator('.comment-target-label').innerText()) ?? ''),
+  );
+  await panel.locator('.comment-field').fill('Auditoría: ¿esto es así?');
+  await page.keyboard.press('Enter');
+  await settle(500);
+  check(
+    'comentar: el hilo aparece y pone una marca en el lienzo',
+    (await panel.locator('.comment-thread').count()) === 1 &&
+      (await page.locator('.canvas-surface .comment-pin:not(.is-draft)').count()) === 1,
+  );
+  await panel.getByRole('textbox', { name: 'Responder' }).fill('Sí.');
+  await panel.getByRole('textbox', { name: 'Responder' }).press('Enter');
+  await settle(400);
+  check('comentar: responder añade al hilo', (await panel.locator('.comment-row').count()) === 2);
+  await panel.getByRole('button', { name: 'Resolver' }).click();
+  await settle(400);
+  check(
+    'comentar: resolver quita la marca y pliega el hilo',
+    (await page.locator('.canvas-surface .comment-pin:not(.is-draft)').count()) === 0 &&
+      (await panel.locator('.comment-thread.is-resolved').count()) === 1,
+  );
+  await panel.getByRole('button', { name: 'Eliminar hilo' }).click();
+  await settle(400);
+  check(
+    'comentar: eliminar vacía el panel',
+    (await panel.locator('.comment-thread').count()) === 0,
+  );
+  await page.keyboard.press('Meta+Shift+c');
+  await settle(300);
+  check('teclado: ⌘⇧C cierra Comentarios', (await panel.count()) === 0);
+  await page.locator('.topbar button[aria-label="Más"]').click();
+  await settle(200);
+  await page.getByRole('menuitem', { name: /^Comentarios/ }).click();
+  await settle(300);
+  check('más: Comentarios abre el panel', (await panel.count()) === 1);
+  await page.keyboard.press('Meta+Shift+c');
+  await settle(200);
+}
 // Selection toolbar
 {
   await page.keyboard.press('Meta+a');

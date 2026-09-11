@@ -238,6 +238,10 @@ export function useCommands(): CommandSet {
       command('toggleVersions', 'versions.title', 'history', () =>
         dispatchUi({ type: 'toggleVersions' }),
       ),
+      // A viewer may talk about the drawing: never among the editing commands.
+      command('toggleComments', 'comments.title', 'comments', () =>
+        dispatchUi({ type: 'toggleComments' }),
+      ),
       command('toggleMinimap', 'action.toggleMinimap', 'minimap', () =>
         dispatchUi({ type: 'toggleMinimap' }),
       ),

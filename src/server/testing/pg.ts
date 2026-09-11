@@ -54,6 +54,7 @@ export async function testPool(schema: string): Promise<Pool> {
 /** Drops every table the migrations create, so each file starts from nothing. */
 export async function dropSchema(pool: Pool): Promise<void> {
   const tables = [
+    'comment_threads',
     'icons',
     'diagram_members',
     'diagram_versions',

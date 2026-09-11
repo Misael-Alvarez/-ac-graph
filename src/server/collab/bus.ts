@@ -43,6 +43,12 @@ const RoomEventSchema = z.discriminatedUnion('type', [
     role: z.enum(['owner', 'editor', 'viewer']).nullable(),
     by: z.object({ id: Id, name: z.string() }),
   }),
+  z.object({
+    type: z.literal('comment'),
+    threadId: Id,
+    action: z.enum(['created', 'replied', 'resolved', 'reopened', 'deleted']),
+    by: z.object({ id: Id, name: z.string() }),
+  }),
 ]);
 
 export const BusMessageSchema = z.discriminatedUnion('kind', [

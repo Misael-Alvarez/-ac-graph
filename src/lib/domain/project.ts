@@ -67,6 +67,48 @@ export const DiagramVersionSchema = z.object({
   model: DiagramModelSchema,
 });
 
+/**
+ * A conversation pinned to the drawing.
+ *
+ * Comments are not part of the model: they are about the architecture, not
+ * of it. So they are not undone with a keystroke, do not bump the document's
+ * revision, do not travel in a share link or an export, and a viewer — who may
+ * change nothing in the drawing — may still leave one. What they keep is who
+ * said what, when, and where: a shape, or a point on the sheet when there is
+ * no shape to point at.
+ */
+export const CommentAuthorSchema = z.object({ id: z.string(), name: z.string() });
+
+export const CommentAnchorSchema = z.object({
+  /** The shape the thread is about, or null for a point on the sheet. */
+  shapeId: z.string().nullable(),
+  /**
+   * Where it was pinned, in canvas coordinates. For a shape this is where the
+   * shape's corner was at the time, so a thread whose shape is later deleted
+   * still has somewhere to be.
+   */
+  x: z.number(),
+  y: z.number(),
+});
+
+export const CommentSchema = z.object({
+  id: z.string(),
+  author: CommentAuthorSchema,
+  body: z.string().min(1).max(4000),
+  createdAt: TimestampSchema,
+});
+
+export const CommentThreadSchema = z.object({
+  id: z.string(),
+  diagramId: z.string(),
+  anchor: CommentAnchorSchema,
+  createdAt: TimestampSchema,
+  resolvedAt: TimestampSchema.nullable().default(null),
+  resolvedBy: CommentAuthorSchema.nullable().default(null),
+  /** The first comment opens the thread; the rest answer it. Never empty. */
+  comments: z.array(CommentSchema).min(1),
+});
+
 export const ShareSchema = z.object({
   id: z.string(),
   diagramId: z.string(),
@@ -78,6 +120,10 @@ export const ShareSchema = z.object({
 
 export type User = z.infer<typeof UserSchema>;
 export type Role = z.infer<typeof RoleSchema>;
+export type CommentAuthor = z.infer<typeof CommentAuthorSchema>;
+export type CommentAnchor = z.infer<typeof CommentAnchorSchema>;
+export type Comment = z.infer<typeof CommentSchema>;
+export type CommentThread = z.infer<typeof CommentThreadSchema>;
 export type DiagramMember = z.infer<typeof DiagramMemberSchema>;
 export type DiagramMeta = z.infer<typeof DiagramMetaSchema>;
 export type DiagramRecord = z.infer<typeof DiagramRecordSchema>;

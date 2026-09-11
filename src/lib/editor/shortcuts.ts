@@ -77,6 +77,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { id: 'toggleTheme', keys: 'Mod+Shift+D', labelKey: 'action.toggleTheme', scope: 'canvas' },
       { id: 'insights', keys: 'Mod+I', labelKey: 'action.insights', scope: 'global' },
       { id: 'toggleVersions', keys: 'Mod+H', labelKey: 'versions.title', scope: 'global' },
+      { id: 'toggleComments', keys: 'Mod+Shift+C', labelKey: 'comments.title', scope: 'global' },
       { id: 'toggleCode', keys: 'Mod+/', labelKey: 'action.toggleCode', scope: 'global' },
       { id: 'toggleBrowser', keys: 'Mod+B', labelKey: 'action.browser', scope: 'global' },
     ],

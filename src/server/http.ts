@@ -4,6 +4,8 @@ import {
   DiagramForbiddenError,
   DiagramNotFoundError,
   MembershipError,
+  ThreadForbiddenError,
+  ThreadNotFoundError,
   UserNotFoundError,
   VersionNotFoundError,
 } from './diagrams/errors';
@@ -93,8 +95,15 @@ export function errorResponse(thrown: unknown): Response {
   if (thrown instanceof DiagramConflictError) {
     return error(412, 'conflict', thrown.message);
   }
-  if (thrown instanceof DiagramNotFoundError || thrown instanceof VersionNotFoundError) {
+  if (
+    thrown instanceof DiagramNotFoundError ||
+    thrown instanceof VersionNotFoundError ||
+    thrown instanceof ThreadNotFoundError
+  ) {
     return error(404, 'not_found', thrown.message);
+  }
+  if (thrown instanceof ThreadForbiddenError) {
+    return error(403, 'forbidden', thrown.message);
   }
   if (thrown instanceof DiagramForbiddenError) {
     // Enough for the interface to say "ask Ada for access", never the diagram itself.

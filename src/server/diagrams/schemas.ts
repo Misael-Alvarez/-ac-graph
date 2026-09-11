@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { DiagramModelSchema, DiagramRecordSchema, DiagramVersionSchema } from '@/lib/domain';
+import {
+  CommentAnchorSchema,
+  DiagramModelSchema,
+  DiagramRecordSchema,
+  DiagramVersionSchema,
+} from '@/lib/domain';
 
 /**
  * Request bodies of the diagram API.
@@ -62,3 +67,19 @@ export const WorkspaceImportSchema = z.object({
   diagrams: z.array(DiagramRecordSchema),
   versions: z.array(DiagramVersionSchema),
 });
+
+/**
+ * A comment as written: where, and what. The author is never in the body —
+ * the session signs — and a thread is opened with one comment, so `body` is
+ * required and bounded like the domain's own.
+ */
+export const ThreadBodySchema = z
+  .object({
+    anchor: CommentAnchorSchema,
+    body: z.string().trim().min(1).max(4000),
+  })
+  .strict();
+
+export const ReplyBodySchema = z.object({ body: z.string().trim().min(1).max(4000) }).strict();
+
+export const ThreadPatchSchema = z.object({ resolved: z.boolean() }).strict();

@@ -9,6 +9,8 @@ import {
   DiagramForbiddenError,
   DiagramNotFoundError,
   MembershipError,
+  ThreadForbiddenError,
+  ThreadNotFoundError,
   UserNotFoundError,
   VersionNotFoundError,
 } from './errors';
@@ -299,6 +301,74 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       const second = await repo.save(created.id, modelWithGroups(2));
       expect(first.updatedAt > created.updatedAt).toBe(true);
       expect(second.updatedAt > first.updatedAt).toBe(true);
+    });
+  });
+
+  describe('comments', () => {
+    const anchor = { shapeId: 'itm_x', x: 10, y: 20 };
+
+    it('are read and joined by anyone who may read the diagram, signed by the session', async () => {
+      const diagram = await repo.create({ title: 'Talk', model: modelWithGroups(1) });
+      await expect(asBob.listThreads(diagram.id)).rejects.toBeInstanceOf(DiagramForbiddenError);
+      await repo.setMember(diagram.id, 'bob@example.com', 'viewer');
+
+      const thread = await asBob.createThread(diagram.id, { anchor, body: '  Why two queues?  ' });
+      // Signed by the session, whoever the browser says is typing.
+      expect(thread.comments[0].author).toEqual({ id: bob.id, name: 'Bob' });
+      expect(thread.comments[0].body).toBe('Why two queues?');
+      expect(thread.anchor).toEqual(anchor);
+      expect(thread.resolvedAt).toBeNull();
+
+      const answered = await repo.reply(diagram.id, thread.id, { body: 'Retries' });
+      expect(answered.comments.map((c) => [c.author.name, c.body])).toEqual([
+        ['Bob', 'Why two queues?'],
+        ['Ada', 'Retries'],
+      ]);
+      expect((await asBob.listThreads(diagram.id)).map((t) => t.id)).toEqual([thread.id]);
+      expect((await repo.listThreads(diagram.id))[0].comments).toHaveLength(2);
+    });
+
+    it('lists oldest first, resolves and reopens with a signature', async () => {
+      const diagram = await repo.create({ title: 'Talk', model: createEmptyModel() });
+      const first = await repo.createThread(diagram.id, { anchor, body: 'one' });
+      const second = await repo.createThread(diagram.id, { anchor, body: 'two' });
+      expect((await repo.listThreads(diagram.id)).map((t) => t.id)).toEqual([first.id, second.id]);
+
+      const resolved = await repo.setThreadResolved(diagram.id, first.id, true);
+      expect(resolved.resolvedBy).toEqual({ id: ada.id, name: 'Ada' });
+      expect(typeof resolved.resolvedAt).toBe('string');
+      const reopened = await repo.setThreadResolved(diagram.id, first.id, false);
+      expect(reopened.resolvedAt).toBeNull();
+      expect(reopened.resolvedBy).toBeNull();
+    });
+
+    it('is deleted by its author or the owner, refuses everyone else, and goes with the diagram', async () => {
+      const diagram = await repo.create({ title: 'Talk', model: createEmptyModel() });
+      await repo.setMember(diagram.id, 'bob@example.com', 'editor');
+      const bobs = await asBob.createThread(diagram.id, { anchor, body: 'mine' });
+      const adas = await repo.createThread(diagram.id, { anchor, body: 'hers' });
+
+      // An editor may not delete the owner's thread.
+      await expect(asBob.deleteThread(diagram.id, adas.id)).rejects.toBeInstanceOf(
+        ThreadForbiddenError,
+      );
+      // The author may; so may the owner, of anyone's.
+      await asBob.deleteThread(diagram.id, bobs.id);
+      await repo.deleteThread(diagram.id, adas.id);
+      expect(await repo.listThreads(diagram.id)).toEqual([]);
+      await expect(repo.deleteThread(diagram.id, adas.id)).rejects.toBeInstanceOf(
+        ThreadNotFoundError,
+      );
+      await expect(repo.reply(diagram.id, 'thr_nope', { body: 'x' })).rejects.toBeInstanceOf(
+        ThreadNotFoundError,
+      );
+
+      await repo.createThread(diagram.id, { anchor, body: 'until the end' });
+      await repo.delete(diagram.id);
+      const left = await pool.query('select 1 from comment_threads where diagram_id = $1', [
+        diagram.id,
+      ]);
+      expect(left.rows).toEqual([]);
     });
   });
 

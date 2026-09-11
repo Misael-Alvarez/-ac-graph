@@ -74,8 +74,7 @@ export function ContextMenu() {
     };
   }, [ui.contextMenu, dispatchUi]);
 
-  // Everything in here edits; a viewer gets the browser's own menu instead.
-  if (!target || readOnly) return null;
+  if (!target) return null;
 
   const close = () => dispatchUi({ type: 'closeContextMenu' });
   const shape = target.shapeId ? E.getShape(view, target.shapeId) : undefined;
@@ -85,9 +84,36 @@ export function ContextMenu() {
 
   const selection = ui.selectedIds.size > 1 ? [...ui.selectedIds] : shape ? [shape.id] : [];
 
+  // Talking about the drawing is not editing it: the one row a viewer gets.
+  const comment: Row | null = connector
+    ? null
+    : shape
+      ? {
+          id: 'comment',
+          labelKey: 'comments.commentOn',
+          run: () =>
+            dispatchUi({
+              type: 'openComments',
+              draft: { shapeId: shape.id, x: shape.x + shape.w, y: shape.y },
+            }),
+        }
+      : {
+          id: 'comment',
+          labelKey: 'comments.commentHere',
+          run: () =>
+            dispatchUi({
+              type: 'openComments',
+              draft: { shapeId: null, x: target.canvasX, y: target.canvasY },
+            }),
+        };
+
   const rows: Row[] = [];
 
-  if (connector) {
+  if (readOnly) {
+    // Everything else in here edits; a viewer's menu says only what they may do.
+    if (!comment) return null;
+    rows.push(comment);
+  } else if (connector) {
     rows.push(
       {
         id: 'reverse',
@@ -142,6 +168,8 @@ export function ContextMenu() {
         run: () => dispatch({ type: 'addItem', containerId: container.id }),
       });
     }
+
+    if (comment) rows.push(comment);
 
     rows.push(
       SEPARATOR,
@@ -214,6 +242,7 @@ export function ContextMenu() {
             y: target.canvasY,
           }),
       },
+      ...(comment ? [comment] : []),
       SEPARATOR,
       {
         id: 'browse',

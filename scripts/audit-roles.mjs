@@ -181,7 +181,14 @@ try {
   check('Viewer: no resize handle', (await bobPage.locator('.resize-handle').count()) === 0);
   await item.click({ button: 'right', position: { x: 30, y: 20 } });
   await bobPage.waitForTimeout(250);
-  check('Viewer: no editing context menu', (await bobPage.locator('.context-menu').count()) === 0);
+  const viewerRows = await bobPage.locator('.context-menu-item').allInnerTexts();
+  check(
+    'Viewer: the context menu offers only to comment',
+    viewerRows.length === 1 && /Comentar/.test(viewerRows[0]),
+    viewerRows.join(' | '),
+  );
+  await bobPage.keyboard.press('Escape');
+  await bobPage.waitForTimeout(150);
 
   const shapesBefore = await bobPage.locator('.canvas-surface [data-shape-id]').count();
   await bobPage.keyboard.press('Delete');
@@ -215,6 +222,83 @@ try {
     'Presence: the owner sees the viewer in the room',
     (await adaPage.locator('.presence-avatar').count()) >= 2,
   );
+
+  /* 3b. Comments: a viewer speaks, the owner hears it live, and only the right people delete. */
+  const bobItem = bobPage.locator('.canvas-surface rect[data-shape-id^="itm_"]').first();
+  await bobItem.click({ button: 'right', position: { x: 30, y: 20 } });
+  await bobPage.getByRole('menuitem', { name: 'Comentar…' }).click();
+  const bobPanel = bobPage.locator('.side-panel[aria-label="Comentarios"]');
+  await bobPanel.locator('.comment-field').fill('Roles audit: is this in prod?');
+  await bobPage.keyboard.press('Enter');
+  await bobPanel.locator('.comment-thread').waitFor({ timeout: 10000 });
+  check(
+    'Comments: a viewer may comment, and the thread is signed by them',
+    (await bobPanel.locator('.comment-thread .comment-meta b').first().innerText()) === 'Tú',
+  );
+  const adaPin = adaPage.locator('.canvas-surface .comment-pin:not(.is-draft)');
+  await adaPin.waitFor({ timeout: 10000 }).catch(() => {});
+  check('Comments: the owner sees the pin appear live', (await adaPin.count()) === 1);
+  const adaToast = await adaPage
+    .locator('.toast')
+    .innerText()
+    .catch(() => '');
+  check('Comments: the owner is told who spoke', /Bob comentó/.test(adaToast), adaToast);
+  await adaPin.click();
+  const adaPanel = adaPage.locator('.side-panel[aria-label="Comentarios"]');
+  await adaPanel.locator('.comment-thread.is-focused').waitFor({ timeout: 10000 });
+  check(
+    'Comments: pressing the pin opens the panel on the thread',
+    /Roles audit: is this in prod\?/.test(
+      await adaPanel.locator('.comment-thread.is-focused').innerText(),
+    ),
+  );
+  await adaPanel.getByRole('textbox', { name: 'Responder' }).fill('Yes, prod.');
+  await adaPanel.getByRole('textbox', { name: 'Responder' }).press('Enter');
+  await bobPanel
+    .locator('.comment-row')
+    .nth(1)
+    .waitFor({ timeout: 10000 })
+    .catch(() => {});
+  check(
+    'Comments: the reply reaches the viewer live',
+    (await bobPanel.locator('.comment-row').count()) === 2,
+  );
+  await shot(bobPage, '07-comments-viewer');
+  // Bob (author) may delete his; Ada (owner) may too. A stranger may not even read.
+  const threadRow = await pool.query('select id from comment_threads where diagram_id = $1', [
+    diagramId,
+  ]);
+  const strangerCookie = (await person('Carol')).cookie;
+  // From Node, so the cookie is a stranger's and not this browser's.
+  const strangerRead = await fetch(`${base}/api/diagrams/${diagramId}/comments`, {
+    headers: { cookie: `acg_session=${strangerCookie}` },
+  });
+  check(
+    'Comments: a stranger is refused',
+    strangerRead.status === 403,
+    String(strangerRead.status),
+  );
+  check(
+    'Comments: the owner may delete a thread that is not theirs',
+    (await adaPanel.getByRole('button', { name: 'Eliminar hilo' }).count()) === 1 &&
+      threadRow.rows.length === 1,
+  );
+  await adaPanel.getByRole('button', { name: 'Eliminar hilo' }).click();
+  await bobPanel
+    .locator('.comment-thread')
+    .waitFor({ state: 'detached', timeout: 10000 })
+    .catch(() => {});
+  check(
+    'Comments: the deletion reaches the viewer live',
+    (await bobPanel.locator('.comment-thread').count()) === 0,
+  );
+  await pool.query('delete from sessions where id_hash = $1', [
+    createHash('sha256').update(strangerCookie).digest('hex'),
+  ]);
+  // Both panels away, so the steps below meet the editor they expect.
+  await adaPage.keyboard.press('Meta+Shift+c');
+  await bobPage.keyboard.press('Meta+Shift+c');
+  await adaPage.waitForTimeout(300);
 
   /* 4. Promoted live. */
   await adaPage.locator('.topbar button[aria-label="Compartir"]').click();

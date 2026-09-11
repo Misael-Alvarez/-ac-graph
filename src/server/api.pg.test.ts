@@ -21,6 +21,12 @@ import { DELETE as removeMember } from '@/app/api/diagrams/[id]/members/[userId]
 import { POST as postPresence } from '@/app/api/diagrams/[id]/presence/route';
 import { GET as exportWorkspace } from '@/app/api/workspace/export/route';
 import { GET as listIcons, POST as saveIcon } from '@/app/api/icons/route';
+import { GET as listThreads, POST as openThread } from '@/app/api/diagrams/[id]/comments/route';
+import {
+  DELETE as deleteThread,
+  PATCH as patchThread,
+  POST as replyThread,
+} from '@/app/api/diagrams/[id]/comments/[threadId]/route';
 import { DELETE as deleteIcon } from '@/app/api/icons/[key]/route';
 import { POST as importWorkspace } from '@/app/api/workspace/import/route';
 import { GET as scrapeMetrics } from '@/app/api/metrics/route';
@@ -780,6 +786,140 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
     });
   });
 
+  describe('comments', () => {
+    const anchor = { shapeId: null, x: 120, y: 80 };
+    const threadsOf = async (id: string, cookie: string) =>
+      (await listThreads(request(`/api/diagrams/${id}/comments`, { cookie }), ctx({ id }))).json();
+
+    it('lets a viewer open a thread, signed by the session, and everyone in the room reads it', async () => {
+      const created = await create();
+      await share(created.id, 'viewer');
+      const opened = await openThread(
+        request(`/api/diagrams/${created.id}/comments`, {
+          method: 'POST',
+          cookie: bobCookie,
+          body: { anchor, body: '  Is this the right region?  ' },
+        }),
+        ctx({ id: created.id }),
+      );
+      expect(opened.status).toBe(201);
+      const thread = await opened.json();
+      expect(thread).toMatchObject({
+        diagramId: created.id,
+        anchor,
+        resolvedAt: null,
+        resolvedBy: null,
+      });
+      expect(thread.comments).toHaveLength(1);
+      expect(thread.comments[0]).toMatchObject({
+        author: { id: bob.id, name: 'Bob' },
+        body: 'Is this the right region?',
+      });
+      expect(await threadsOf(created.id, adaCookie)).toEqual([thread]);
+    });
+
+    it('is answered, resolved, reopened, and deleted by its author or the owner only', async () => {
+      const created = await create();
+      await share(created.id, 'viewer');
+      const thread = await (
+        await openThread(
+          request(`/api/diagrams/${created.id}/comments`, {
+            method: 'POST',
+            cookie: bobCookie,
+            body: { anchor, body: 'First' },
+          }),
+          ctx({ id: created.id }),
+        )
+      ).json();
+      const path = `/api/diagrams/${created.id}/comments/${thread.id}`;
+      const params = ctx({ id: created.id, threadId: thread.id });
+
+      const replied = await replyThread(
+        request(path, { method: 'POST', cookie: adaCookie, body: { body: 'Yes, prod' } }),
+        params,
+      );
+      expect(replied.status).toBe(200);
+      expect((await replied.json()).comments.map((c: { body: string }) => c.body)).toEqual([
+        'First',
+        'Yes, prod',
+      ]);
+
+      const resolved = await patchThread(
+        request(path, { method: 'PATCH', cookie: bobCookie, body: { resolved: true } }),
+        params,
+      );
+      expect((await resolved.json()).resolvedBy).toEqual({ id: bob.id, name: 'Bob' });
+      const reopened = await patchThread(
+        request(path, { method: 'PATCH', cookie: adaCookie, body: { resolved: false } }),
+        params,
+      );
+      expect((await reopened.json()).resolvedAt).toBeNull();
+
+      // Ada is the owner, not the author: she may still tidy it away — but
+      // first, a third person who is neither may not.
+      const carol = await insertUser(pool, 'Carol');
+      const carolCookie = (await createSession(carol.id, pool)).id;
+      await share(created.id, 'editor', 'carol@example.com');
+      const refused = await deleteThread(
+        request(path, { method: 'DELETE', cookie: carolCookie }),
+        params,
+      );
+      expect(refused.status).toBe(403);
+      expect((await refused.json()).code).toBe('forbidden');
+      const gone = await deleteThread(
+        request(path, { method: 'DELETE', cookie: adaCookie }),
+        params,
+      );
+      expect(gone.status).toBe(204);
+      expect(await threadsOf(created.id, adaCookie)).toEqual([]);
+      const again = await deleteThread(
+        request(path, { method: 'DELETE', cookie: adaCookie }),
+        params,
+      );
+      expect(again.status).toBe(404);
+    });
+
+    it('is refused to a stranger, refuses an empty comment, and goes with the diagram', async () => {
+      const created = await create();
+      const denied = await openThread(
+        request(`/api/diagrams/${created.id}/comments`, {
+          method: 'POST',
+          cookie: bobCookie,
+          body: { anchor, body: 'Hello?' },
+        }),
+        ctx({ id: created.id }),
+      );
+      expect(denied.status).toBe(403);
+      expect((await denied.json()).code).toBe('no_access');
+      const empty = await openThread(
+        request(`/api/diagrams/${created.id}/comments`, {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { anchor, body: '   ' },
+        }),
+        ctx({ id: created.id }),
+      );
+      expect(empty.status).toBe(400);
+
+      await openThread(
+        request(`/api/diagrams/${created.id}/comments`, {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { anchor, body: 'Kept until the diagram goes' },
+        }),
+        ctx({ id: created.id }),
+      );
+      await deleteDiagram(
+        request(`/api/diagrams/${created.id}`, { method: 'DELETE', cookie: adaCookie }),
+        ctx({ id: created.id }),
+      );
+      const left = await pool.query('select 1 from comment_threads where diagram_id = $1', [
+        created.id,
+      ]);
+      expect(left.rows).toEqual([]);
+    });
+  });
+
   describe('workspace', () => {
     it('exports and re-imports', async () => {
       await create('A');
@@ -860,6 +1000,21 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       );
       const saved = await next();
       expect(saved).toContain('event: saved');
+
+      // A comment from Bob reaches Ada's stream too, as an id to fetch by.
+      const opened = await openThread(
+        request(`/api/diagrams/${created.id}/comments`, {
+          method: 'POST',
+          cookie: bobCookie,
+          body: { anchor: { shapeId: null, x: 1, y: 2 }, body: 'Live?' },
+        }),
+        ctx({ id: created.id }),
+      );
+      const commented = await next();
+      expect(commented).toContain('event: comment');
+      expect(commented).toContain(`"threadId":"${(await opened.json()).id}"`);
+      expect(commented).toContain('"action":"created"');
+      expect(commented).not.toContain('Live?');
       expect(saved).toContain(`"by":{"id":"${bob.id}","name":"Bob"}`);
 
       abort.abort();

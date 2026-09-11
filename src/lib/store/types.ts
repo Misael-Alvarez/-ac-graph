@@ -1,4 +1,11 @@
-import type { DiagramMeta, DiagramModel, DiagramRecord, DiagramVersion } from '@/lib/domain';
+import type {
+  CommentAnchor,
+  CommentThread,
+  DiagramMeta,
+  DiagramModel,
+  DiagramRecord,
+  DiagramVersion,
+} from '@/lib/domain';
 
 export interface CreateDiagramInput {
   title: string;
@@ -56,4 +63,20 @@ export interface DiagramRepository {
 
   exportWorkspace(): Promise<WorkspaceExport>;
   importWorkspace(data: WorkspaceExport): Promise<number>;
+
+  /*
+   * Comments: kept beside the diagram, never in it. Each store signs a comment
+   * with the person it knows — the browser's own profile, the server's
+   * session — so no caller can put a name to somebody else's words. Everyone
+   * who may read the diagram may comment on it, answer and resolve; only the
+   * author of a thread, or the diagram's owner, may delete it.
+   */
+  listThreads(diagramId: string): Promise<CommentThread[]>;
+  createThread(
+    diagramId: string,
+    input: { anchor: CommentAnchor; body: string },
+  ): Promise<CommentThread>;
+  reply(diagramId: string, threadId: string, input: { body: string }): Promise<CommentThread>;
+  setThreadResolved(diagramId: string, threadId: string, resolved: boolean): Promise<CommentThread>;
+  deleteThread(diagramId: string, threadId: string): Promise<void>;
 }

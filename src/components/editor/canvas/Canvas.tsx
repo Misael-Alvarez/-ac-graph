@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Shape } from '@/lib/domain';
 import { isDecorative } from '@/lib/domain';
+import { CommentPins } from '../comments/CommentPins';
 import * as E from '@/lib/engine';
 import { iconKeysIn } from '@/lib/engine';
 import { canvasTheme } from '@/lib/design/tokens';
@@ -29,7 +30,6 @@ import { Defs } from './Defs';
 import { DiagramScene } from './DiagramScene';
 import type { ShapeInteraction } from './shapes';
 import { EmptyState } from './EmptyState';
-import { ContextMenu } from './ContextMenu';
 import { SelectionToolbar } from './SelectionToolbar';
 
 const HANDLE = 9;
@@ -565,6 +565,22 @@ export function Canvas() {
               }}
             />
 
+            {/* Where the conversations are. Outside DiagramScene like the rest
+              of the chrome, and gone while presenting: a pin is for the people
+              working on the drawing, not for the audience. */}
+            {!ui.presenting && (
+              <CommentPins
+                model={view}
+                zoom={shown.zoom}
+                draft={ui.commentDraft}
+                t={t}
+                onOpen={(pin) => {
+                  if (pin.shapeId) dispatchUi({ type: 'select', ids: [pin.shapeId] });
+                  dispatchUi({ type: 'openComments', threadId: pin.threadId });
+                }}
+              />
+            )}
+
             {/* Editor chrome. Deliberately outside DiagramScene so exports and
               embeds cannot pick it up — that was the black-rectangle bug. */}
             <g className="canvas-overlay" pointerEvents="none">
@@ -696,7 +712,6 @@ export function Canvas() {
       </p>
       {doc.model.shapes.length === 0 && !ui.presenting && <EmptyState />}
       <SelectionToolbar />
-      <ContextMenu />
     </div>
   );
 }

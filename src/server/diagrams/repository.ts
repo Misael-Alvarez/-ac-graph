@@ -1,9 +1,13 @@
 import type { Pool, PoolClient } from 'pg';
 import {
+  CommentThreadSchema,
   DiagramMemberSchema,
   DiagramMetaSchema,
   DiagramRecordSchema,
   DiagramVersionSchema,
+  type CommentAnchor,
+  type CommentAuthor,
+  type CommentThread,
   type DiagramMember,
   type DiagramMeta,
   type DiagramModel,
@@ -30,6 +34,8 @@ import {
   DiagramForbiddenError,
   DiagramNotFoundError,
   MembershipError,
+  ThreadForbiddenError,
+  ThreadNotFoundError,
   UserNotFoundError,
   VersionNotFoundError,
 } from './errors';
@@ -75,6 +81,30 @@ interface VersionRow {
 interface MemberRow extends UserRow {
   role: Role;
   created_at: Date;
+}
+
+interface ThreadRow {
+  id: string;
+  diagram_id: string;
+  anchor: unknown;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: unknown;
+  comments: unknown;
+}
+
+const THREAD_COLUMNS = 'id, diagram_id, anchor, created_at, resolved_at, resolved_by, comments';
+
+function toThread(row: ThreadRow): CommentThread {
+  return CommentThreadSchema.parse({
+    id: row.id,
+    diagramId: row.diagram_id,
+    anchor: row.anchor,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at,
+    resolvedBy: row.resolved_by,
+    comments: row.comments,
+  });
 }
 
 const META_COLUMNS =
@@ -371,6 +401,164 @@ export class PgDiagramRepository implements DiagramRepository {
       [diagramId, userId],
     );
     return (result.rowCount ?? 0) > 0;
+  }
+
+  /* ── comments ─────────────────────────────────────────── */
+
+  /** Whoever may read the diagram may read, and join, its conversations. */
+  async listThreads(diagramId: string): Promise<CommentThread[]> {
+    await this.access(diagramId, 'viewer');
+    const result = await this.pool.query<ThreadRow>(
+      `select ${THREAD_COLUMNS} from comment_threads where diagram_id = $1 order by created_at, id`,
+      [diagramId],
+    );
+    return result.rows.map(toThread);
+  }
+
+  // Signed by the session's user: the only name the server trusts.
+  async createThread(
+    diagramId: string,
+    input: { anchor: CommentAnchor; body: string },
+  ): Promise<CommentThread> {
+    await this.access(diagramId, 'viewer');
+    const ts = this.clock();
+    const author = this.signature();
+    const thread = CommentThreadSchema.parse({
+      id: uid('thr'),
+      diagramId,
+      anchor: input.anchor,
+      createdAt: ts,
+      resolvedAt: null,
+      resolvedBy: null,
+      comments: [{ id: uid('cmt'), author, body: input.body.trim(), createdAt: ts }],
+    });
+    await this.countedComment('create', () =>
+      this.pool.query(
+        `insert into comment_threads
+           (id, diagram_id, anchor, created_by, created_at, resolved_at, resolved_by, comments)
+         values ($1, $2, $3::jsonb, $4, $5, null, null, $6::jsonb)`,
+        [
+          thread.id,
+          diagramId,
+          JSON.stringify(thread.anchor),
+          this.actor.id,
+          ts,
+          JSON.stringify(thread.comments),
+        ],
+      ),
+    );
+    return thread;
+  }
+
+  async reply(
+    diagramId: string,
+    threadId: string,
+    input: { body: string },
+  ): Promise<CommentThread> {
+    const author = this.signature();
+    return this.countedComment('reply', () =>
+      this.changeThread(diagramId, threadId, (thread) => ({
+        ...thread,
+        comments: [
+          ...thread.comments,
+          { id: uid('cmt'), author, body: input.body.trim(), createdAt: this.clock() },
+        ],
+      })),
+    );
+  }
+
+  async setThreadResolved(
+    diagramId: string,
+    threadId: string,
+    resolved: boolean,
+  ): Promise<CommentThread> {
+    const by = this.signature();
+    return this.countedComment('resolve', () =>
+      this.changeThread(diagramId, threadId, (thread) => ({
+        ...thread,
+        resolvedAt: resolved ? this.clock() : null,
+        resolvedBy: resolved ? by : null,
+      })),
+    );
+  }
+
+  /** The author's to take back, or the owner's to tidy; nobody else's. */
+  async deleteThread(diagramId: string, threadId: string): Promise<void> {
+    const diagram = await this.access(diagramId, 'viewer');
+    await this.countedComment('delete', () =>
+      withTransaction(async (client) => {
+        const found = await client.query<ThreadRow>(
+          `select ${THREAD_COLUMNS} from comment_threads
+            where id = $1 and diagram_id = $2 for update`,
+          [threadId, diagramId],
+        );
+        const row = found.rows[0];
+        if (!row) throw new ThreadNotFoundError(threadId);
+        const thread = toThread(row);
+        const author = thread.comments[0].author.id;
+        if (author !== this.actor.id && diagram.owner_id !== this.actor.id) {
+          throw new ThreadForbiddenError(threadId);
+        }
+        await client.query('delete from comment_threads where id = $1', [threadId]);
+      }, this.pool),
+    );
+  }
+
+  /** How the actor signs a comment: the session's id and name, nothing else. */
+  private signature(): CommentAuthor {
+    return { id: this.actor.id, name: this.actor.name };
+  }
+
+  /** Lock the thread, check the diagram may be read, rewrite it: one transaction. */
+  private async changeThread(
+    diagramId: string,
+    threadId: string,
+    update: (thread: CommentThread) => CommentThread,
+  ): Promise<CommentThread> {
+    await this.access(diagramId, 'viewer');
+    return withTransaction(async (client) => {
+      const found = await client.query<ThreadRow>(
+        `select ${THREAD_COLUMNS} from comment_threads
+          where id = $1 and diagram_id = $2 for update`,
+        [threadId, diagramId],
+      );
+      const row = found.rows[0];
+      if (!row) throw new ThreadNotFoundError(threadId);
+      const next = CommentThreadSchema.parse(update(toThread(row)));
+      await client.query(
+        `update comment_threads
+            set resolved_at = $2, resolved_by = $3::jsonb, comments = $4::jsonb
+          where id = $1`,
+        [
+          next.id,
+          next.resolvedAt,
+          next.resolvedBy === null ? null : JSON.stringify(next.resolvedBy),
+          JSON.stringify(next.comments),
+        ],
+      );
+      return next;
+    }, this.pool);
+  }
+
+  private async countedComment<T>(
+    operation: 'create' | 'reply' | 'resolve' | 'delete',
+    write: () => Promise<T>,
+  ): Promise<T> {
+    const { commentWrites } = appMetrics();
+    try {
+      const result = await write();
+      commentWrites.inc({ operation, result: 'ok' });
+      return result;
+    } catch (thrown) {
+      commentWrites.inc({
+        operation,
+        result:
+          thrown instanceof ThreadNotFoundError || thrown instanceof ThreadForbiddenError
+            ? 'refused'
+            : 'error',
+      });
+      throw thrown;
+    }
   }
 
   /**

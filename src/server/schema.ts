@@ -152,6 +152,28 @@ export const MIGRATIONS: readonly Migration[] = [
       create index if not exists icons_created_at_idx on icons (created_at desc);
     `,
   },
+  {
+    id: 9,
+    name: 'comment_threads',
+    // Conversations pinned to a diagram, one row per thread with its replies
+    // inside: they are read and written as a whole, and a thread is small.
+    // Kept apart from the model on purpose — a comment is about the drawing,
+    // not of it — so it bumps no revision and travels in no share link.
+    sql: `
+      create table if not exists comment_threads (
+        id text primary key,
+        diagram_id text not null references diagrams (id) on delete cascade,
+        anchor jsonb not null,
+        created_by text references users (id) on delete set null,
+        created_at text not null,
+        resolved_at text,
+        resolved_by jsonb,
+        comments jsonb not null
+      );
+      create index if not exists comment_threads_diagram_id_created_at_idx
+        on comment_threads (diagram_id, created_at);
+    `,
+  },
 ];
 
 /** Arbitrary but fixed: every replica must ask for the same advisory lock. */

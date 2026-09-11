@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 cerrado; H2 #10, #12, #20 y #14 entregados; ver commits en §1).
+Última actualización: 2026-09-10 (H1 cerrado; H2 #10, #12, #20, #14 y #9 entregados; ver commits en §1).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `0285974` (H2 #14 iconos en servidor). Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio tras el commit de H2 #9 (ver `git log -1`). Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -33,6 +33,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `265dd46` — Keep a diagram as a starting point: templates of one's own, drawn on the home page
   - `e05c9d8` — Record the templates commit in the context and the checkpoint log
   - `0285974` — One icon library for the workspace: uploads shared, stored once per picture, bounded
+  - `29e79f6` — Record the icons commit in the context and the checkpoint log
+  - (siguiente) — Talk about the drawing: comment threads pinned to shapes and the sheet, live, outside the model
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -60,7 +62,7 @@ npm run typecheck && npm run format:check && npm run lint && npm test && npm run
 (PORT=3100 HOSTNAME=127.0.0.1 ANTHROPIC_API_KEY= nohup npm start > /tmp/acgraph-3100.log 2>&1 &)
 kill $(lsof -tnP -iTCP:3100 -sTCP:LISTEN)     # para pararlo
 
-# E2E funcionales (146), visuales (24) y auditoría de controles (100)
+# E2E funcionales (149), visuales (24) y auditoría de controles (107)
 E2E_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
 E2E_BASE_URL=http://127.0.0.1:3100 npm run test:visual          # compara con e2e/__screenshots__
 E2E_BASE_URL=http://127.0.0.1:3100 npm run test:visual:update   # acepta nuevas líneas base (decisión humana)
@@ -79,7 +81,7 @@ grep '"msg":"http request"' /tmp/acgraph-3100.log                          # lí
 # Trazas: OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 al arrancar; colector falso de prueba en
 # /var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/fake-otlp.mjs (temporal; GET /dump lista spans)
 
-# Auditoría de roles e iconos compartidos (modo servidor, dos navegadores; siembra y limpia sus propios usuarios/sesiones; 31 comprobaciones)
+# Auditoría de roles, iconos compartidos y comentarios en vivo (modo servidor, dos navegadores; siembra y limpia sus propios usuarios/sesiones; 39 comprobaciones)
 # 1) app en modo servidor contra el PostgreSQL desechable (el esquema lo migra la propia app al primer acceso con cookie):
 (PORT=3101 HOSTNAME=127.0.0.1 ANTHROPIC_API_KEY= DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test OIDC_ISSUER=https://audit.invalid/application/o/ac-graph/ OIDC_CLIENT_ID=audit APP_URL=http://127.0.0.1:3101 nohup npm start > /tmp/acgraph-3101.log 2>&1 &)
 curl -s -H 'Cookie: acg_session=unknown' http://127.0.0.1:3101/api/auth/me   # fuerza las migraciones
@@ -103,7 +105,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 ## 4. Estado del contenedor
 
-`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 en `0285974` (H2 #14 iconos en servidor; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
+`acgraph-foundation-app-1` en **modo local** en http://127.0.0.1:3080 con la imagen reconstruida el 2026-09-10 tras el commit de H2 #9 (comentarios; `/api/config` → `{"mode":"local"}`; `docker compose -p acgraph-foundation logs --no-log-prefix app` muestra JSON; `/api/metrics` responde; en modo local `acgraph_collab_bus_connected` es 0 porque el bus es en memoria). El volumen `postgres-data` del proyecto tiene contraseña desconocida en esta sesión (no hay `.env.local`); para pruebas se usa el contenedor desechable de la sección 3. El pie de la portada y el menú de cuenta muestran el **sello de compilación** (`NEXT_PUBLIC_BUILD_STAMP`): si la hora no coincide con el último build, el navegador sirve caché (`Cmd+Shift+R`). Volumen `postgres-data` conserva usuarios/sesiones semilla (Ana Torres, Luis Pérez; ids en `/var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/sessions.json`, temporal).
 
 ## 5. Decisiones que no hay que rediscutir
 
@@ -120,6 +122,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - **Sin virtualización de listas:** explorador y selector muestran una nube (≤128 filas) o ≤120 resultados; `content-visibility: auto` se probó y se retiró (hace saltar el scroll). No reabrir salvo que las listas crezcan de verdad.
 - **Enlaces en chips:** solo cuando el valor nombra un host (`repositoryUrl`); `org/repo` es etiqueta. No adivinar forges.
 - **Decoración (H2 #12):** `region`, `note` y `text` son formas de `Shape.type` con `isDecorative(shape)`: sin padre ni icono, fuera del análisis, las reglas, el diff, el cambio de nube y la leyenda; **no colisionan, no son obstáculo de rutas, no anclan conectores** (reducer y herramienta lo rechazan), `autoLayout` no las mueve ni estira fronteras por ellas, el lazo solo coge una región si la encierra. Su texto vive en **`title`** (markdown ligero de `src/lib/editor/richText.ts`, ajuste de líneas calculado — **nunca `foreignObject`**); `fill` es papel/tinte/tinta. En el DSL van en `notes:` con geometría inline; `nodes:` es opcional. Las capas `region`/`note`/`text` de `DiagramScene` solo se emiten si hay decoración (el árbol SVG de un diagrama sin ella no cambia: la instantánea de estilos depende de ello). Al añadir una forma nueva: enum del dominio, `PAINT_ORDER`/`RENDERERS`, `preview.ts`, `thumbnail.ts`, `Minimap`, `ShapeHero`/`ShapeInspector`, `serialize`/`parse`, i18n `inspector.type.*` y `tool.*`, dock, `useKeyboard.TOOLS`, `shortcuts.ts`, audit.
+- **Comentarios (H2 #9):** viven **fuera del modelo** (`CommentThreadSchema` en `domain/project.ts`; store `comments` de IndexedDB v2; tabla `comment_threads`, migración 9) y por eso no pasan por `dispatch`, no entran en deshacer, no tocan `updatedAt` y **un lector puede comentar**. Cada almacén firma con quien conoce (perfil local leído en cada escritura / sesión del servidor): el contrato `DiagramRepository` no acepta autor del llamante. Quien lee puede abrir/responder/resolver; borrar es del autor o del propietario. Anclaje a forma (`shapeId` + esquina de entonces) o punto; las marcas (`CommentPins`) van fuera de `DiagramScene` y no se dibujan al presentar. Evento SSE `comment` con solo ids (en `DiagramEvent` **y** `RoomEventSchema`); `useCollaboration` expone `commentsVersion` y `lastRemoteComment`. El panel comparte la columna con código/historial/análisis. No hay botón en la barra (ver #10): menú contextual (única fila del lector), ⌘⇧C, paleta, Más. **El menú contextual se monta en `.editor-stage`, no en `.canvas-host`** (que aísla su apilamiento y lo dejaba bajo el inspector): no devolverlo.
 - **Plantillas propias (H2 #20):** una plantilla es un diagrama con `template: true` (`DiagramMeta`, migración 7), nunca una tabla aparte: historial, miembros y exportación vienen gratis y compartir = invitar. La portada la separa solo por la marca (`items` = diagramas, `templates` = plantillas en `Library.tsx`); su vista previa se lee del modelo por revisión (`id@updatedAt`) y se dibuja con `renderPreview`. `saveAsTemplate` crea una copia (no marca el documento abierto) y no está en `EDITING_COMMANDS` (un lector puede guardarla). Duplicar da un diagrama (`create` sin marca).
 - **Esquema 4:** `parseDiagramModel` resella toda versión ≤ 4 con la actual y **rechaza** una mayor («Written by a newer version»). Bumpear `CURRENT_SCHEMA_VERSION` solo con cambios aditivos; si algún día hay que transformar, escribir el migrador antes de subir el número.
 - **El clic tras colocar no es de nadie:** las herramientas actúan en `pointerdown` y el `click` siguiente llegaba a la tarjeta de debajo con Seleccionar ya activo (`placed` en `Canvas.tsx`). No quitarlo.
@@ -137,6 +140,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Biblioteca de iconos del workspace sin roles (cualquiera añade y quita; `created_by` registrado para H3 #23); los iconos locales previos a pasar a modo servidor no se suben solos; la lista se refresca al abrir un panel, no en vivo; la exportación del workspace no la incluye.
 - Azure y OCI sin iconos oficiales (313/572) — H2 #15.
 - Etiquetas de conector centradas en el segmento más largo; pueden pisar un borde de grupo — H2 #11.
+- Comentarios: sin menciones `@nombre` ni bandeja (→ Notificaciones); sin editar un comentario ni borrar una respuesta suelta; un hilo se desancla si el panel de código recompila (ids nuevos); no entran en versiones, duplicados, volcado, enlaces ni exportaciones.
 - Plantillas propias: sin nombre/descripción al guardar (toma el título); editar una plantilla es editar un diagrama sin insignia en la barra; no aparecen en el diálogo «Nuevo diagrama».
 - Decoración: mover una región no arrastra lo que hay encima; sin edición de texto sobre el lienzo; anchos de glifo estimados (±3 %); la IA conserva notas pero no las genera; Mermaid las omite; el dock de diez herramientas desborda en la disposición móvil (ya lo hacía con siete).
 - Métricas por proceso (Prometheus agrega por `instance`); sin alertas ni envío a colector (decisión del operador). Las rutas de IA no llevan `code` en la línea de acceso (responden con `NextResponse.json` propio).
@@ -149,6 +153,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Reducer e historial: `src/lib/editor/reducer.ts`, `actions.ts` (`coalesceKey`), `uiState.ts` (paneles, menú, acento, find).
 - Guardado: `src/lib/store/{saveCoordinator,draftJournal,draftSession,localRepository,httpRepository}.ts`; `useDiagramDocument.ts`.
 - Lienzo: `src/components/editor/canvas/` (`Canvas.tsx` encuadre y cámara que se desliza, `ConnectorLayer.tsx`, `shapes/`, `Defs.tsx`); metadatos → marcas: `src/lib/editor/meta.ts` (`legendFor` para la leyenda de la presentación).
+- Comentarios: `src/components/editor/comments/{CommentsProvider,CommentsPanel,CommentPins}.tsx`, esquema en `src/lib/domain/project.ts`, métodos en `LocalDiagramRepository`/`HttpDiagramRepository`/`PgDiagramRepository`, rutas `src/app/api/diagrams/[id]/comments/**`, `Thread*Schema` en `server/diagrams/schemas.ts`, errores `Thread*Error`, `commentsOpen/commentDraft/commentFocus` en `uiState.ts`.
 - Plantillas propias: `template` en `src/lib/domain/project.ts`, `CreateDiagramInput` en `src/lib/store/types.ts`, migración 7 en `src/server/schema.ts`, comando `saveAsTemplate` en `useCommands.ts`, tarjeta `is-yours` en `TemplateGallery.tsx` (`OwnTemplatePreview`), `TemplatesDialog` en `Modals.tsx`, `PencilIcon`.
 - Decoración: `src/lib/editor/richText.ts` (marcado y ajuste), `src/components/editor/canvas/shapes/{RegionShape,NoteShape,TextShape,RichText}.tsx`, `addDecoration`/`carryDecorations`/`DECORATION_SIZE` en `src/lib/engine/model.ts`, acción `addDecoration`, `NoteSpecSchema` en `src/lib/dsl/schema.ts`, `NOTE_PAPERS`/`FillPresets swatches` en `inspector/fields.tsx`, iconos `RegionIcon`/`NoteIcon`/`TextIcon`.
 - Presentación: `src/components/editor/chrome/Presentation.tsx` (capa: título, vista, paginador, leyenda, teclas), `presenting`/`setPresenting` en `uiState.ts`, atajo `present` (F5) en `shortcuts.ts`, comandos `present`/`exportPdfViews` en `useCommands.ts`, Esc en `useKeyboard.ts`, PDF multipágina `rastersToPdf` en `pdf.ts` + `downloadPdfPages` en `export.ts`.
@@ -160,12 +165,12 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica). Roles: `src/server/diagrams/{repository,errors,schemas}.ts`, rutas `src/app/api/diagrams/[id]/members/**`, cliente `src/lib/store/httpRepository.ts` (`MembersApi`), solo lectura `src/lib/editor/readOnly.ts` + `readOnly` en `EditorProvider`, UI `ShareDialog.tsx` (`SharePeople`) y `Library.tsx`.
 - Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
 - Herramientas: `scripts/{audit-controls,audit-roles,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1203; 1270 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (146 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`; `audit:controls` 100, `audit:roles` 31.
+- Pruebas: `src/**/*.test.ts` (1213; 1286 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (149 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`; `audit:controls` 107, `audit:roles` 39.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **H2 en curso: #10, #12, #20 y #14 hechos.** Seguir por `PLAN_MEJORAS.md` con H2: #9 comentarios anclados (L: hilos anclados a una forma o a un punto del lienzo, con autor y fecha, resueltos/abiertos, visibles como marcas en el lienzo y en un panel lateral; en servidor viajan con el documento o en tabla propia con eventos en vivo), #11 conectores editables (L).
+1. **H2 en curso: #10, #12, #20, #14 y #9 hechos.** Queda #11 conectores editables (L): puntos de ruta arrastrables (`waypoints` hoy siempre del enrutador — `resolveView` y `SharedDiagram` los recalculan: habría que marcar los manuales), elección de puerto de salida/entrada, etiqueta reubicable sobre el segmento (hoy centrada en el más largo, puede pisar un borde de grupo), y preservación en vistas y DSL. Leer `src/lib/engine/routing.ts`, `ConnectorLayer.tsx`, `connectorPath.ts`, `views.ts` (`routeAllConnectors` al resolver) antes de decidir.
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

@@ -32,6 +32,7 @@ describe.skipIf(!pgAvailable())('schema migrations (PostgreSQL)', () => {
     );
     expect(rows.rows.map((r) => r.table_name)).toEqual([
       'auth_states',
+      'comment_threads',
       'diagram_members',
       'diagram_versions',
       'diagrams',
@@ -58,6 +59,8 @@ describe.skipIf(!pgAvailable())('schema migrations (PostgreSQL)', () => {
     expect(types['users.created_at']).toBe('timestamp with time zone');
     // The icon carries its own `createdAt` as text inside the JSON; the row's is the server's.
     expect(types['icons.created_at']).toBe('timestamp with time zone');
+    // A thread's timestamps are the domain's: the same string the browser store keeps.
+    expect(types['comment_threads.created_at']).toBe('text');
   });
 
   it('survives concurrent runners thanks to the advisory lock', async () => {

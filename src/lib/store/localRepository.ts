@@ -1,18 +1,24 @@
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
 import {
+  CommentThreadSchema,
   DiagramRecordSchema,
   DiagramVersionSchema,
+  type CommentAnchor,
+  type CommentAuthor,
+  type CommentThread,
   type DiagramMeta,
   type DiagramModel,
   type DiagramRecord,
   type DiagramVersion,
 } from '@/lib/domain';
 import { uid } from '@/lib/engine';
+import { LOCAL_USER, readUser } from '@/lib/auth/user';
 import type { CreateDiagramInput, DiagramRepository, SaveOptions, WorkspaceExport } from './types';
 import { renderThumbnail } from './thumbnail';
 
 const DB_NAME = 'aion-architecture-studio';
-const DB_VERSION = 1;
+/** 2: the `comments` store, one record per thread, indexed by diagram. */
+const DB_VERSION = 2;
 
 /** Key of the single-diagram autosave written by the original editor. */
 export const LEGACY_LOCALSTORAGE_KEY = 'aion-arch-studio-autosave';
@@ -27,6 +33,7 @@ interface StudioDB extends DBSchema {
   diagrams: { key: string; value: DiagramRecord };
   versions: { key: string; value: DiagramVersion; indexes: { byDiagram: string } };
   flags: { key: string; value: boolean };
+  comments: { key: string; value: CommentThread; indexes: { byDiagram: string } };
 }
 
 type WriteTransaction = IDBPTransaction<StudioDB, ['diagrams', 'versions'], 'readwrite'>;
@@ -62,16 +69,29 @@ function toMeta(record: DiagramRecord): DiagramMeta {
 export interface LocalRepositoryOptions {
   /** Override the IndexedDB database name. Used by tests to stay isolated. */
   dbName?: string;
+  /**
+   * Who signs a comment. Read at each write, not once: the browser's profile
+   * can be renamed while the editor is open. Defaults to the local profile.
+   */
+  author?: () => CommentAuthor;
+}
+
+/** The browser's one person, as the profile names them right now. */
+function localAuthor(): CommentAuthor {
+  const user = typeof window === 'undefined' ? LOCAL_USER : readUser(window.localStorage);
+  return { id: user.id, name: user.name };
 }
 
 export class LocalDiagramRepository implements DiagramRepository {
   private dbPromise: Promise<IDBPDatabase<StudioDB>> | null = null;
   private readonly dbName: string;
+  private readonly author: () => CommentAuthor;
 
   private lastStamp = 0;
 
   constructor(options: LocalRepositoryOptions = {}) {
     this.dbName = options.dbName ?? DB_NAME;
+    this.author = options.author ?? localAuthor;
   }
 
   /**
@@ -111,6 +131,10 @@ export class LocalDiagramRepository implements DiagramRepository {
           store.createIndex('byDiagram', 'diagramId');
         }
         if (!db.objectStoreNames.contains('flags')) db.createObjectStore('flags');
+        if (!db.objectStoreNames.contains('comments')) {
+          const store = db.createObjectStore('comments', { keyPath: 'id' });
+          store.createIndex('byDiagram', 'diagramId');
+        }
       },
     });
     return this.dbPromise;
@@ -197,13 +221,108 @@ export class LocalDiagramRepository implements DiagramRepository {
 
   async delete(id: string): Promise<void> {
     const db = await this.db();
-    const tx = db.transaction(['diagrams', 'versions'], 'readwrite');
+    const tx = db.transaction(['diagrams', 'versions', 'comments'], 'readwrite');
     await tx.objectStore('diagrams').delete(id);
     const index = tx.objectStore('versions').index('byDiagram');
     for (const key of await index.getAllKeys(id)) {
       await tx.objectStore('versions').delete(key);
     }
+    // The conversation goes with the drawing it was about.
+    const threads = tx.objectStore('comments').index('byDiagram');
+    for (const key of await threads.getAllKeys(id)) {
+      await tx.objectStore('comments').delete(key);
+    }
     await tx.done;
+  }
+
+  /* ── comments ─────────────────────────────────────────── */
+
+  async listThreads(diagramId: string): Promise<CommentThread[]> {
+    const db = await this.db();
+    const all = await db.getAllFromIndex('comments', 'byDiagram', diagramId);
+    // Oldest first: a conversation reads top to bottom.
+    return all
+      .map((thread) => CommentThreadSchema.parse(thread))
+      .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+  }
+
+  async createThread(
+    diagramId: string,
+    input: { anchor: CommentAnchor; body: string },
+  ): Promise<CommentThread> {
+    const db = await this.db();
+    if (!(await db.get('diagrams', diagramId))) throw new Error(`Diagram not found: ${diagramId}`);
+    const ts = this.now();
+    const thread = CommentThreadSchema.parse({
+      id: uid('thr'),
+      diagramId,
+      anchor: input.anchor,
+      createdAt: ts,
+      resolvedAt: null,
+      resolvedBy: null,
+      comments: [{ id: uid('cmt'), author: this.author(), body: input.body.trim(), createdAt: ts }],
+    });
+    await db.put('comments', thread);
+    return thread;
+  }
+
+  async reply(
+    diagramId: string,
+    threadId: string,
+    input: { body: string },
+  ): Promise<CommentThread> {
+    const author = this.author();
+    return this.changeThread(diagramId, threadId, (thread) => ({
+      ...thread,
+      comments: [
+        ...thread.comments,
+        { id: uid('cmt'), author, body: input.body.trim(), createdAt: this.now() },
+      ],
+    }));
+  }
+
+  async setThreadResolved(
+    diagramId: string,
+    threadId: string,
+    resolved: boolean,
+  ): Promise<CommentThread> {
+    const by = this.author();
+    return this.changeThread(diagramId, threadId, (thread) => ({
+      ...thread,
+      resolvedAt: resolved ? this.now() : null,
+      resolvedBy: resolved ? by : null,
+    }));
+  }
+
+  async deleteThread(diagramId: string, threadId: string): Promise<void> {
+    const db = await this.db();
+    const thread = await db.get('comments', threadId);
+    if (!thread || thread.diagramId !== diagramId) throw new Error(`Thread not found: ${threadId}`);
+    // The browser's store has one person, who owns every diagram in it; the
+    // rule is still stated so both stores answer the same way.
+    const by = this.author();
+    if (thread.comments[0].author.id !== by.id && by.id !== LOCAL_OWNER_ID) {
+      throw new Error('Only the author or the owner may delete a thread.');
+    }
+    await db.delete('comments', threadId);
+  }
+
+  private async changeThread(
+    diagramId: string,
+    threadId: string,
+    update: (thread: CommentThread) => CommentThread,
+  ): Promise<CommentThread> {
+    const db = await this.db();
+    const tx = db.transaction('comments', 'readwrite');
+    const current = await tx.store.get(threadId);
+    if (!current || current.diagramId !== diagramId) {
+      tx.abort();
+      throw new Error(`Thread not found: ${threadId}`);
+    }
+    const next = CommentThreadSchema.parse(update(CommentThreadSchema.parse(current)));
+    await tx.store.put(next);
+    await tx.done;
+    return next;
   }
 
   async listVersions(diagramId: string): Promise<DiagramVersion[]> {

@@ -82,6 +82,60 @@ describe('create / get / list', () => {
   });
 });
 
+describe('comments', () => {
+  const anchor = { shapeId: 'itm_1', x: 10, y: 20 };
+  const named = (name: string) =>
+    new LocalDiagramRepository({
+      dbName: `test-db-${++dbCounter}`,
+      author: () => ({ id: 'local-user', name }),
+    });
+
+  it('opens, answers, resolves and lists threads oldest first, signed by the profile', async () => {
+    const mine = named('Ana');
+    const diagram = await mine.create({ title: 'Talk', model: createEmptyModel() });
+    const first = await mine.createThread(diagram.id, { anchor, body: '  Why here?  ' });
+    const second = await mine.createThread(diagram.id, {
+      anchor: { shapeId: null, x: 300, y: 400 },
+      body: 'And this?',
+    });
+    expect(first.comments[0]).toMatchObject({
+      author: { id: 'local-user', name: 'Ana' },
+      body: 'Why here?',
+    });
+    expect(first.resolvedAt).toBeNull();
+
+    const answered = await mine.reply(diagram.id, first.id, { body: 'Because.' });
+    expect(answered.comments.map((c) => c.body)).toEqual(['Why here?', 'Because.']);
+    const resolved = await mine.setThreadResolved(diagram.id, first.id, true);
+    expect(resolved.resolvedBy).toEqual({ id: 'local-user', name: 'Ana' });
+    expect(typeof resolved.resolvedAt).toBe('string');
+    expect((await mine.setThreadResolved(diagram.id, first.id, false)).resolvedAt).toBeNull();
+
+    expect((await mine.listThreads(diagram.id)).map((t) => t.id)).toEqual([first.id, second.id]);
+    // Other diagrams have their own conversations.
+    const other = await mine.create({ title: 'Other', model: createEmptyModel() });
+    expect(await mine.listThreads(other.id)).toEqual([]);
+    await mine.close();
+  });
+
+  it('refuses a thread on a diagram that is not there, and an unknown thread', async () => {
+    await expect(repo.createThread('nope', { anchor, body: 'x' })).rejects.toThrow(/not found/);
+    const diagram = await repo.create({ title: 'T', model: createEmptyModel() });
+    await expect(repo.reply(diagram.id, 'thr_nope', { body: 'x' })).rejects.toThrow(/not found/);
+    await expect(repo.deleteThread(diagram.id, 'thr_nope')).rejects.toThrow(/not found/);
+  });
+
+  it('deletes a thread, and every thread when the diagram goes', async () => {
+    const diagram = await repo.create({ title: 'T', model: createEmptyModel() });
+    const kept = await repo.createThread(diagram.id, { anchor, body: 'kept' });
+    const gone = await repo.createThread(diagram.id, { anchor, body: 'gone' });
+    await repo.deleteThread(diagram.id, gone.id);
+    expect((await repo.listThreads(diagram.id)).map((t) => t.id)).toEqual([kept.id]);
+    await repo.delete(diagram.id);
+    expect(await repo.listThreads(diagram.id)).toEqual([]);
+  });
+});
+
 describe('save', () => {
   it('replaces the model and bumps updatedAt', async () => {
     const created = await repo.create({ title: 'A', model: createEmptyModel() });

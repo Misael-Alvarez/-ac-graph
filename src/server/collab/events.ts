@@ -17,7 +17,18 @@ export type DiagramEvent =
   | { type: 'deleted' }
   | { type: 'meta'; title: string }
   /** Someone's access changed: a new role, or `null` when they were removed. */
-  | { type: 'access'; userId: string; role: Role | null; by: { id: string; name: string } };
+  | { type: 'access'; userId: string; role: Role | null; by: { id: string; name: string } }
+  /**
+   * A conversation changed: opened, answered, resolved or deleted. Only the
+   * thread's id travels — the room refetches — so a long comment never
+   * outgrows what the bus carries.
+   */
+  | {
+      type: 'comment';
+      threadId: string;
+      action: 'created' | 'replied' | 'resolved' | 'reopened' | 'deleted';
+      by: { id: string; name: string };
+    };
 
 export type Subscriber = (event: DiagramEvent) => void;
 

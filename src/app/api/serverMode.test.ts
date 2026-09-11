@@ -11,6 +11,8 @@ import { DELETE as deleteDiagram, GET as getDiagram } from './diagrams/[id]/rout
 import { GET as exportWorkspace } from './workspace/export/route';
 import { GET as listIcons, POST as saveIcon } from './icons/route';
 import { DELETE as deleteIcon } from './icons/[key]/route';
+import { GET as listThreads, POST as openThread } from './diagrams/[id]/comments/route';
+import { DELETE as deleteThread } from './diagrams/[id]/comments/[threadId]/route';
 
 /**
  * The parts of the server API that answer before any database is touched:
@@ -62,6 +64,11 @@ describe('in local mode', () => {
       saveIcon(request('/api/icons', { method: 'POST' })),
       deleteIcon(request('/api/icons/custom-x', { method: 'DELETE' }), {
         params: Promise.resolve({ key: 'custom-x' }),
+      }),
+      listThreads(request('/api/diagrams/dgm_1/comments'), context('dgm_1')),
+      openThread(request('/api/diagrams/dgm_1/comments', { method: 'POST' }), context('dgm_1')),
+      deleteThread(request('/api/diagrams/dgm_1/comments/thr_1', { method: 'DELETE' }), {
+        params: Promise.resolve({ id: 'dgm_1', threadId: 'thr_1' }),
       }),
     ]);
     for (const response of responses) {

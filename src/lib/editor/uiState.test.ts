@@ -87,6 +87,45 @@ describe('toggles', () => {
     expect('presenting' in toPreferences(on)).toBe(false);
   });
 
+  it('the four side panels share one column', () => {
+    const versions = uiReducer(initialUiState, { type: 'toggleVersions' });
+    const comments = uiReducer(versions, { type: 'toggleComments' });
+    expect(comments.commentsOpen).toBe(true);
+    expect(comments.versionsOpen).toBe(false);
+    const code = uiReducer(comments, { type: 'toggleCode' });
+    expect(code.codeOpen).toBe(true);
+    expect(code.commentsOpen).toBe(false);
+    expect(uiReducer(code, { type: 'toggleInsights' }).codeOpen).toBe(false);
+    expect('commentsOpen' in toPreferences(comments)).toBe(false);
+  });
+
+  it('opens the comments on a thread, or with a place to write, and forgets on close', () => {
+    const draft = { shapeId: 'itm_1', x: 10, y: 20 };
+    const withMenu = {
+      ...initialUiState,
+      insightsOpen: true,
+      contextMenu: { x: 1, y: 2, canvasX: 3, canvasY: 4 },
+    };
+    const writing = uiReducer(withMenu, { type: 'openComments', draft });
+    expect(writing.commentsOpen).toBe(true);
+    expect(writing.insightsOpen).toBe(false);
+    expect(writing.contextMenu).toBeNull();
+    expect(writing.commentDraft).toEqual(draft);
+    expect(writing.commentFocus).toBeNull();
+
+    // A pin: the thread comes into focus, and a draft in progress stays.
+    const focused = uiReducer(writing, { type: 'openComments', threadId: 'thr_1' });
+    expect(focused.commentFocus).toBe('thr_1');
+    expect(focused.commentDraft).toEqual(draft);
+    expect(uiReducer(focused, { type: 'setCommentFocus', threadId: null }).commentFocus).toBeNull();
+    expect(uiReducer(focused, { type: 'setCommentDraft', anchor: null }).commentDraft).toBeNull();
+
+    const closed = uiReducer(focused, { type: 'toggleComments' });
+    expect(closed.commentsOpen).toBe(false);
+    expect(closed.commentDraft).toBeNull();
+    expect(closed.commentFocus).toBeNull();
+  });
+
   it('stores viewport, brand and locale', () => {
     const vp = { x: 10, y: 20, zoom: 1.5 };
     expect(uiReducer(initialUiState, { type: 'setViewport', viewport: vp }).viewport).toEqual(vp);

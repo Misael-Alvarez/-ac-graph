@@ -112,6 +112,23 @@ describe('subscribeToDiagram', () => {
     );
   });
 
+  it('reports a changed conversation, and ignores one without a thread', () => {
+    const onComment = vi.fn();
+    subscribeToDiagram('dgm_1', { onComment }, { EventSource: Source, heartbeatMs: 0 });
+    const [source] = FakeEventSource.instances;
+    source.emit('comment', {
+      type: 'comment',
+      threadId: 'thr_1',
+      action: 'created',
+      by: { id: 'usr_b', name: 'Bob' },
+    });
+    source.emit('comment', { type: 'comment', nope: true });
+    expect(onComment).toHaveBeenCalledTimes(1);
+    expect(onComment).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: 'thr_1', action: 'created' }),
+    );
+  });
+
   it('reconnects with exponential backoff after an error', () => {
     const statuses: CollabStatus[] = [];
     subscribeToDiagram(

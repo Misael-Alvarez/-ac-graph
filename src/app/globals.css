@@ -478,6 +478,43 @@ textarea:focus-visible {
   vector-effect: non-scaling-stroke;
 }
 
+/* A conversation's pin: a bubble on the corner of what it is about, drawn in
+   screen pixels whatever the zoom (the group undoes it), in the accent so it
+   reads as chrome and never as part of the drawing. */
+.comment-pin {
+  cursor: pointer;
+  pointer-events: all;
+}
+.comment-pin-bubble,
+.comment-pin-tail {
+  fill: var(--accent);
+  stroke: var(--surface-raised);
+  stroke-width: 1.5;
+}
+.comment-pin-tail {
+  stroke-linejoin: round;
+}
+.comment-pin-count {
+  fill: #ffffff;
+  pointer-events: none;
+  user-select: none;
+}
+.comment-pin:hover .comment-pin-bubble {
+  fill: var(--accent-hover);
+}
+/* The shape it was on is gone: the pin stays, quietly, where the shape was. */
+.comment-pin.is-detached .comment-pin-bubble,
+.comment-pin.is-detached .comment-pin-tail {
+  fill: var(--text-tertiary);
+}
+/* Where the comment being written will land. */
+.comment-pin.is-draft .comment-pin-bubble,
+.comment-pin.is-draft .comment-pin-tail {
+  fill: var(--accent-subtle);
+  stroke: var(--accent);
+  stroke-dasharray: 3 2;
+}
+
 .empty-state {
   position: absolute;
   inset: 0;
@@ -2346,6 +2383,133 @@ body {
 }
 .version-row.is-current {
   background: var(--accent-subtle);
+}
+
+/* The conversations: the composer at the top, then the threads in the same
+   scrolling column the history uses. */
+.comment-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.comment-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 24px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.comment-target-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.comment-target-label.is-empty {
+  color: var(--text-tertiary);
+  white-space: normal;
+}
+.comment-field {
+  min-height: 64px;
+}
+.comment-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.comment-group + .comment-group {
+  margin-top: var(--space-2);
+}
+.comment-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+.comment-thread + .comment-thread {
+  margin-top: var(--space-1);
+}
+.comment-thread.is-focused {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.comment-thread.is-resolved {
+  opacity: 0.72;
+}
+.comment-anchor {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.comment-anchor:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.comment-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.comment-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--user-color, var(--accent));
+  color: #0b0b1f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.comment-body {
+  flex: 1;
+  min-width: 0;
+}
+.comment-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.comment-meta b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.comment-text {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.comment-settled {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.comment-reply {
+  margin-left: calc(24px + var(--space-2));
+}
+.comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-left: calc(24px + var(--space-2));
 }
 /*
   Cascade-pinned: must stay before .browser-tile-icon, .palette-icon, .topbar-menu-item .menu-icon, .version-thumb; the rest of this selector is further down.

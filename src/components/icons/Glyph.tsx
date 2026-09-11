@@ -44,6 +44,7 @@ import {
   TrashIcon,
   UndoIcon,
   HistoryIcon,
+  CommentIcon,
   ZoomOutIcon,
 } from './ToolIcons';
 
@@ -66,6 +67,7 @@ const ICONS: Record<string, IconComponent> = {
   code: CodeIcon,
   browser: LayoutIcon,
   history: HistoryIcon,
+  comments: CommentIcon,
   minimap: MapIcon,
   ai: SparkleIcon,
   templates: TemplateIcon,

@@ -1,10 +1,13 @@
 import {
+  CommentThreadSchema,
   CustomIconSchema,
   DiagramMemberSchema,
   DiagramMetaSchema,
   DiagramRecordSchema,
   DiagramVersionSchema,
   RoleSchema,
+  type CommentAnchor,
+  type CommentThread,
   type CustomIcon,
   type DiagramMember,
   type DiagramMeta,
@@ -247,6 +250,61 @@ export class HttpDiagramRepository implements DiagramRepository, MembersApi, Ico
       'DELETE',
       `/api/diagrams/${encodeURIComponent(diagramId)}/members/${encodeURIComponent(userId)}`,
     );
+  }
+
+  /* ── comments ─────────────────────────────────────────── */
+
+  async listThreads(diagramId: string): Promise<CommentThread[]> {
+    const raw = await this.request<unknown[]>('GET', `${this.diagramPath(diagramId)}/comments`);
+    return raw.map((thread) => CommentThreadSchema.parse(thread));
+  }
+
+  // The author is the session's, never the body's: the server signs.
+  async createThread(
+    diagramId: string,
+    input: { anchor: CommentAnchor; body: string },
+  ): Promise<CommentThread> {
+    return CommentThreadSchema.parse(
+      await this.request<unknown>('POST', `${this.diagramPath(diagramId)}/comments`, {
+        body: { anchor: input.anchor, body: input.body },
+      }),
+    );
+  }
+
+  async reply(
+    diagramId: string,
+    threadId: string,
+    input: { body: string },
+  ): Promise<CommentThread> {
+    return CommentThreadSchema.parse(
+      await this.request<unknown>('POST', this.threadPath(diagramId, threadId), {
+        body: { body: input.body },
+      }),
+    );
+  }
+
+  async setThreadResolved(
+    diagramId: string,
+    threadId: string,
+    resolved: boolean,
+  ): Promise<CommentThread> {
+    return CommentThreadSchema.parse(
+      await this.request<unknown>('PATCH', this.threadPath(diagramId, threadId), {
+        body: { resolved },
+      }),
+    );
+  }
+
+  async deleteThread(diagramId: string, threadId: string): Promise<void> {
+    await this.request<void>('DELETE', this.threadPath(diagramId, threadId));
+  }
+
+  private diagramPath(diagramId: string): string {
+    return `/api/diagrams/${encodeURIComponent(diagramId)}`;
+  }
+
+  private threadPath(diagramId: string, threadId: string): string {
+    return `${this.diagramPath(diagramId)}/comments/${encodeURIComponent(threadId)}`;
   }
 
   async listIcons(): Promise<CustomIcon[]> {

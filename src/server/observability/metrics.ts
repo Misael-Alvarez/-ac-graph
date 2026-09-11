@@ -320,6 +320,7 @@ export interface AppMetrics {
   httpConflicts: Counter;
   diagramSaves: Counter;
   iconWrites: Counter;
+  commentWrites: Counter;
   sessionsCreated: Counter;
   sessionsEnded: Counter;
   logins: Counter;
@@ -384,6 +385,11 @@ function declareAppMetrics(registry: Registry): AppMetrics {
     iconWrites: registry.counter(
       'acgraph_icon_writes_total',
       "Writes to the workspace's icon library, by operation and outcome.",
+      ['operation', 'result'],
+    ),
+    commentWrites: registry.counter(
+      'acgraph_comment_writes_total',
+      'Comment threads opened, answered, resolved or deleted, by outcome.',
       ['operation', 'result'],
     ),
     sessionsCreated: registry.counter(
