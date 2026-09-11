@@ -20,6 +20,8 @@ import { GET as listMembers, PUT as putMember } from '@/app/api/diagrams/[id]/me
 import { DELETE as removeMember } from '@/app/api/diagrams/[id]/members/[userId]/route';
 import { POST as postPresence } from '@/app/api/diagrams/[id]/presence/route';
 import { GET as exportWorkspace } from '@/app/api/workspace/export/route';
+import { GET as listIcons, POST as saveIcon } from '@/app/api/icons/route';
+import { DELETE as deleteIcon } from '@/app/api/icons/[key]/route';
 import { POST as importWorkspace } from '@/app/api/workspace/import/route';
 import { GET as scrapeMetrics } from '@/app/api/metrics/route';
 import { createSession, hashSessionId } from './auth/session';
@@ -102,6 +104,7 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
 
   beforeEach(async () => {
     await pool.query('delete from diagrams');
+    await pool.query('delete from icons');
   });
 
   afterAll(async () => {
@@ -685,6 +688,95 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
         ctx({ id: 'ghost' }),
       );
       expect(ghost.status).toBe(404);
+    });
+  });
+
+  describe('icons', () => {
+    const vault = {
+      key: 'custom-vault-a1b2c',
+      name: 'Vault',
+      source: 'HashiCorp',
+      svg: { viewBox: '0 0 24 24', body: '<path d="M2 2h20v20H2z"/>' },
+      createdAt: '2026-09-10T10:00:00.000Z',
+    };
+
+    it('is one library for the workspace: what Ada uploads, Bob lists and may remove', async () => {
+      const created = await saveIcon(
+        request('/api/icons', { method: 'POST', cookie: adaCookie, body: vault }),
+      );
+      expect(created.status).toBe(201);
+      expect(await created.json()).toEqual(vault);
+
+      const seenByBob = await (
+        await listIcons(request('/api/icons', { cookie: bobCookie }))
+      ).json();
+      expect(seenByBob).toEqual([vault]);
+
+      const gone = await deleteIcon(
+        request(`/api/icons/${vault.key}`, { method: 'DELETE', cookie: bobCookie }),
+        ctx({ key: vault.key }),
+      );
+      expect(gone.status).toBe(204);
+      expect(await (await listIcons(request('/api/icons', { cookie: adaCookie }))).json()).toEqual(
+        [],
+      );
+      const again = await deleteIcon(
+        request(`/api/icons/${vault.key}`, { method: 'DELETE', cookie: bobCookie }),
+        ctx({ key: vault.key }),
+      );
+      expect(again.status).toBe(404);
+    });
+
+    it('stores the same picture once and answers with the icon that holds it', async () => {
+      await saveIcon(request('/api/icons', { method: 'POST', cookie: adaCookie, body: vault }));
+      const twin = { ...vault, key: 'custom-secrets-z9y8x', name: 'Secrets', source: undefined };
+      const response = await saveIcon(
+        request('/api/icons', { method: 'POST', cookie: bobCookie, body: twin }),
+      );
+      // Not created: the library already had that drawing, under Ada's name for it.
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(vault);
+      expect(await (await listIcons(request('/api/icons', { cookie: adaCookie }))).json()).toEqual([
+        vault,
+      ]);
+      // The same key again replaces in place: a renamed icon is still one icon.
+      const renamed = await saveIcon(
+        request('/api/icons', {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { ...vault, name: 'Vault 2' },
+        }),
+      );
+      expect(renamed.status).toBe(200);
+      expect((await renamed.json()).name).toBe('Vault 2');
+    });
+
+    it('refuses what is not an icon, and needs a session', async () => {
+      const both = await saveIcon(
+        request('/api/icons', {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { ...vault, image: 'data:image/png;base64,AAAA' },
+        }),
+      );
+      expect(both.status).toBe(400);
+      const neither = await saveIcon(
+        request('/api/icons', {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { ...vault, svg: undefined },
+        }),
+      );
+      expect(neither.status).toBe(400);
+      const badKey = await saveIcon(
+        request('/api/icons', {
+          method: 'POST',
+          cookie: adaCookie,
+          body: { ...vault, key: 'aws-lambda' },
+        }),
+      );
+      expect(badKey.status).toBe(400);
+      expect((await listIcons(request('/api/icons'))).status).toBe(401);
     });
   });
 

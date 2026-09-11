@@ -9,7 +9,10 @@ import {
 } from './customIcons';
 import {
   MAX_LIBRARY_ICONS,
+  currentIconLibrary,
+  mirrorIconLibrary,
   readIconLibrary,
+  rememberRemoteLibrary,
   removeIconFromLibrary,
   saveIconToLibrary,
 } from './iconLibrary';
@@ -146,5 +149,42 @@ describe('the browser library', () => {
     expect(customIconMatches(it_, 'monitor')).toBe(true);
     expect(customIconMatches(it_, 'saas')).toBe(true);
     expect(customIconMatches(it_, 'kafka')).toBe(false);
+  });
+});
+
+describe('the workspace library, as the page holds it', () => {
+  const icon = (key: string) => ({
+    key,
+    name: key,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    image: 'data:image/png;base64,AAAA',
+  });
+
+  it('is what the browser kept until the server has answered, then what it said', () => {
+    const storage = memory();
+    saveIconToLibrary(storage, icon('custom-mirrored'));
+    rememberRemoteLibrary(null);
+    expect(currentIconLibrary(storage).map((i) => i.key)).toEqual(['custom-mirrored']);
+
+    rememberRemoteLibrary([icon('custom-theirs')]);
+    expect(currentIconLibrary(storage).map((i) => i.key)).toEqual(['custom-theirs']);
+    // An empty answer is an answer: the mirror does not stand in for it.
+    rememberRemoteLibrary([]);
+    expect(currentIconLibrary(storage)).toEqual([]);
+    rememberRemoteLibrary(null);
+  });
+
+  it('mirrors the list into storage and shrugs at a storage that will not take it', () => {
+    const storage = memory();
+    mirrorIconLibrary(storage, [icon('custom-a'), icon('custom-b')]);
+    expect(readIconLibrary(storage).map((i) => i.key)).toEqual(['custom-a', 'custom-b']);
+    const full = {
+      getItem: storage.getItem,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+    };
+    expect(() => mirrorIconLibrary(full, [icon('custom-c')])).not.toThrow();
+    expect(readIconLibrary(storage).map((i) => i.key)).toEqual(['custom-a', 'custom-b']);
   });
 });

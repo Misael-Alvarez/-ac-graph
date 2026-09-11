@@ -22,8 +22,13 @@ import { useLiquidPointer } from '@/components/app/useLiquidPointer';
 import { spellChord } from '@/lib/editor/platform';
 import { relativeDay } from '@/lib/i18n/relativeDay';
 import { exitProps, usePresence, type Presence } from '@/lib/editor/usePresence';
-import { MineSection, UploadForm, useIconLibrary } from './CustomIcons';
-import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
+import {
+  MineSection,
+  UploadForm,
+  libraryCopy,
+  useIconLibrary,
+  type IconLibrary,
+} from './CustomIcons';
 import { useCommands } from '../hooks/useCommands';
 
 /** What a dialog needs to leave the way it came: see `usePresence`. */
@@ -252,18 +257,7 @@ export function Modals() {
   }
 
   if (modal === 'icons') {
-    return (
-      <Dialog
-        title={t('icons.mineTitle')}
-        onClose={close}
-        closeLabel={t('modal.close')}
-        wide
-        {...exit}
-      >
-        <p className="dialog-subtitle">{t('icons.dialogSubtitle')}</p>
-        <IconLibraryManager />
-      </Dialog>
-    );
+    return <IconsDialog onClose={close} {...exit} />;
   }
 
   if (modal === 'shortcuts') {
@@ -450,15 +444,30 @@ Lambda -> DynamoDB : R/W`;
  * they are looked after — uploaded, looked over, removed — without a shape
  * having to be selected first. Choosing one here places it on the canvas.
  */
-function IconLibraryManager() {
+/** The library, in a dialog: its name says whose it is. */
+function IconsDialog({ onClose, ...exit }: { onClose: () => void } & ExitProps) {
+  const { t } = useEditor();
+  const library = useIconLibrary();
+  const copy = libraryCopy(library.shared);
+  return (
+    <Dialog title={t(copy.title)} onClose={onClose} closeLabel={t('modal.close')} wide {...exit}>
+      <p className="dialog-subtitle">{t(copy.subtitle)}</p>
+      <IconLibraryManager library={library} />
+    </Dialog>
+  );
+}
+
+function IconLibraryManager({ library }: { library: IconLibrary }) {
   const { doc, t } = useEditor();
   const commands = useCommands();
-  const [library, setLibrary] = useIconLibrary();
   const [uploading, setUploading] = useState(false);
   const mine = useMemo(() => {
-    const seen = new Set(library.map((icon) => icon.key));
-    return [...library, ...(doc.model.customIcons ?? []).filter((icon) => !seen.has(icon.key))];
-  }, [library, doc.model.customIcons]);
+    const seen = new Set(library.icons.map((icon) => icon.key));
+    return [
+      ...library.icons,
+      ...(doc.model.customIcons ?? []).filter((icon) => !seen.has(icon.key)),
+    ];
+  }, [library.icons, doc.model.customIcons]);
 
   if (uploading) {
     return (
@@ -466,10 +475,10 @@ function IconLibraryManager() {
         <UploadForm
           t={t}
           onCancel={() => setUploading(false)}
-          onSaved={(icon) => {
-            const saved = saveIconToLibrary(window.localStorage, icon);
-            if (saved.ok) setLibrary(saved.icons);
-            setUploading(false);
+          onSaved={async (icon) => {
+            const saved = await library.save(icon);
+            if (saved.ok) setUploading(false);
+            return saved;
           }}
         />
       </div>
@@ -481,9 +490,10 @@ function IconLibraryManager() {
         t={t}
         icons={mine}
         showUpload
+        shared={library.shared}
         onUpload={() => setUploading(true)}
         onPick={(icon) => commands.addCustomService(icon)}
-        onRemove={(key) => setLibrary(removeIconFromLibrary(window.localStorage, key))}
+        onRemove={(key) => void library.remove(key)}
       />
     </div>
   );

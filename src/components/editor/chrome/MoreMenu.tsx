@@ -18,7 +18,7 @@ import type { MenuProps } from './menuProps';
 import { MenuGroup, MenuItem, MenuSeparator, TopBarMenu } from './TopBarMenu';
 
 /** Everything done once a week lives one click away, not in a search. */
-export function MoreMenu({ menu, onToggle, onClose, pick, chord, off }: MenuProps) {
+export function MoreMenu({ menu, onToggle, onClose, pick, chord, off, label }: MenuProps) {
   const { ui, t } = useEditor();
   return (
     <div className="topbar-menu-host">
@@ -101,7 +101,7 @@ export function MoreMenu({ menu, onToggle, onClose, pick, chord, off }: MenuProp
           />
           <MenuItem
             icon={<ImportIcon size={15} />}
-            label={t('action.icons')}
+            label={label('icons') ?? t('action.icons')}
             hint={t('icons.uploadHint')}
             disabled={off('icons')}
             onSelect={() => pick('icons')}

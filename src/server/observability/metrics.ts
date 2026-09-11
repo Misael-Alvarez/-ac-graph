@@ -319,6 +319,7 @@ export interface AppMetrics {
   httpInFlight: Gauge;
   httpConflicts: Counter;
   diagramSaves: Counter;
+  iconWrites: Counter;
   sessionsCreated: Counter;
   sessionsEnded: Counter;
   logins: Counter;
@@ -378,6 +379,11 @@ function declareAppMetrics(registry: Registry): AppMetrics {
     diagramSaves: registry.counter(
       'acgraph_diagram_saves_total',
       'Diagram writes through the repository, by operation and outcome.',
+      ['operation', 'result'],
+    ),
+    iconWrites: registry.counter(
+      'acgraph_icon_writes_total',
+      "Writes to the workspace's icon library, by operation and outcome.",
       ['operation', 'result'],
     ),
     sessionsCreated: registry.counter(

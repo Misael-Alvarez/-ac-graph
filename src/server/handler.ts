@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { User } from '@/lib/domain';
 import { SESSION_COOKIE, assertSameOrigin, readCookie, requireUser } from './auth/session';
 import { PgDiagramRepository } from './diagrams/repository';
+import { PgIconLibrary } from './icons/repository';
 import { serverMode } from './env';
 import { HttpError, errorResponse, serverModeOff } from './http';
 import { annotateRequest } from './observability/context';
@@ -20,6 +21,8 @@ import { ensureSchema } from './schema';
 export interface ServerContext {
   user: User;
   repository: PgDiagramRepository;
+  /** The workspace's icon library, acting as this user. */
+  icons: PgIconLibrary;
   /** Opaque per-browser-session key for presence. Not reversible to the cookie. */
   sessionKey: string;
 }
@@ -51,6 +54,7 @@ export async function withUser(
       return await handler({
         user,
         repository: new PgDiagramRepository(user),
+        icons: new PgIconLibrary(user),
         sessionKey,
       });
     } catch (thrown) {

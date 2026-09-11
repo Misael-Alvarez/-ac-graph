@@ -76,6 +76,7 @@ const adaPage = await signedIn(ada.cookie);
 const bobPage = await signedIn(bob.cookie);
 
 let diagramId = null;
+let bobDiagramId = null;
 try {
   const model = createEmptyModel();
   addGroup(model, 0, 0);
@@ -312,10 +313,74 @@ try {
     'Share: the owner sees the departure',
     (await dialog.locator('.share-person').count()) === 1,
   );
+
+  /* 7. One icon library for the workspace: what Ada uploads, Bob sees and may tidy. */
+  await adaPage.goto(`${base}/d/${diagramId}`);
+  await adaPage.waitForSelector('.canvas-surface', { timeout: 15000 });
+  await adaPage.locator('.topbar button[aria-label="Más"]').click();
+  await adaPage.getByRole('menuitem', { name: /Iconos del workspace/ }).click();
+  const iconsDialog = adaPage.locator('.dialog');
+  await iconsDialog.waitFor({ timeout: 10000 });
+  check(
+    "Icons: the dialog is the workspace's, and says so",
+    /Iconos del workspace/.test(await iconsDialog.locator('.dialog-header').innerText()),
+  );
+  await iconsDialog.locator('.icon-picker-tile.is-upload').click();
+  await iconsDialog.locator('.icon-upload-drop input[type=file]').setInputFiles({
+    name: 'roles-audit.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4" fill="#0f62fe"/></svg>',
+    ),
+  });
+  await iconsDialog.getByLabel('Nombre').fill('Roles audit icon');
+  await iconsDialog.getByRole('button', { name: /Guardar y usar/ }).click();
+  await iconsDialog
+    .locator('.icon-picker-tile[data-key^="custom-roles-audit"]')
+    .waitFor({ timeout: 10000 });
+  const stored = await pool.query(
+    "select key, created_by from icons where key like 'custom-roles-audit%'",
+  );
+  check(
+    'Icons: an upload is stored for the workspace, attributed to Ada',
+    stored.rows.length === 1 && stored.rows[0].created_by === ada.id,
+  );
+  await adaPage.keyboard.press('Escape');
+
+  await bobPage.goto(`${base}/`);
+  await bobPage.waitForSelector('.library', { timeout: 15000 });
+  await bobPage.locator('.library-templates .template-card.is-blank').click();
+  await bobPage.waitForSelector('.canvas-surface', { timeout: 15000 });
+  bobDiagramId = bobPage.url().match(/\/d\/([^/?#]+)/)?.[1] ?? null;
+  await bobPage.locator('.topbar button[aria-label="Más"]').click();
+  await bobPage.getByRole('menuitem', { name: /Iconos del workspace/ }).click();
+  const bobIcons = bobPage.locator('.dialog');
+  const bobTile = bobIcons.locator('.icon-picker-tile[data-key^="custom-roles-audit"]');
+  await bobTile.waitFor({ timeout: 10000 }).catch(() => {});
+  check("Icons: Bob's browser lists what Ada uploaded", (await bobTile.count()) === 1);
+  await shot(bobPage, '07-icons-shared');
+  await bobIcons.getByRole('button', { name: /^Quitar del workspace: Roles audit icon/ }).click();
+  await bobTile.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+  const left = await pool.query("select 1 from icons where key like 'custom-roles-audit%'");
+  check('Icons: Bob removes it for everyone', left.rows.length === 0);
+  await bobPage.keyboard.press('Escape');
+
+  await adaPage.locator('.topbar button[aria-label="Más"]').click();
+  await adaPage.getByRole('menuitem', { name: /Iconos del workspace/ }).click();
+  await adaPage.locator('.dialog').waitFor({ timeout: 10000 });
+  await adaPage.waitForTimeout(800);
+  check(
+    "Icons: Ada's next look no longer shows it",
+    (await adaPage.locator('.dialog .icon-picker-tile[data-key^="custom-roles-audit"]').count()) ===
+      0,
+  );
+  await adaPage.keyboard.press('Escape');
 } finally {
-  /* --- Clean up: the diagram and the two sessions; the people stay. --- */
-  if (diagramId)
-    await pool.query('delete from diagrams where id = $1', [diagramId]).catch(() => {});
+  /* --- Clean up: the diagram, the icon and the two sessions; the people stay. --- */
+  await pool.query("delete from icons where key like 'custom-roles-audit%'").catch(() => {});
+  for (const id of [diagramId, bobDiagramId]) {
+    if (id) await pool.query('delete from diagrams where id = $1', [id]).catch(() => {});
+  }
   for (const who of [ada, bob]) {
     await pool
       .query('delete from sessions where id_hash = $1', [

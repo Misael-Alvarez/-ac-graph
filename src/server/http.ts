@@ -7,6 +7,7 @@ import {
   UserNotFoundError,
   VersionNotFoundError,
 } from './diagrams/errors';
+import { IconLibraryFullError } from './icons/errors';
 import { annotateRequest, currentRequest } from './observability/context';
 import { log } from './observability/log';
 
@@ -29,6 +30,8 @@ export type ErrorCode =
   | 'conflict'
   | 'bad_request'
   | 'payload_too_large'
+  /** The workspace's icon library holds as much as it may. */
+  | 'library_full'
   | 'server_mode_off'
   | 'internal';
 
@@ -105,6 +108,9 @@ export function errorResponse(thrown: unknown): Response {
   }
   if (thrown instanceof MembershipError) {
     return error(400, 'bad_request', thrown.message);
+  }
+  if (thrown instanceof IconLibraryFullError) {
+    return error(409, 'library_full', thrown.message, { count: thrown.count, bytes: thrown.bytes });
   }
   if (thrown instanceof ZodError) {
     return error(400, 'bad_request', 'The request body is not valid.', {

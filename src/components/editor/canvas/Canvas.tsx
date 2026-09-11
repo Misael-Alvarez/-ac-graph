@@ -24,7 +24,7 @@ import { serviceDescription } from '@/lib/i18n/serviceCopy';
 import { usePointerTools } from '../hooks/usePointerTools';
 import { useCommands } from '../hooks/useCommands';
 import { isCustomIconKey } from '@/lib/icons/customIcons';
-import { readIconLibrary } from '@/lib/icons/iconLibrary';
+import { currentIconLibrary } from '@/lib/icons/iconLibrary';
 import { Defs } from './Defs';
 import { DiagramScene } from './DiagramScene';
 import type { ShapeInteraction } from './shapes';
@@ -395,10 +395,10 @@ export function Canvas() {
       const key = e.dataTransfer.getData('text/plain');
       const point = toCanvas(ui.viewport, toLocal(e));
       if (isCustomIconKey(key)) {
-        // One of the author's: from the document, or from the browser's library.
+        // One of the author's: from the document, or from the library.
         const icon =
           doc.model.customIcons?.find((i) => i.key === key) ??
-          readIconLibrary(window.localStorage).find((i) => i.key === key);
+          currentIconLibrary(window.localStorage).find((i) => i.key === key);
         if (icon)
           commands.addCustomService(icon, { x: snap(point.x - 120), y: snap(point.y - 60) });
         return;

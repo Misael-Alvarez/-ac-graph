@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-10 (H1 cerrado; H2 #10 presentación, #12 notas/texto/regiones y #20 plantillas propias entregados; ver commits en §1).
+Última actualización: 2026-09-10 (H1 cerrado; H2 #10, #12, #20 y #14 entregados; ver commits en §1).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `265dd46` (H2 #20 plantillas propias). Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio tras el commit de H2 #14 (ver `git log -1`). Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -31,6 +31,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `4b1882f` — Write on the architecture: regions, notes and free text, in the document and out of the analysis
   - `77e00d4` — Record the notes commit in the context and the checkpoint log
   - `265dd46` — Keep a diagram as a starting point: templates of one's own, drawn on the home page
+  - `e05c9d8` — Record the templates commit in the context and the checkpoint log
+  - (siguiente) — One icon library for the workspace: uploads shared, stored once per picture, bounded
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -77,9 +79,12 @@ grep '"msg":"http request"' /tmp/acgraph-3100.log                          # lí
 # Trazas: OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 al arrancar; colector falso de prueba en
 # /var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/fake-otlp.mjs (temporal; GET /dump lista spans)
 
-# Auditoría de roles (modo servidor, dos navegadores; siembra y limpia sus propios usuarios/sesiones)
-AUDIT_DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test npm run audit:roles -- http://127.0.0.1:3100
-# (el servidor debe correr en modo servidor contra esa misma base: DATABASE_URL + OIDC_ISSUER + OIDC_CLIENT_ID + APP_URL)
+# Auditoría de roles e iconos compartidos (modo servidor, dos navegadores; siembra y limpia sus propios usuarios/sesiones; 31 comprobaciones)
+# 1) app en modo servidor contra el PostgreSQL desechable (el esquema lo migra la propia app al primer acceso con cookie):
+(PORT=3101 HOSTNAME=127.0.0.1 ANTHROPIC_API_KEY= DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test OIDC_ISSUER=https://audit.invalid/application/o/ac-graph/ OIDC_CLIENT_ID=audit APP_URL=http://127.0.0.1:3101 nohup npm start > /tmp/acgraph-3101.log 2>&1 &)
+curl -s -H 'Cookie: acg_session=unknown' http://127.0.0.1:3101/api/auth/me   # fuerza las migraciones
+# 2) la auditoría:
+AUDIT_DATABASE_URL=postgres://postgres:test@127.0.0.1:55433/acgraph_test npm run audit:roles -- http://127.0.0.1:3101
 
 # PostgreSQL desechable para las pruebas *.pg.test.ts (se destruye al parar)
 docker run -d --rm --name acgraph-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=acgraph_test -p 127.0.0.1:55433:5432 postgres:17.11-bookworm
@@ -106,7 +111,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - **Todo control cambia algo observable.** Nada de adorno; cada control nuevo entra en `scripts/audit-controls.mjs`.
 - **Metadatos visibles en el lienzo:** cada campo del inspector tiene su marca (chips en servicios, etiquetas y trazo en conectores). Si se añade un campo, se añade su marca.
 - **Deshacer:** ráfagas coalescidas (`coalesceKey`), Cmd+Z desde campos cae al dibujo, historial vacío avisa. No romperlo.
-- **Iconos propios** viven en el navegador y se **embeben en el documento** al usarse (`model.customIcons`), para que enlaces y exportaciones los lleven.
+- **Iconos propios** se **embeben en el documento** al usarse (`model.customIcons`), para que enlaces y exportaciones los lleven. La biblioteca es del navegador en modo local (`localStorage`) y **del workspace** en modo servidor (tabla `icons`, `/api/icons`): compartida por todos los que inician sesión, cualquiera añade o quita, deduplicada por hash del dibujo (subir lo mismo devuelve el existente: usar siempre el icono que `save` resuelve), con cuota 200/16 MB (`library_full`). Un solo `useIconLibrary()` (`CustomIcons.tsx`) decide por `useIconLibraryApi()`; en servidor el `localStorage` es un **espejo** de la lista del servidor (`rememberRemoteLibrary`/`currentIconLibrary`/`mirrorIconLibrary` en `iconLibrary.ts`). Nunca leer `localStorage` de iconos directamente: usar `currentIconLibrary`. El copy cambia con `libraryCopy(shared)` («Mis iconos» / «Iconos del workspace»). El saneado del SVG es del navegador; el servidor solo valida la forma.
 - **CSS:** un solo `globals.css` en orden de cascada; cada selector una vez salvo los _cascade-pinned_ (comentados). **No añadir capas de sobrescritura al final**; cambiar la regla donde está y verificar con `styles:compare`.
 - **Componentes de sistema (`src/components/ui/`):** `PanelHead`, `SearchField`, `Chip`/`ChipRow`, `GroupHeader`, `Tile` (+`SpriteIcon`), `Row`, `Field`/`NumberField`, `Section`, `Kbd`. Una fila, tesela, chip o cabecera nueva se hace con ellos; las clases propias de la superficie van por props (`className`, `labelClassName`, `countClassName`) porque el CSS y las pruebas las nombran. `ui.test.ts` fija el HTML exacto: si cambia el marcado, cambia el test a conciencia y se pasa `styles:compare`. La instantánea de estilos identifica cada elemento por etiqueta + clases + posición: no envolver en nodos nuevos.
 - **Tokens:** `tokens.ts` ↔ `globals.css` en paridad (test). Acento por tono (`data-accent`): violeta AION, índigo, grafito, océano, rosa.
@@ -129,7 +134,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Bus de colaboración best effort (mensajes perdidos mientras una réplica tiene caída la conexión de escucha; sin cola). Un solo canal para todos los diagramas.
 - Un solo workspace: sin equipos ni roles de workspace, la propiedad no se transfiere; invitar exige que la persona haya iniciado sesión una vez (H3 #23).
 - Sin CRDT: colaboración = presencia + adopción de guardados ajenos + conflicto 412 con banner.
-- Biblioteca de iconos propios por navegador (no se sincroniza en modo servidor) — H2 #14.
+- Biblioteca de iconos del workspace sin roles (cualquiera añade y quita; `created_by` registrado para H3 #23); los iconos locales previos a pasar a modo servidor no se suben solos; la lista se refresca al abrir un panel, no en vivo; la exportación del workspace no la incluye.
 - Azure y OCI sin iconos oficiales (313/572) — H2 #15.
 - Etiquetas de conector centradas en el segmento más largo; pueden pisar un borde de grupo — H2 #11.
 - Plantillas propias: sin nombre/descripción al guardar (toma el título); editar una plantilla es editar un diagrama sin insignia en la barra; no aparecen en el diálogo «Nuevo diagrama».
@@ -148,19 +153,19 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Decoración: `src/lib/editor/richText.ts` (marcado y ajuste), `src/components/editor/canvas/shapes/{RegionShape,NoteShape,TextShape,RichText}.tsx`, `addDecoration`/`carryDecorations`/`DECORATION_SIZE` en `src/lib/engine/model.ts`, acción `addDecoration`, `NoteSpecSchema` en `src/lib/dsl/schema.ts`, `NOTE_PAPERS`/`FillPresets swatches` en `inspector/fields.tsx`, iconos `RegionIcon`/`NoteIcon`/`TextIcon`.
 - Presentación: `src/components/editor/chrome/Presentation.tsx` (capa: título, vista, paginador, leyenda, teclas), `presenting`/`setPresenting` en `uiState.ts`, atajo `present` (F5) en `shortcuts.ts`, comandos `present`/`exportPdfViews` en `useCommands.ts`, Esc en `useKeyboard.ts`, PDF multipágina `rastersToPdf` en `pdf.ts` + `downloadPdfPages` en `export.ts`.
 - Chrome: `src/components/editor/chrome/` (`TopBar` + `ExportMenu`/`MoreMenu`/`AccountMenu`/`menuProps.ts`, `ToolDock`, `InspectorPanel` + `inspector/`, `ServiceBrowser`, `IconPicker`, `CustomIcons`, `CommandPalette`, `FindBar`, `VersionPanel`, `InsightsPanel`, `Minimap`, `Modals`); componentes de sistema en `src/components/ui/`.
-- Iconos propios: `src/lib/icons/{customIcons,iconLibrary}.ts`.
+- Iconos propios: `src/lib/icons/{customIcons,iconLibrary}.ts`; hook y copy en `src/components/editor/chrome/CustomIcons.tsx`; servidor `src/server/icons/{repository,schemas,errors}.ts`, rutas `src/app/api/icons/**`, cliente `IconLibraryApi` en `httpRepository.ts`.
 - Portada: `src/components/library/Library.tsx` (estado y composición) + `LibraryHeader`, `LibraryHero`, `LibraryToolbar` (exporta `FAVOURITES`/`NO_FOLDER`), `DiagramCard`, `TemplateGallery` (exporta `TemplatePreview`), `WorkspaceActions`, `CountUp`; vista previa real `src/lib/store/preview.ts`.
 - App: `src/components/app/` (providers, tooltips, ripple, tema, `PageState` para 404/error).
 - Victorias rápidas: `src/lib/editor/describe.ts` (descripción accesible), `src/lib/editor/usePresence.ts` (salidas), `src/lib/library/{prefs,dropImport}.ts` (orden/favoritos, soltar archivo), `repositoryUrl`/`stripMetadata` en `src/lib/editor/meta.ts`, `exportTheme`/`exportMeta` en `uiState.ts`.
 - Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica). Roles: `src/server/diagrams/{repository,errors,schemas}.ts`, rutas `src/app/api/diagrams/[id]/members/**`, cliente `src/lib/store/httpRepository.ts` (`MembersApi`), solo lectura `src/lib/editor/readOnly.ts` + `readOnly` en `EditorProvider`, UI `ShareDialog.tsx` (`SharePeople`) y `Library.tsx`.
 - Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
 - Herramientas: `scripts/{audit-controls,audit-roles,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1199; 1258 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (146 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`.
+- Pruebas: `src/**/*.test.ts` (1203; 1270 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (146 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`; `audit:controls` 100, `audit:roles` 31.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **H2 en curso: #10, #12 y #20 hechos.** Seguir por `PLAN_MEJORAS.md` con H2: #14 iconos en servidor (M: la biblioteca de iconos propios — hoy `localStorage` por navegador, `src/lib/icons/iconLibrary.ts` — pasa a una tabla y una ruta `/api/icons` en modo servidor, con el mismo `useIconLibrary()` por debajo y migración de lo local al iniciar sesión), #9 comentarios anclados (L), #11 conectores editables (L).
+1. **H2 en curso: #10, #12, #20 y #14 hechos.** Seguir por `PLAN_MEJORAS.md` con H2: #9 comentarios anclados (L: hilos anclados a una forma o a un punto del lienzo, con autor y fecha, resueltos/abiertos, visibles como marcas en el lienzo y en un panel lateral; en servidor viajan con el documento o en tabla propia con eventos en vivo), #11 conectores editables (L).
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

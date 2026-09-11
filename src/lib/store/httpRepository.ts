@@ -1,9 +1,11 @@
 import {
+  CustomIconSchema,
   DiagramMemberSchema,
   DiagramMetaSchema,
   DiagramRecordSchema,
   DiagramVersionSchema,
   RoleSchema,
+  type CustomIcon,
   type DiagramMember,
   type DiagramMeta,
   type DiagramModel,
@@ -101,7 +103,20 @@ interface ErrorPayload {
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export class HttpDiagramRepository implements DiagramRepository, MembersApi {
+/**
+ * The workspace's icon library, in server mode.
+ *
+ * One library for everyone who signs in. `saveIcon` answers with the icon to
+ * use: the one sent, or — when the same picture was already there under
+ * another name — the one that holds it, so a logo two people upload is one.
+ */
+export interface IconLibraryApi {
+  listIcons(): Promise<CustomIcon[]>;
+  saveIcon(icon: CustomIcon): Promise<CustomIcon>;
+  removeIcon(key: string): Promise<void>;
+}
+
+export class HttpDiagramRepository implements DiagramRepository, MembersApi, IconLibraryApi {
   private readonly fetchImpl: typeof fetch;
   private readonly baseUrl: string;
 
@@ -232,6 +247,21 @@ export class HttpDiagramRepository implements DiagramRepository, MembersApi {
       'DELETE',
       `/api/diagrams/${encodeURIComponent(diagramId)}/members/${encodeURIComponent(userId)}`,
     );
+  }
+
+  async listIcons(): Promise<CustomIcon[]> {
+    const raw = await this.request<unknown[]>('GET', '/api/icons');
+    return raw.map((icon) => CustomIconSchema.parse(icon));
+  }
+
+  async saveIcon(icon: CustomIcon): Promise<CustomIcon> {
+    return CustomIconSchema.parse(
+      await this.request<unknown>('POST', '/api/icons', { body: icon }),
+    );
+  }
+
+  async removeIcon(key: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/icons/${encodeURIComponent(key)}`);
   }
 
   private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {

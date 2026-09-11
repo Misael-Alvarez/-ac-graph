@@ -1,10 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CustomIcon } from '@/lib/domain';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { ACCEPTED_ICON_TYPES, readIconFile, type IconFileResult } from '@/lib/icons/customIcons';
-import { ICON_LIBRARY_KEY, readIconLibrary } from '@/lib/icons/iconLibrary';
+import {
+  ICON_LIBRARY_KEY,
+  currentIconLibrary,
+  mirrorIconLibrary,
+  rememberRemoteLibrary,
+  removeIconFromLibrary,
+  saveIconToLibrary,
+} from '@/lib/icons/iconLibrary';
+import { HttpRepositoryError } from '@/lib/store/httpRepository';
+import { useIconLibraryApi } from '@/components/app/RepositoryProvider';
 import { ImportIcon, PlusIcon, TrashIcon } from '@/components/icons/ToolIcons';
 import { Field } from '@/components/ui/Field';
 import { GroupHeader } from '@/components/ui/GroupHeader';
@@ -12,23 +21,43 @@ import { Tile } from '@/components/ui/Tile';
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
+/** What adding an icon came to: the icon to use, or why there is none. */
+export type IconSaveResult =
+  { ok: true; icon: CustomIcon } | { ok: false; reason: 'full' | 'failed' };
+
+export interface IconLibrary {
+  icons: CustomIcon[];
+  /** The workspace's library (server mode) rather than this browser's. */
+  shared: boolean;
+  /**
+   * Adds an icon and resolves with the one to use. In the workspace's library
+   * that may be an icon already there with the same picture, under the name
+   * whoever uploaded it first gave it.
+   */
+  save: (icon: CustomIcon) => Promise<IconSaveResult>;
+  remove: (key: string) => Promise<void>;
+}
+
 /**
- * The browser's icon library as state, shared by every place that shows it.
+ * The icon library as state, shared by every place that shows it.
  *
- * Read once from storage, and re-read when another tab or another panel writes
- * it, so the picker, the service browser and the manager never disagree about
- * what the author owns.
+ * In local mode it is the browser's, read from storage and re-read when
+ * another tab or another panel writes it. In server mode it is the
+ * workspace's: fetched when a panel that shows it mounts, written through the
+ * API, and mirrored into the same storage so the picker paints at once and
+ * the panels keep agreeing by the same event they always did.
  */
-export function useIconLibrary(): [CustomIcon[], (icons: CustomIcon[]) => void] {
+export function useIconLibrary(): IconLibrary {
+  const api = useIconLibraryApi();
   const [library, setLibrary] = useState<CustomIcon[]>(() =>
-    typeof window === 'undefined' ? [] : readIconLibrary(window.localStorage),
+    typeof window === 'undefined' ? [] : currentIconLibrary(window.localStorage),
   );
   useEffect(() => {
     const sync = (event: StorageEvent | Event) => {
       if (event instanceof StorageEvent && event.key !== null && event.key !== ICON_LIBRARY_KEY) {
         return;
       }
-      setLibrary(readIconLibrary(window.localStorage));
+      setLibrary(currentIconLibrary(window.localStorage));
     };
     window.addEventListener('storage', sync);
     window.addEventListener(ICON_LIBRARY_EVENT, sync);
@@ -37,16 +66,98 @@ export function useIconLibrary(): [CustomIcon[], (icons: CustomIcon[]) => void] 
       window.removeEventListener(ICON_LIBRARY_EVENT, sync);
     };
   }, []);
-  const publish = (icons: CustomIcon[]) => {
-    setLibrary(icons);
-    // Same tab, other panels: the storage event only fires across tabs.
-    window.dispatchEvent(new Event(ICON_LIBRARY_EVENT));
-  };
-  return [library, publish];
+
+  // The workspace's list, fresh on every mount: opening the picker is the
+  // moment to learn what a colleague uploaded since.
+  useEffect(() => {
+    if (!api) return;
+    let cancelled = false;
+    void api
+      .listIcons()
+      .then((icons) => {
+        if (cancelled) return;
+        publishRemote(icons);
+      })
+      .catch(() => {
+        // Offline or refused: the mirror stands in until the next mount.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  const save = useCallback(
+    async (icon: CustomIcon): Promise<IconSaveResult> => {
+      if (api) {
+        try {
+          const stored = await api.saveIcon(icon);
+          const rest = currentIconLibrary(window.localStorage).filter((i) => i.key !== stored.key);
+          publishRemote([stored, ...rest]);
+          return { ok: true, icon: stored };
+        } catch (thrown) {
+          const full = thrown instanceof HttpRepositoryError && thrown.code === 'library_full';
+          return { ok: false, reason: full ? 'full' : 'failed' };
+        }
+      }
+      const saved = saveIconToLibrary(window.localStorage, icon);
+      if (!saved.ok) return { ok: false, reason: 'full' };
+      window.dispatchEvent(new Event(ICON_LIBRARY_EVENT));
+      return { ok: true, icon };
+    },
+    [api],
+  );
+
+  const remove = useCallback(
+    async (key: string) => {
+      if (api) {
+        // Forgotten here whatever the server says: an icon that could not be
+        // removed there comes back on the next fetch, and one already gone
+        // should not linger because the answer was a 404.
+        await api.removeIcon(key).catch(() => {});
+        publishRemote(currentIconLibrary(window.localStorage).filter((i) => i.key !== key));
+        return;
+      }
+      removeIconFromLibrary(window.localStorage, key);
+      window.dispatchEvent(new Event(ICON_LIBRARY_EVENT));
+    },
+    [api],
+  );
+
+  return { icons: library, shared: api !== null, save, remove };
+}
+
+/** The server's list becomes the page's, is mirrored, and every panel hears of it. */
+function publishRemote(icons: CustomIcon[]): void {
+  rememberRemoteLibrary(icons);
+  mirrorIconLibrary(window.localStorage, icons);
+  window.dispatchEvent(new Event(ICON_LIBRARY_EVENT));
 }
 
 /** Fired on `window` when this tab changes the library. */
 export const ICON_LIBRARY_EVENT = 'acgraph:icon-library';
+
+/**
+ * What the library is called, by whose it is.
+ *
+ * "Your icons" is true of a browser's library and false of the workspace's:
+ * a colleague's logo removed there is removed for the colleague too, and the
+ * words should say so before the press.
+ */
+export function libraryCopy(shared: boolean) {
+  return shared
+    ? ({
+        title: 'icons.teamTitle',
+        remove: 'icons.removeShared',
+        empty: 'icons.emptyShared',
+        subtitle: 'icons.dialogSubtitleShared',
+      } as const)
+    : ({
+        title: 'icons.mineTitle',
+        remove: 'icons.remove',
+        empty: 'icons.empty',
+        subtitle: 'icons.dialogSubtitle',
+      } as const);
+}
 
 /**
  * A custom icon drawn inline: the sanitised vector, or the raster.
@@ -87,6 +198,7 @@ export function MineSection({
   icons,
   value,
   showUpload,
+  shared = false,
   onUpload,
   onPick,
   onRemove,
@@ -95,11 +207,14 @@ export function MineSection({
   icons: CustomIcon[];
   value?: string;
   showUpload: boolean;
+  /** The workspace's library rather than this browser's: named accordingly. */
+  shared?: boolean;
   onUpload: () => void;
   onPick: (icon: CustomIcon) => void;
   onRemove: (key: string) => void;
 }) {
   if (!icons.length && !showUpload) return null;
+  const copy = libraryCopy(shared);
   return (
     <section className="icon-picker-section is-mine">
       <GroupHeader
@@ -107,7 +222,7 @@ export function MineSection({
         count={icons.length}
         countClassName="icon-picker-section-count"
       >
-        {t('icons.mineTitle')}
+        {t(copy.title)}
       </GroupHeader>
       <ul className="icon-picker-grid">
         {showUpload && (
@@ -141,8 +256,8 @@ export function MineSection({
             <button
               type="button"
               className="icon-picker-remove"
-              aria-label={`${t('icons.remove')}: ${icon.name}`}
-              title={t('icons.remove')}
+              aria-label={`${t(copy.remove)}: ${icon.name}`}
+              title={t(copy.remove)}
               onClick={() => onRemove(icon.key)}
             >
               <TrashIcon size={11} />
@@ -150,7 +265,7 @@ export function MineSection({
           </li>
         ))}
       </ul>
-      {!icons.length && showUpload && <p className="icon-picker-empty">{t('icons.empty')}</p>}
+      {!icons.length && showUpload && <p className="icon-picker-empty">{t(copy.empty)}</p>}
     </section>
   );
 }
@@ -169,7 +284,8 @@ export function UploadForm({
 }: {
   t: Translate;
   onCancel: () => void;
-  onSaved: (icon: CustomIcon) => void;
+  /** Keeps the icon; the form stays, with the reason, when it could not be kept. */
+  onSaved: (icon: CustomIcon) => Promise<IconSaveResult>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -202,7 +318,9 @@ export function UploadForm({
     });
     if (result.ok) {
       setPreview(result.icon);
-      if (!name) setName(result.icon.name);
+      // The file's name only fills a name still empty *now*: reading the file
+      // takes a moment, and a name typed in that moment must not be overwritten.
+      setName((current) => current || result.icon.name);
     } else setError(errorFor(result));
   };
 
@@ -222,12 +340,16 @@ export function UploadForm({
       source,
       tags: tags.split(',').map((tag) => tag.trim()),
     });
-    setBusy(false);
     if (!result.ok) {
+      setBusy(false);
       setError(errorFor(result));
       return;
     }
-    onSaved(result.icon);
+    const outcome = await onSaved(result.icon);
+    setBusy(false);
+    if (!outcome.ok) {
+      setError(t(outcome.reason === 'full' ? 'icons.errorFull' : 'icons.errorFailed'));
+    }
   };
 
   return (

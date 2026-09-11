@@ -16,13 +16,12 @@ import { serviceDescription } from '@/lib/i18n/serviceCopy';
 import type { Locale, MessageKey } from '@/lib/i18n/messages';
 import type { CustomIcon } from '@/lib/domain';
 import { customIconMatches } from '@/lib/icons/customIcons';
-import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
 import { ChevronDownIcon, CloseIcon } from '@/components/icons/ToolIcons';
 import { Chip, ChipRow } from '@/components/ui/Chip';
 import { GroupHeader } from '@/components/ui/GroupHeader';
 import { SearchField } from '@/components/ui/SearchField';
 import { SpriteIcon, Tile } from '@/components/ui/Tile';
-import { CustomGlyph, MineSection, UploadForm, useIconLibrary } from './CustomIcons';
+import { CustomGlyph, MineSection, UploadForm, useIconLibrary, libraryCopy } from './CustomIcons';
 
 /** Clouds in the order they are offered, matching the service browser. */
 const CLOUD_ORDER = ['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion', 'generic'] as const;
@@ -222,13 +221,13 @@ function Popover({
   const [cloud, setCloud] = useState(startCloud);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
-  // The browser's library plus whatever this document carries that the
-  // library has since forgotten — both are the author's, so both are offered.
-  const [library, setLibrary] = useIconLibrary();
+  // The library plus whatever this document carries that the library has
+  // since forgotten — both are the author's, so both are offered.
+  const library = useIconLibrary();
   const mine = useMemo(() => {
-    const seen = new Set(library.map((icon) => icon.key));
-    return [...library, ...customIcons.filter((icon) => !seen.has(icon.key))];
-  }, [library, customIcons]);
+    const seen = new Set(library.icons.map((icon) => icon.key));
+    return [...library.icons, ...customIcons.filter((icon) => !seen.has(icon.key))];
+  }, [library.icons, customIcons]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
   const liquid = useLiquidPointer();
@@ -362,7 +361,7 @@ function Popover({
             className="icon-picker-cloud"
             modifier="is-mine"
             active={cloud === MINE}
-            title={t('icons.mineTitle')}
+            title={t(libraryCopy(library.shared).title)}
             dotClassName="icon-picker-cloud-dot"
             count={mine.length}
             countClassName="icon-picker-cloud-count"
@@ -378,11 +377,13 @@ function Popover({
           <UploadForm
             t={t}
             onCancel={() => setUploading(false)}
-            onSaved={(icon) => {
-              const saved = saveIconToLibrary(window.localStorage, icon);
-              if (saved.ok) setLibrary(saved.icons);
-              setUploading(false);
-              onPickCustom(icon);
+            onSaved={async (icon) => {
+              const saved = await library.save(icon);
+              if (saved.ok) {
+                setUploading(false);
+                onPickCustom(saved.icon);
+              }
+              return saved;
             }}
           />
         )}
@@ -393,9 +394,10 @@ function Popover({
             icons={catalog.searching ? mine.filter((icon) => customIconMatches(icon, query)) : mine}
             value={value}
             showUpload={!catalog.searching}
+            shared={library.shared}
             onUpload={() => setUploading(true)}
             onPick={onPickCustom}
-            onRemove={(key) => setLibrary(removeIconFromLibrary(window.localStorage, key))}
+            onRemove={(key) => void library.remove(key)}
           />
         )}
 

@@ -96,6 +96,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
   };
   /** True when the command exists and is currently disabled (a viewer, an empty selection). */
   const off = (id: string) => commands.find((c) => c.id === id)?.enabled === false;
+  const label = (id: string) => commands.find((c) => c.id === id)?.label;
   const chord = (id: string) => {
     const keys = shortcutFor(id);
     return keys ? spellChord(keys) : undefined;
@@ -219,6 +220,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
           pick={pick}
           chord={chord}
           off={off}
+          label={label}
         />
 
         <button
@@ -250,6 +252,7 @@ export function TopBar({ title, status, onRename, collab }: TopBarProps) {
           pick={pick}
           chord={chord}
           off={off}
+          label={label}
         />
 
         <AccountMenu menu={menu} onToggle={() => toggleMenu('account')} onClose={closeMenu} />

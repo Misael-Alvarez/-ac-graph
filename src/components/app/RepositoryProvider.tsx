@@ -2,7 +2,11 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LocalDiagramRepository, type DiagramRepository } from '@/lib/store';
-import { HttpDiagramRepository, type MembersApi } from '@/lib/store/httpRepository';
+import {
+  HttpDiagramRepository,
+  type IconLibraryApi,
+  type MembersApi,
+} from '@/lib/store/httpRepository';
 import { useAppConfig } from './AppConfigProvider';
 
 interface RepositoryContextValue {
@@ -31,6 +35,12 @@ export function useRepositoryMode(): 'local' | 'server' {
 
 /** Who has access to a diagram: a server-mode question, null in the browser-only store. */
 export function useMembersApi(): MembersApi | null {
+  const repository = useContext(RepositoryContext)?.repository;
+  return repository instanceof HttpDiagramRepository ? repository : null;
+}
+
+/** The workspace's icon library: server mode only; null means the browser keeps its own. */
+export function useIconLibraryApi(): IconLibraryApi | null {
   const repository = useContext(RepositoryContext)?.repository;
   return repository instanceof HttpDiagramRepository ? repository : null;
 }

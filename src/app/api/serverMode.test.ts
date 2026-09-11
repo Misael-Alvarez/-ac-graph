@@ -9,6 +9,8 @@ import { GET as me } from './auth/me/route';
 import { GET as listDiagrams, POST as createDiagram } from './diagrams/route';
 import { DELETE as deleteDiagram, GET as getDiagram } from './diagrams/[id]/route';
 import { GET as exportWorkspace } from './workspace/export/route';
+import { GET as listIcons, POST as saveIcon } from './icons/route';
+import { DELETE as deleteIcon } from './icons/[key]/route';
 
 /**
  * The parts of the server API that answer before any database is touched:
@@ -56,6 +58,11 @@ describe('in local mode', () => {
       createDiagram(request('/api/diagrams', { method: 'POST' })),
       getDiagram(request('/api/diagrams/dgm_1'), context('dgm_1')),
       exportWorkspace(request('/api/workspace/export')),
+      listIcons(request('/api/icons')),
+      saveIcon(request('/api/icons', { method: 'POST' })),
+      deleteIcon(request('/api/icons/custom-x', { method: 'DELETE' }), {
+        params: Promise.resolve({ key: 'custom-x' }),
+      }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(404);

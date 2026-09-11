@@ -35,6 +35,7 @@ describe.skipIf(!pgAvailable())('schema migrations (PostgreSQL)', () => {
       'diagram_members',
       'diagram_versions',
       'diagrams',
+      'icons',
       'schema_migrations',
       'sessions',
       'users',
@@ -55,6 +56,8 @@ describe.skipIf(!pgAvailable())('schema migrations (PostgreSQL)', () => {
     expect(types['diagram_versions.created_at']).toBe('text');
     expect(types['sessions.expires_at']).toBe('timestamp with time zone');
     expect(types['users.created_at']).toBe('timestamp with time zone');
+    // The icon carries its own `createdAt` as text inside the JSON; the row's is the server's.
+    expect(types['icons.created_at']).toBe('timestamp with time zone');
   });
 
   it('survives concurrent runners thanks to the advisory lock', async () => {

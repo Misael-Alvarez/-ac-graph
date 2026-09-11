@@ -16,8 +16,7 @@ import { SearchField } from '@/components/ui/SearchField';
 import { SpriteIcon, Tile } from '@/components/ui/Tile';
 import type { CustomIcon } from '@/lib/domain';
 import { customIconMatches } from '@/lib/icons/customIcons';
-import { removeIconFromLibrary, saveIconToLibrary } from '@/lib/icons/iconLibrary';
-import { CustomGlyph, UploadForm, useIconLibrary } from './CustomIcons';
+import { CustomGlyph, UploadForm, useIconLibrary, libraryCopy } from './CustomIcons';
 
 /** Clouds in the order they are offered, with the count of services in each. */
 const CLOUD_ORDER = ['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion', 'generic'] as const;
@@ -41,12 +40,16 @@ export function ServiceBrowser() {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [uploading, setUploading] = useState(false);
-  const [library, setLibrary] = useIconLibrary();
-  // The author's icons: the browser's library, plus what this document carries.
+  const library = useIconLibrary();
+  const copy = libraryCopy(library.shared);
+  // The author's icons: the library, plus what this document carries.
   const mine = useMemo(() => {
-    const seen = new Set(library.map((icon) => icon.key));
-    return [...library, ...(doc.model.customIcons ?? []).filter((icon) => !seen.has(icon.key))];
-  }, [library, doc.model.customIcons]);
+    const seen = new Set(library.icons.map((icon) => icon.key));
+    return [
+      ...library.icons,
+      ...(doc.model.customIcons ?? []).filter((icon) => !seen.has(icon.key)),
+    ];
+  }, [library.icons, doc.model.customIcons]);
 
   const catalog = useMemo(
     () => queryCatalog({ cloud: cloud === MINE ? 'aws' : cloud, query, locale: ui.locale }),
@@ -120,7 +123,7 @@ export function ServiceBrowser() {
             className="browser-cloud"
             modifier="is-mine"
             active={cloud === MINE}
-            title={t('icons.mineTitle')}
+            title={t(copy.title)}
             dotClassName="browser-cloud-dot"
             count={mine.length}
             countClassName="browser-cloud-count"
@@ -136,13 +139,15 @@ export function ServiceBrowser() {
           <UploadForm
             t={t}
             onCancel={() => setUploading(false)}
-            onSaved={(icon) => {
-              const saved = saveIconToLibrary(window.localStorage, icon);
-              if (saved.ok) setLibrary(saved.icons);
-              setUploading(false);
-              // Straight onto the canvas: an icon uploaded from the browser is
-              // an icon somebody wanted to place.
-              commands.addCustomService(icon);
+            onSaved={async (icon) => {
+              const saved = await library.save(icon);
+              if (saved.ok) {
+                setUploading(false);
+                // Straight onto the canvas: an icon uploaded from the browser is
+                // an icon somebody wanted to place.
+                commands.addCustomService(saved.icon);
+              }
+              return saved;
             }}
           />
         )}
@@ -154,7 +159,7 @@ export function ServiceBrowser() {
               count={mineMatches.length}
               countClassName="browser-section-count"
             >
-              {t('icons.mineTitle')}
+              {t(copy.title)}
             </GroupHeader>
             <ul className="browser-grid">
               {!catalog.searching && (
@@ -193,9 +198,9 @@ export function ServiceBrowser() {
                   <button
                     type="button"
                     className="icon-button browser-mine-remove"
-                    aria-label={`${t('icons.remove')}: ${icon.name}`}
-                    title={t('icons.remove')}
-                    onClick={() => setLibrary(removeIconFromLibrary(window.localStorage, icon.key))}
+                    aria-label={`${t(copy.remove)}: ${icon.name}`}
+                    title={t(copy.remove)}
+                    onClick={() => void library.remove(icon.key)}
                   >
                     <CloseIcon size={11} />
                   </button>
@@ -203,7 +208,7 @@ export function ServiceBrowser() {
               ))}
             </ul>
             {!mineMatches.length && !catalog.searching && (
-              <p className="library-note">{t('icons.empty')}</p>
+              <p className="library-note">{t(copy.empty)}</p>
             )}
           </section>
         )}

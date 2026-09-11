@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`) y #20 plantillas propias (`265dd46`)** en `origin/main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `265dd46`. Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #14 iconos en servidor, #9 comentarios, #11 conectores.
+> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`) y #14 iconos en servidor** (entregado hoy, pendiente de commit y push). Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #9 comentarios anclados, #11 conectores editables.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -457,6 +457,38 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 - El menu contextual y `MenuItem` siguen siendo marcados distintos (`context-menu-item` sin icono ni texto secundario); unificarlos exigiria cambiar el DOM.
 - No hay `@testing-library/react`: las pruebas de render usan `react-dom/client` + `act` en happy-dom (patron de `usePresence.test.ts`).
 
+## H2 #14 del plan de mejoras / biblioteca de iconos en servidor (cerrado, 2026-09-10)
+
+**Base:** `e05c9d8` (`main`). Cuarta entrega de H2: «Tabla `icons` por workspace; el cliente sincroniza `aion-studio-custom-icons` con `/api/icons`; deduplicacion por hash del SVG; cuota por workspace».
+
+### Entregado
+
+**Una biblioteca para el workspace** (`icons`, migracion 8: `key`, `icon jsonb`, `content_hash`, `created_by`, `created_at`). En modo servidor los iconos que sube cualquiera los ve y puede usar todo el que inicia sesion — es la biblioteca del equipo, no la de un navegador —, y cualquiera puede quitar uno: un icono quitado sigue dibujado por cada documento que lo embebio (`model.customIcons` no cambia: exportaciones, enlaces y embeds siguen siendo autocontenidos), asi que lo peor que puede pasar es tener que subirlo otra vez. **Deduplicacion por hash del dibujo** (`sha256` del `viewBox`+cuerpo del SVG o del data URL; el nombre y las palabras no cuentan): subir la misma imagen con otro nombre no crea otra fila, responde con el icono que ya la tiene y el cliente usa ese. Volver a subir bajo la misma clave reemplaza en sitio. **Cuota por workspace**: 200 iconos y 16 MB, contados dentro de la misma transaccion que escribe (bloqueo de tabla: dos subidas a la vez no se cuelan), con error `409 library_full` que el formulario muestra («La biblioteca de iconos esta llena»). Metrica `acgraph_icon_writes_total{operation,result}`.
+
+**Rutas** `GET /api/icons` (lista, mas nuevo primero), `POST /api/icons` (201 si es nuevo, 200 con el existente si se dedujo), `DELETE /api/icons/[key]` (204; 404 si no existe), todas por `withUser` (sesion, mismo origen en escrituras, `observe` con plantilla de ruta), cuerpo validado con `CustomIconSchema.strict()` mas «exactamente una imagen: vector o raster». El servidor no tiene DOM: el saneado del SVG sigue siendo del navegador, como ya lo era para `model.customIcons`.
+
+**Cliente**: `IconLibraryApi` en `HttpDiagramRepository` (`listIcons`/`saveIcon`/`removeIcon`) y `useIconLibraryApi()` junto a `useMembersApi()`. **El mismo `useIconLibrary()`** cambia de trastienda segun el modo y devuelve `{ icons, shared, save, remove }`: en local, `localStorage` como siempre; en servidor, la lista del workspace se pide al montar cada panel que la muestra (abrir el selector es el momento de enterarse de lo que subio un colega), se escribe a traves de la API y se **refleja en el mismo `localStorage`** como espejo — pinta al instante antes de la primera respuesta y resuelve una clave soltada en el lienzo (`currentIconLibrary`) — y todos los paneles siguen de acuerdo por el mismo evento de siempre. Los tres sitios que escribian en `localStorage` a mano (selector, explorador, dialogo) ya no lo hacen; `save` resuelve con **el icono a usar** (que puede ser el gemelo ya existente) y el formulario se queda abierto con la razon cuando no se pudo. Las palabras dicen de quien es la biblioteca: «Iconos del workspace…» en el menu y la paleta, «Iconos del workspace», «Quitar del workspace» y su vacio propio en servidor; «Mis iconos», «Quitar de mis iconos» en local.
+
+**Arreglado de paso**: escribir el nombre justo despues de elegir el archivo lo perdia (la lectura del archivo terminaba despues y rellenaba el nombre con el del archivo): ahora el nombre del archivo solo rellena un nombre aun vacio.
+
+### Pruebas ejecutadas
+
+| Comprobacion                                         | Resultado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                           | 1203 pruebas sin PostgreSQL; **1270 con `TEST_DATABASE_URL`**: `PgIconLibrary` (compartida y atribuida, dedupe por dibujo y reemplazo por clave, hash del dibujo y no de las palabras, cuota con lo que hay, borrar dice si habia), API (`icons`: lo que sube Ada lo lista y quita Bob, dedupe con 200, cuerpo invalido 400, sin sesion 401), puerta de modo (las tres rutas 404 en local), `HttpDiagramRepository` (tres rutas y `library_full`), espejo local (`currentIconLibrary`/`mirrorIconLibrary`), esquema (tabla `icons`, `created_at` timestamptz) |
+| `npm run typecheck`, `lint`, `format:check`, `build` | Correctos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `styles:compare` (build de #20 vs. nuevo)            | **Identico** en modo local (0 diferencias)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Playwright funcional / visual                        | 146 de 146 y 24 de 24 en modo local, sin cambios                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `npm run audit:controls`                             | 100 de 100 (modo local; la subida del explorador y «Mis iconos» siguen igual)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **`npm run audit:roles`** (modo servidor)            | **31 de 31** (antes 26): el dialogo se llama «Iconos del workspace»; la subida de Ada queda en la tabla atribuida a ella; el navegador de Bob la lista; Bob la quita para todos; la siguiente mirada de Ada ya no la tiene. Ejecutado con la app en modo servidor (`DATABASE_URL` + `OIDC_*` + `APP_URL`) contra el PostgreSQL desechable, esquema migrado por la propia app al primer acceso                                                                                                                                                                 |
+
+### Limites conocidos
+
+- Sin roles sobre la biblioteca: cualquiera que inicie sesion añade y quita (no hay roles de workspace hasta H3 #23); `created_by` queda registrado para entonces.
+- Los iconos que un navegador guardo en local **antes** de que el despliegue pasara a modo servidor no se suben solos (tampoco los diagramas locales lo hacen); en servidor el `localStorage` es solo el espejo de la lista del workspace.
+- La lista se refresca al abrir un panel, no en vivo (no hay canal SSE por usuario); la exportacion del workspace no incluye la biblioteca.
+- La auditoria de servidor requiere levantar la app en ese modo a mano; CI sigue sin PostgreSQL.
+
 ## H2 #20 del plan de mejoras / plantillas propias (cerrado, 2026-09-10)
 
 **Base:** `77e00d4` (`main`). Tercera entrega de H2: «"Guardar como punto de partida" desde el editor; las plantillas del usuario aparecen en la portada con miniatura real; se pueden compartir en el workspace (H1 #7)».
@@ -569,6 +601,7 @@ Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comen
 
 ## Siguiente tarea exacta
 
-1. Seguir H2: #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
-2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Confirmar H2 #14 (iconos en servidor) en un commit y `git push`; reconstruir la imagen Docker local.
+2. Seguir H2: #9 comentarios anclados (L), #11 conectores editables (L).
+3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.

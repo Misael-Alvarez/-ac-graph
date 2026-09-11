@@ -16,4 +16,6 @@ export interface MenuProps {
   pick: (id: string) => void;
   chord: (id: string) => string | undefined;
   off: (id: string) => boolean;
+  /** The command's label, when it is the command's to decide (it may depend on the mode). */
+  label: (id: string) => string | undefined;
 }

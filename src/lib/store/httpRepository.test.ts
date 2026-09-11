@@ -168,6 +168,42 @@ describe('HttpDiagramRepository', () => {
     expect(await repo.importWorkspace({ exportedAt: 'T', diagrams: [], versions: [] })).toBe(3);
   });
 
+  it('keeps the workspace icon library over three endpoints', async () => {
+    const vault = {
+      key: 'custom-vault-a1b2c',
+      name: 'Vault',
+      svg: { viewBox: '0 0 24 24', body: '<path d="M2 2h20"/>' },
+      createdAt: '2026-09-10T10:00:00.000Z',
+    };
+    const { fetchImpl, calls } = fakeFetch((call) => {
+      if (call.init.method === 'DELETE') return new Response(null, { status: 204 });
+      if (call.init.method === 'POST') return ok({ ...vault, name: 'Vault (theirs)' }, 200);
+      return ok([vault]);
+    });
+    const repo = new HttpDiagramRepository({ fetch: fetchImpl, baseUrl: 'https://x.example' });
+
+    expect(await repo.listIcons()).toEqual([vault]);
+    expect(calls.at(-1)?.url).toBe('https://x.example/api/icons');
+    // The server may answer with the icon that already held the picture.
+    expect((await repo.saveIcon(vault)).name).toBe('Vault (theirs)');
+    expect(calls.at(-1)?.init.method).toBe('POST');
+    expect(JSON.parse(String(calls.at(-1)?.init.body))).toEqual(vault);
+    await expect(repo.removeIcon('custom-vault-a1b2c')).resolves.toBeUndefined();
+    expect(calls.at(-1)?.url).toBe('https://x.example/api/icons/custom-vault-a1b2c');
+  });
+
+  it('surfaces a full library as its own code', async () => {
+    const { fetchImpl } = fakeFetch(() =>
+      ok({ code: 'library_full', message: 'full', count: 200, bytes: 1 }, 409),
+    );
+    const repo = new HttpDiagramRepository({ fetch: fetchImpl });
+    const thrown = await repo
+      .saveIcon({ key: 'custom-x', name: 'x', createdAt: 't', image: 'data:image/png;base64,AA' })
+      .catch((e: unknown) => e);
+    expect(thrown).toBeInstanceOf(HttpRepositoryError);
+    expect(thrown).toMatchObject({ status: 409, code: 'library_full' });
+  });
+
   it('encodes ids into the path', async () => {
     const { fetchImpl, calls } = fakeFetch(() => ok(record));
     await new HttpDiagramRepository({ fetch: fetchImpl, baseUrl: 'https://x.example' }).get('a/b');

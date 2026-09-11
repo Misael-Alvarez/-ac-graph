@@ -133,6 +133,25 @@ export const MIGRATIONS: readonly Migration[] = [
       alter table diagrams add column if not exists template boolean not null default false;
     `,
   },
+  {
+    id: 8,
+    name: 'icons',
+    // The workspace's own icons: what the browser kept for one person in
+    // local mode, kept here for everyone who signs in. The icon itself is the
+    // same JSON the document embeds (`CustomIconSchema`); the hash of its
+    // picture is what lets the same logo uploaded twice be stored once.
+    sql: `
+      create table if not exists icons (
+        key text primary key,
+        icon jsonb not null,
+        content_hash text not null,
+        created_by text references users (id) on delete set null,
+        created_at timestamptz not null default now()
+      );
+      create index if not exists icons_content_hash_idx on icons (content_hash);
+      create index if not exists icons_created_at_idx on icons (created_at desc);
+    `,
+  },
 ];
 
 /** Arbitrary but fixed: every replica must ask for the same advisory lock. */

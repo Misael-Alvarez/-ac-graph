@@ -57,3 +57,31 @@ export function removeIconFromLibrary(storage: StorageLike, key: string): Custom
   }
   return icons;
 }
+
+/**
+ * In server mode, the workspace's library as last fetched.
+ *
+ * The browser's storage stays in use as a mirror — what paints before the
+ * first answer arrives, and what a drop on the canvas can resolve a key
+ * against — but the list the server gave is the truth while the page lives.
+ * Null before the first fetch, and always in local mode.
+ */
+let remote: CustomIcon[] | null = null;
+
+export function rememberRemoteLibrary(icons: CustomIcon[] | null): void {
+  remote = icons;
+}
+
+/** The library as this page currently knows it, whichever mode it is in. */
+export function currentIconLibrary(storage: StorageLike): CustomIcon[] {
+  return remote ?? readIconLibrary(storage);
+}
+
+/** Writes the mirror; a storage that is full or read-only is left as it was. */
+export function mirrorIconLibrary(storage: StorageLike, icons: CustomIcon[]): void {
+  try {
+    storage.setItem(ICON_LIBRARY_KEY, JSON.stringify(icons));
+  } catch {
+    // The mirror is a convenience; the fetched list is what the page uses.
+  }
+}

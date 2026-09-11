@@ -22,7 +22,7 @@ import {
 import { DEFAULT_VIEWPORT, fitToBox } from '@/lib/editor/viewport';
 import { createEmptyModel } from '@/lib/engine';
 import { useEditor } from '../EditorProvider';
-import { useRepository } from '@/components/app/RepositoryProvider';
+import { useIconLibraryApi, useRepository } from '@/components/app/RepositoryProvider';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
 
 export interface Command {
@@ -71,6 +71,8 @@ export function useCommands(): CommandSet {
   const { doc, ui, view, views, dispatch, dispatchUi, canUndo, canRedo, readOnly, t, title } =
     useEditor();
   const repository = useRepository();
+  // Whose the icon library is: the browser's, or the workspace's in server mode.
+  const sharedIcons = useIconLibraryApi() !== null;
   const selectedIds = useMemo(
     () => new Set(view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id)),
     [view, ui.selectedIds],
@@ -336,7 +338,7 @@ export function useCommands(): CommandSet {
       command('shortcuts', 'action.shortcuts', 'shortcuts', () =>
         dispatchUi({ type: 'setModal', modal: 'shortcuts' }),
       ),
-      command('icons', 'action.icons', 'import', () =>
+      command('icons', sharedIcons ? 'action.iconsShared' : 'action.icons', 'import', () =>
         dispatchUi({ type: 'setModal', modal: 'icons' }),
       ),
       command('find', 'action.find', 'search', () =>
@@ -375,6 +377,7 @@ export function useCommands(): CommandSet {
     stem,
     title,
     repository,
+    sharedIcons,
   ]);
 
   return useMemo(() => {

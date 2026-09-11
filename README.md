@@ -106,6 +106,10 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
 - **A library that keeps up.** Sort by recent edit, name or creation, star what
   matters, and drop any file on the page — a project export, YAML, Mermaid,
   Terraform, a Kubernetes manifest, OpenAPI or a Markdown outline — to import it.
+- **One icon library for the team.** In server mode an icon anyone uploads
+  is kept for the whole workspace, stored once however many times it is
+  uploaded, and offered to every editor; in the browser-only mode the library
+  is the browser's. Either way a diagram embeds the icons it uses.
 - **Decide who is in.** A diagram is the owner's until they share it: from the
   Share dialog they add people by e-mail as editors or viewers, change roles or
   remove them, and the change reaches the other person's screen at once. A
