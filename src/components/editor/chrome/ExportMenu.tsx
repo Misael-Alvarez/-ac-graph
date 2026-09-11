@@ -31,7 +31,7 @@ const EXPORT_THEME_KEY = {
  * along — which keep the menu open so the choice can be seen next to the
  * export it will apply to.
  */
-export function ExportMenu({ menu, onToggle, onClose, pick, chord }: MenuProps) {
+export function ExportMenu({ menu, onToggle, onClose, pick, chord, off }: MenuProps) {
   const { ui, dispatchUi, t } = useEditor();
   return (
     <div className="topbar-menu-host">
@@ -74,6 +74,13 @@ export function ExportMenu({ menu, onToggle, onClose, pick, chord }: MenuProps) 
             label={t('export.pdf')}
             hint={t('export.pdfHint')}
             onSelect={() => pick('exportPdf')}
+          />
+          <MenuItem
+            icon={<PrintIcon size={15} />}
+            label={t('export.pdfViews')}
+            hint={t('export.pdfViewsHint')}
+            disabled={off('exportPdfViews')}
+            onSelect={() => pick('exportPdfViews')}
           />
           <MenuSeparator />
           <MenuGroup label={t('export.document')} />

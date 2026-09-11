@@ -3,7 +3,7 @@ import { serializeDsl, toMermaid } from '@/lib/dsl';
 import { exportToMarkdown } from '@/lib/engine';
 import { canvasTheme } from '@/lib/design/tokens';
 import { diagramToSvgStringClient } from './renderSvgClient';
-import { rasterToPdf, rgbaToRgb } from './pdf';
+import { type RasterPage, rasterToPdf, rastersToPdf, rgbaToRgb } from './pdf';
 import type { DiagramDocumentProps } from '@/components/editor/canvas/DiagramDocument';
 
 function triggerDownload(blob: Blob, filename: string): void {
@@ -82,6 +82,29 @@ export async function downloadPng(options: PngOptions, filename = 'diagram.png')
  * it looks like the screen. 3× pixel ratio at 216 dpi keeps text crisp on paper.
  */
 export async function downloadPdf(options: PngOptions, filename = 'diagram.pdf'): Promise<void> {
+  const bytes = await rasterToPdf(await rasterPage(options, filename.replace(/\.pdf$/i, '')));
+  triggerDownload(new Blob([bytes as BlobPart], { type: 'application/pdf' }), filename);
+}
+
+/**
+ * One PDF, one page per reading of the diagram — every view, in order — so a
+ * presentation can be handed over as a document. Each page is sized to its
+ * own view, at the same print density as the single-page export.
+ */
+export async function downloadPdfPages(
+  pages: readonly PngOptions[],
+  filename = 'diagram.pdf',
+): Promise<void> {
+  const title = filename.replace(/\.pdf$/i, '');
+  const rasters: RasterPage[] = [];
+  for (const [index, options] of pages.entries()) {
+    rasters.push(await rasterPage(options, options.title ?? `${title} ${index + 1}`));
+  }
+  const bytes = await rastersToPdf(rasters, { title });
+  triggerDownload(new Blob([bytes as BlobPart], { type: 'application/pdf' }), filename);
+}
+
+async function rasterPage(options: PngOptions, title: string): Promise<RasterPage> {
   const pixelRatio = options.pixelRatio ?? 3;
   const canvas = await rasterise({ ...options, pixelRatio });
   const ctx = canvas.getContext('2d');
@@ -93,14 +116,13 @@ export async function downloadPdf(options: PngOptions, filename = 'diagram.pdf')
     parseInt(sheet.slice(3, 5), 16),
     parseInt(sheet.slice(5, 7), 16),
   ];
-  const bytes = await rasterToPdf({
+  return {
     width: canvas.width,
     height: canvas.height,
     rgb: rgbaToRgb(data, background),
     dpi: 72 * pixelRatio,
-    title: filename.replace(/\.pdf$/i, ''),
-  });
-  triggerDownload(new Blob([bytes as BlobPart], { type: 'application/pdf' }), filename);
+    title,
+  };
 }
 
 export function downloadMarkdown(model: DiagramModel, filename = 'architecture.md'): void {

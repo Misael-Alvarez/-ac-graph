@@ -84,6 +84,11 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   the SVG carries a spoken description of the diagram, as the canvas does for
   screen readers. A repository chip that names a host is a link, in the editor
   and in the export.
+- **Present it.** `F5` (or More › Present) drops every panel and bar and shows
+  the diagram alone on the theme's background: arrow keys step through the
+  views with the camera gliding between them, a legend names the tones on
+  screen, `Esc` brings the editor back where it was. The Export menu can write
+  one PDF page per view.
 - **Work together.** In server mode every diagram lives in PostgreSQL and every
   editor is live: you see who is in the room, where their cursor is, and their
   saves land on your canvas as one undo step. Two people saving over each other
@@ -124,6 +129,7 @@ the palette hints and the `?` sheet all read that table, so they cannot drift.
 | `V B U G I C H`     | Select, boundary, sub-boundary, group, item, connector, pan |
 | `Space` + drag      | Pan · `⌘` + wheel zooms at the cursor                       |
 | `⌘1` / `⌘0`         | Fit to view / reset zoom                                    |
+| `F5`                | Present · `←` `→` step through views · `Esc` leaves         |
 | `⌘⇧L`               | Auto-layout · `⌘⇧D` theme · `⌘'` grid · `⌘M` minimap        |
 | `?`                 | Every shortcut, spelled for your platform                   |
 

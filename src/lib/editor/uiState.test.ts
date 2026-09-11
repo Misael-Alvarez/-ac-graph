@@ -67,6 +67,26 @@ describe('toggles', () => {
     expect(uiReducer(initialUiState, { type: 'toggleMinimap' }).minimapOpen).toBe(false);
   });
 
+  it('presenting starts a clean room and is never remembered', () => {
+    const busy = {
+      ...initialUiState,
+      selectedIds: new Set(['a']),
+      menu: 'export' as const,
+      paletteOpen: true,
+      findOpen: true,
+      tool: 'group' as const,
+    };
+    const on = uiReducer(busy, { type: 'setPresenting', on: true });
+    expect(on.presenting).toBe(true);
+    expect(on.selectedIds.size).toBe(0);
+    expect(on.menu).toBeNull();
+    expect(on.paletteOpen).toBe(false);
+    expect(on.findOpen).toBe(false);
+    expect(on.tool).toBe('select');
+    expect(uiReducer(on, { type: 'setPresenting', on: false }).presenting).toBe(false);
+    expect('presenting' in toPreferences(on)).toBe(false);
+  });
+
   it('stores viewport, brand and locale', () => {
     const vp = { x: 10, y: 20, zoom: 1.5 };
     expect(uiReducer(initialUiState, { type: 'setViewport', viewport: vp }).viewport).toEqual(vp);

@@ -67,7 +67,12 @@ export function useKeyboard() {
         if (ui.paletteOpen) dispatchUi({ type: 'setPaletteOpen', open: false });
         else if (ui.modal) dispatchUi({ type: 'setModal', modal: null });
         else if (ui.contextMenu) dispatchUi({ type: 'closeContextMenu' });
-        else if (!isTextEntryTarget(e.target)) {
+        else if (ui.presenting) {
+          // Presenting: a step up out of a drilled group first, then the room.
+          if (ui.drillPath.length)
+            dispatchUi({ type: 'drillUpTo', depth: ui.drillPath.length - 1 });
+          else dispatchUi({ type: 'setPresenting', on: false });
+        } else if (!isTextEntryTarget(e.target)) {
           dispatchUi({ type: 'clearSelection' });
           dispatchUi({ type: 'setTool', tool: 'select' });
         }
@@ -198,6 +203,7 @@ export function useKeyboard() {
     ui.paletteOpen,
     ui.modal,
     ui.contextMenu,
+    ui.presenting,
     ui.selectedIds,
     ui.selectedConnectorId,
     ui.activeViewId,

@@ -49,24 +49,23 @@ function concat(parts: Uint8Array[]): Uint8Array {
 }
 
 /** Builds a single-page PDF holding the raster, sized to the image at `dpi`. */
-export async function rasterToPdf({
-  width,
-  height,
-  rgb,
-  dpi = 144,
-  title = 'Diagram',
-}: RasterPage): Promise<Uint8Array> {
-  if (rgb.byteLength !== width * height * 3) {
-    throw new Error('The raster does not match its declared dimensions.');
-  }
-  // PDF points are 1/72 inch.
-  const pageW = (width / dpi) * 72;
-  const pageH = (height / dpi) * 72;
-  // Copied into a fresh buffer: the platform stream API wants a plain
-  // ArrayBuffer, and a view over a SharedArrayBuffer would not do.
-  const owned = new Uint8Array(new ArrayBuffer(rgb.byteLength));
-  owned.set(rgb);
-  const image = await deflate(owned);
+export function rasterToPdf(page: RasterPage): Promise<Uint8Array> {
+  return rastersToPdf([page], { title: page.title });
+}
+
+/**
+ * Builds a PDF with one page per raster, each sized to its image at its `dpi`.
+ *
+ * Objects are numbered so that a single page comes out exactly as it always
+ * did — catalog, pages, page, image, content, info — and every further page
+ * adds its own page/image/content triple before the info dictionary.
+ */
+export async function rastersToPdf(
+  pages: readonly RasterPage[],
+  options: { title?: string } = {},
+): Promise<Uint8Array> {
+  if (!pages.length) throw new Error('A PDF needs at least one page.');
+  const title = options.title ?? pages[0].title ?? 'Diagram';
 
   const objects: Uint8Array[] = [];
   const add = (head: string, stream?: Uint8Array) => {
@@ -78,21 +77,47 @@ export async function rasterToPdf({
     objects.push(concat(parts));
   };
 
-  const content = encoder.encode(`q ${pageW.toFixed(2)} 0 0 ${pageH.toFixed(2)} 0 0 cm /Im0 Do Q`);
+  // Page i (0-based) owns objects 3+3i (page), 4+3i (image) and 5+3i (content).
+  const pageObject = (i: number) => 3 + 3 * i;
+  const infoObject = 3 + 3 * pages.length;
 
   add('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>');
-  add('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
   add(
-    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW.toFixed(2)} ${pageH.toFixed(2)}] ` +
-      `/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
+    `2 0 obj\n<< /Type /Pages /Kids [${pages.map((_, i) => `${pageObject(i)} 0 R`).join(' ')}] ` +
+      `/Count ${pages.length} >>`,
   );
+
+  for (const [i, page] of pages.entries()) {
+    const { width, height, rgb, dpi = 144 } = page;
+    if (rgb.byteLength !== width * height * 3) {
+      throw new Error('The raster does not match its declared dimensions.');
+    }
+    // PDF points are 1/72 inch.
+    const pageW = (width / dpi) * 72;
+    const pageH = (height / dpi) * 72;
+    // Copied into a fresh buffer: the platform stream API wants a plain
+    // ArrayBuffer, and a view over a SharedArrayBuffer would not do.
+    const owned = new Uint8Array(new ArrayBuffer(rgb.byteLength));
+    owned.set(rgb);
+    const image = await deflate(owned);
+    const content = encoder.encode(
+      `q ${pageW.toFixed(2)} 0 0 ${pageH.toFixed(2)} 0 0 cm /Im0 Do Q`,
+    );
+    const [pageId, imageId, contentId] = [pageObject(i), pageObject(i) + 1, pageObject(i) + 2];
+    add(
+      `${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW.toFixed(2)} ${pageH.toFixed(2)}] ` +
+        `/Resources << /XObject << /Im0 ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+    );
+    add(
+      `${imageId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} ` +
+        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${image.byteLength} >>`,
+      image,
+    );
+    add(`${contentId} 0 obj\n<< /Length ${content.byteLength} >>`, content);
+  }
   add(
-    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} ` +
-      `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${image.byteLength} >>`,
-    image,
+    `${infoObject} 0 obj\n<< /Title ${pdfString(title)} /Producer (AC Graph) /Creator (AC Graph) >>`,
   );
-  add(`5 0 obj\n<< /Length ${content.byteLength} >>`, content);
-  add(`6 0 obj\n<< /Title ${pdfString(title)} /Producer (AC Graph) /Creator (AC Graph) >>`);
 
   const header = encoder.encode('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n');
   const offsets: number[] = [];
@@ -108,7 +133,7 @@ export async function rasterToPdf({
     '0000000000 65535 f ',
     ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `),
     'trailer',
-    `<< /Size ${objects.length + 1} /Root 1 0 R /Info 6 0 R >>`,
+    `<< /Size ${objects.length + 1} /Root 1 0 R /Info ${infoObject} 0 R >>`,
     'startxref',
     String(position),
     '%%EOF',

@@ -253,7 +253,8 @@ export function Canvas() {
   const onBackgroundPointerDown = useCallback(
     (e: React.PointerEvent) => {
       takeKeyboard();
-      if (e.button === 1 || spaceHeld || ui.tool === 'pan') {
+      // Presenting: the sheet is something to move, not something to draw on.
+      if (e.button === 1 || spaceHeld || ui.tool === 'pan' || ui.presenting) {
         e.preventDefault();
         tools.startPan(e);
         return;
@@ -279,24 +280,44 @@ export function Canvas() {
           tools.startLasso(e);
       }
     },
-    [ui.tool, ui.viewport, spaceHeld, tools, dispatch, dispatchUi, snap, toLocal, takeKeyboard],
+    [
+      ui.tool,
+      ui.viewport,
+      ui.presenting,
+      spaceHeld,
+      tools,
+      dispatch,
+      dispatchUi,
+      snap,
+      toLocal,
+      takeKeyboard,
+    ],
   );
 
   const onShapePointerDown = useCallback(
     (e: React.PointerEvent, id: string) => {
       takeKeyboard();
+      // Presenting: a press on a card drags the sheet like a press beside it.
+      if (ui.presenting) {
+        if (e.button === 0) {
+          e.stopPropagation();
+          tools.startPan(e);
+        }
+        return;
+      }
       if (ui.tool !== 'select' || spaceHeld || e.button !== 0) return;
       e.stopPropagation();
       if (!e.shiftKey && !ui.selectedIds.has(id)) dispatchUi({ type: 'select', ids: [id] });
       if (e.shiftKey) dispatchUi({ type: 'toggleSelected', id });
       tools.startDrag(e, id);
     },
-    [ui.tool, ui.selectedIds, spaceHeld, tools, dispatchUi, takeKeyboard],
+    [ui.tool, ui.selectedIds, ui.presenting, spaceHeld, tools, dispatchUi, takeKeyboard],
   );
 
   const onShapeClick = useCallback(
     (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
+      if (ui.presenting) return;
       const shape = E.getShape(view, id);
 
       if (ui.tool === 'connector') {
@@ -319,7 +340,7 @@ export function Canvas() {
 
       if (ui.tool === 'select' && !e.shiftKey) dispatchUi({ type: 'select', ids: [id] });
     },
-    [ui.tool, ui.connectorSourceId, view, dispatch, dispatchUi],
+    [ui.tool, ui.connectorSourceId, ui.presenting, view, dispatch, dispatchUi],
   );
 
   const onDrop = useCallback(
@@ -627,7 +648,7 @@ export function Canvas() {
       <p id="canvas-description" className="sr-only">
         {description}
       </p>
-      {doc.model.shapes.length === 0 && <EmptyState />}
+      {doc.model.shapes.length === 0 && !ui.presenting && <EmptyState />}
       <SelectionToolbar />
       <ContextMenu />
     </div>

@@ -24,6 +24,7 @@ import { InsightsPanel } from './chrome/InsightsPanel';
 import { InspectorPanel } from './chrome/InspectorPanel';
 import { Minimap } from './chrome/Minimap';
 import { Modals } from './chrome/Modals';
+import { Presentation } from './chrome/Presentation';
 import { StatusBar } from './chrome/StatusBar';
 import { ServiceBrowser } from './chrome/ServiceBrowser';
 import { ShareDialog } from './chrome/ShareDialog';
@@ -210,10 +211,14 @@ function EditorShell({
     if (theirs) applyRemote(theirs);
   };
 
+  // Presenting: the chrome is not hidden, it is not there — a hidden panel
+  // still listens to the keyboard and still measures against the canvas.
+  const presenting = ui.presenting;
+
   return (
-    <div className="editor-root">
-      <TopBar title={title} status={status} onRename={onRename} collab={collab} />
-      {remoteConflict && (
+    <div className={`editor-root${presenting ? ' is-presenting' : ''}`}>
+      {!presenting && <TopBar title={title} status={status} onRename={onRename} collab={collab} />}
+      {!presenting && remoteConflict && (
         <div className="editor-banner is-signal" role="alert">
           <span className="editor-banner-text">
             {t('live.remoteConflict', {
@@ -237,7 +242,7 @@ function EditorShell({
           </button>
         </div>
       )}
-      {document_.accessRevokedBy !== null && (
+      {!presenting && document_.accessRevokedBy !== null && (
         <div className="editor-banner is-danger" role="alert">
           <span className="editor-banner-text">
             {t('access.revoked', { name: document_.accessRevokedBy || '—' })}
@@ -251,7 +256,7 @@ function EditorShell({
           </button>
         </div>
       )}
-      {collab.deletedBy !== null && (
+      {!presenting && collab.deletedBy !== null && (
         <div className="editor-banner is-danger" role="alert">
           <span className="editor-banner-text">
             {t('live.deleted', { name: collab.deletedBy || '—' })}
@@ -265,12 +270,12 @@ function EditorShell({
           </button>
         </div>
       )}
-      {recoveryUnavailable && (
+      {!presenting && recoveryUnavailable && (
         <p className="editor-banner" role="alert">
           <span className="editor-banner-text">{t('persistence.recoveryUnavailable')}</span>
         </p>
       )}
-      {status === 'error' && !readOnly && (
+      {!presenting && status === 'error' && !readOnly && (
         <div className="editor-banner is-danger" role="alert">
           <span className="editor-banner-text">{t('persistence.failed')}</span>
           <button type="button" className="button" onClick={() => void onRetry().catch(() => {})}>
@@ -281,7 +286,7 @@ function EditorShell({
           </button>
         </div>
       )}
-      {recoveryConflict && (
+      {!presenting && recoveryConflict && (
         <div className="editor-banner" role="alert">
           <span className="editor-banner-text">{t('persistence.conflict')}</span>
           <button
@@ -294,25 +299,31 @@ function EditorShell({
         </div>
       )}
       <div className="editor-split">
-        {ui.browserOpen && <ServiceBrowser />}
+        {!presenting && ui.browserOpen && <ServiceBrowser />}
         <main className="editor-stage">
           <Canvas />
           <RemoteCursors users={collab.users} />
-          <Breadcrumb />
-          <ViewBar />
-          {ui.findOpen && <FindBar />}
-          <ToolDock />
-          <InspectorPanel />
-          <ZoomControls size={size} />
-          <Minimap size={size} />
+          {presenting ? (
+            <Presentation />
+          ) : (
+            <>
+              <Breadcrumb />
+              <ViewBar />
+              {ui.findOpen && <FindBar />}
+              <ToolDock />
+              <InspectorPanel />
+              <ZoomControls size={size} />
+              <Minimap size={size} />
+            </>
+          )}
         </main>
-        {ui.codeOpen && <CodePanel />}
-        {ui.versionsOpen && (
+        {!presenting && ui.codeOpen && <CodePanel />}
+        {!presenting && ui.versionsOpen && (
           <VersionPanel onSnapshot={onSnapshot} onRestore={onRestore} revision={revision} />
         )}
-        {ui.insightsOpen && <InsightsPanel size={size} />}
+        {!presenting && ui.insightsOpen && <InsightsPanel size={size} />}
       </div>
-      <StatusBar status={status} />
+      {!presenting && <StatusBar status={status} />}
 
       <CommandPalette />
       <Modals />

@@ -6,6 +6,7 @@ import {
   connectorTags,
   fitBadges,
   itemBadges,
+  legendFor,
   lifecycleStyle,
   repositoryName,
   repositoryUrl,
@@ -192,5 +193,65 @@ describe('toneColors', () => {
       expect(light.fill).not.toBe(lightCanvas.itemFill);
       expect(dark.text).toMatch(/^#[0-9a-f]{6}$/i);
     }
+  });
+});
+
+describe('legendFor', () => {
+  it('lists each mark once, in card order, and only the kinds of call present', () => {
+    const model = createEmptyModel();
+    addGroup(model, 0, 0);
+    addGroup(model, 600, 0);
+    const items = model.shapes.filter((shape) => shape.type === 'item');
+    items[0].meta = {
+      environment: 'prod',
+      criticality: 'high',
+      lifecycle: 'deprecated',
+      tags: ['x'],
+    };
+    items[1].meta = { environment: 'prod', criticality: 'low', technology: 'Go' };
+    model.connectors.push(
+      {
+        id: 'c1',
+        sourceId: items[0].id,
+        targetId: items[1].id,
+        label: '',
+        style: 'solid',
+        waypoints: [],
+      },
+      {
+        id: 'c2',
+        sourceId: items[1].id,
+        targetId: items[0].id,
+        label: '',
+        style: 'solid',
+        waypoints: [],
+        meta: { kind: 'event' },
+      },
+      {
+        id: 'c3',
+        sourceId: items[1].id,
+        targetId: items[0].id,
+        label: '',
+        style: 'solid',
+        waypoints: [],
+        meta: { kind: 'event' },
+      },
+    );
+    const legend = legendFor(model);
+    expect(legend.badges.map((b) => `${b.kind}:${b.text}`)).toEqual([
+      'environment:prod',
+      'criticality:high',
+      'criticality:low',
+      'lifecycle:deprecated',
+    ]);
+    // Tags and technology are not tones; the legend leaves them out.
+    expect(legend.badges.some((b) => b.kind === 'tag' || b.kind === 'technology')).toBe(false);
+    expect(legend.kinds).toEqual(['sync', 'event']);
+  });
+
+  it('is empty for a bare diagram', () => {
+    const model = createEmptyModel();
+    addGroup(model, 0, 0);
+    expect(legendFor(model)).toEqual({ badges: [], kinds: [] });
   });
 });

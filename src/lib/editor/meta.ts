@@ -1,4 +1,4 @@
-import type { Connector, DiagramModel, EdgeMeta, NodeMeta, Shape } from '@/lib/domain';
+import type { Connector, DiagramModel, EdgeKind, EdgeMeta, NodeMeta, Shape } from '@/lib/domain';
 import { isDarkCanvas, mixHex, type CanvasTheme } from '@/lib/design/tokens';
 
 /**
@@ -344,4 +344,42 @@ export function stripMetadata(model: DiagramModel): DiagramModel {
       connector.meta ? { ...connector, meta: undefined } : connector,
     ),
   };
+}
+
+/** What a legend says about the diagram on screen: the marks in use, and only those. */
+export interface Legend {
+  /** One chip per distinct environment, criticality and lifecycle mark present. */
+  badges: Badge[];
+  /** The kinds of call drawn, in the order the stroke table lists them. */
+  kinds: EdgeKind[];
+}
+
+const LEGEND_KINDS: Badge['kind'][] = ['environment', 'criticality', 'lifecycle'];
+const KIND_ORDER: EdgeKind[] = ['sync', 'async', 'event', 'data', 'dependency'];
+
+/**
+ * The legend for a reading of the diagram.
+ *
+ * A legend that lists every possible mark teaches nothing; one that lists the
+ * marks actually on the canvas explains it. Badges are deduplicated by kind and
+ * word, kept in the order the cards show them; connector kinds appear when at
+ * least one call is of that kind (an unset kind is `sync`).
+ */
+export function legendFor(model: Pick<DiagramModel, 'shapes' | 'connectors'>): Legend {
+  const seen = new Set<string>();
+  const badges: Badge[] = [];
+  for (const shape of model.shapes) {
+    if (shape.type !== 'item') continue;
+    for (const badge of itemBadges(shape)) {
+      if (!LEGEND_KINDS.includes(badge.kind)) continue;
+      const key = `${badge.kind}:${badge.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      badges.push(badge);
+    }
+  }
+  badges.sort((a, b) => LEGEND_KINDS.indexOf(a.kind) - LEGEND_KINDS.indexOf(b.kind));
+  const present = new Set<EdgeKind>();
+  for (const connector of model.connectors) present.add(connector.meta?.kind ?? 'sync');
+  return { badges, kinds: KIND_ORDER.filter((kind) => present.has(kind)) };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { contentBBox, cloneShapes, projectView } from '@/lib/engine';
+import { contentBBox, cloneShapes, projectView, resolveView } from '@/lib/engine';
 import type { ServiceIcon } from '@/lib/editor';
 import type { CustomIcon } from '@/lib/domain';
 import { describeDiagram } from '@/lib/editor/describe';
@@ -12,6 +12,7 @@ import {
   downloadMarkdown,
   downloadMermaid,
   downloadPdf,
+  downloadPdfPages,
   downloadPng,
   downloadProject,
   downloadSvg,
@@ -66,7 +67,8 @@ const EDITING_COMMANDS = new Set([
 ]);
 
 export function useCommands(): CommandSet {
-  const { doc, ui, view, dispatch, dispatchUi, canUndo, canRedo, readOnly, t, title } = useEditor();
+  const { doc, ui, view, views, dispatch, dispatchUi, canUndo, canRedo, readOnly, t, title } =
+    useEditor();
   const selectedIds = useMemo(
     () => new Set(view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id)),
     [view, ui.selectedIds],
@@ -265,6 +267,30 @@ export function useCommands(): CommandSet {
       command('exportPdf', 'export.pdf', 'export', () => {
         downloadPdf(exportOptions(), `${stem}.pdf`).then(() => exported('PDF'), failed);
       }),
+      command(
+        'exportPdfViews',
+        'export.pdfViews',
+        'export',
+        () => {
+          // One page per reading, each drawn from the whole model narrowed to
+          // that view — not from the reading on screen, which may be drilled.
+          const base = exportOptions();
+          const pages = views.map((v) => {
+            const reading = projectView(resolveView(doc.model, v.id));
+            return {
+              ...base,
+              model: ui.exportMeta ? reading : stripMetadata(reading),
+              title: v.name ? `${title} — ${v.name}` : title,
+              description: describeDiagram(reading, t),
+            };
+          });
+          downloadPdfPages(pages, `${stem}.pdf`).then(() => exported('PDF'), failed);
+        },
+        views.length > 1,
+      ),
+      command('present', 'action.present', 'present', () =>
+        dispatchUi({ type: 'setPresenting', on: !ui.presenting }),
+      ),
       command('exportMarkdown', 'action.exportMarkdown', 'export', () => {
         downloadMarkdown(exportOptions().model, `${stem}.md`);
         exported('Markdown');
@@ -306,6 +332,9 @@ export function useCommands(): CommandSet {
   }, [
     t,
     readOnly,
+    views,
+    ui.presenting,
+    ui.exportMeta,
     canUndo,
     canRedo,
     selectedIds,

@@ -8,6 +8,7 @@ import {
   KeyboardIcon,
   MapIcon,
   MoreIcon,
+  PresentIcon,
   SaveIcon,
   TemplateIcon,
   ZoomOutIcon,
@@ -84,6 +85,12 @@ export function MoreMenu({ menu, onToggle, onClose, pick, chord, off }: MenuProp
             shortcut={chord('toggleMinimap')}
             active={ui.minimapOpen}
             onSelect={() => pick('toggleMinimap')}
+          />
+          <MenuItem
+            icon={<PresentIcon size={15} />}
+            label={t('action.present')}
+            shortcut={chord('present')}
+            onSelect={() => pick('present')}
           />
           <MenuItem
             icon={<ImportIcon size={15} />}

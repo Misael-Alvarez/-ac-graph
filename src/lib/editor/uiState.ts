@@ -51,6 +51,11 @@ export interface UiState {
   findOpen: boolean;
   /** Split code/canvas view. */
   codeOpen: boolean;
+  /**
+   * Presenting: no chrome, the canvas full-bleed, arrow keys walk the views.
+   * Never stored — a reload lands back in the editor.
+   */
+  presenting: boolean;
   /** Version history panel. */
   versionsOpen: boolean;
   insightsOpen: boolean;
@@ -95,6 +100,7 @@ export const initialUiState: UiState = {
   paletteOpen: false,
   findOpen: false,
   codeOpen: false,
+  presenting: false,
   versionsOpen: false,
   insightsOpen: false,
   diffHighlight: null,
@@ -126,6 +132,7 @@ export type UiAction =
   | { type: 'setBrand'; brand: BrandMode }
   | { type: 'setExportTheme'; theme: ExportTheme }
   | { type: 'toggleExportMeta' }
+  | { type: 'setPresenting'; on: boolean }
   | { type: 'setLocale'; locale: Locale }
   | { type: 'toggleMinimap' }
   | { type: 'toggleCode' }
@@ -223,6 +230,21 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
 
     case 'toggleExportMeta':
       return { ...state, exportMeta: !state.exportMeta };
+
+    case 'setPresenting':
+      // Whatever was open or selected belongs to editing; the room starts clean.
+      return {
+        ...state,
+        presenting: action.on,
+        menu: null,
+        contextMenu: null,
+        paletteOpen: false,
+        findOpen: false,
+        selectedIds: new Set(),
+        selectedConnectorId: null,
+        connectorSourceId: null,
+        tool: 'select',
+      };
 
     case 'setLocale':
       return { ...state, locale: action.locale };

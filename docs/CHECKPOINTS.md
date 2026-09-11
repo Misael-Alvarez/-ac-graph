@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-10):** **H1 cerrado del todo** (8 de 8 mas las diez victorias rapidas), en `origin/main` hasta `315baaf` (componentes de sistema con 0 diferencias de estilo computado); arbol limpio; contenedor local en http://127.0.0.1:3080 reconstruido con ese commit. Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 (#10 presentacion, #12 notas/texto/regiones, #20 plantillas propias, #14 iconos en servidor, #9 comentarios, #11 conectores).
+> **Checkpoint vigente (2026-09-10):** H1 cerrado del todo (`723e67a` en `origin/main`). **H2 empezado: #10 modo presentacion** entregado hoy, pendiente de commit y push. Contenedor local en http://127.0.0.1:3080 con `315baaf` (reconstruir). Para retomar: `docs/CONTEXTO.md`. Siguiente: H2 #12 notas/texto/regiones, #20 plantillas propias, #14 iconos en servidor, #9 comentarios, #11 conectores.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -457,12 +457,46 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 - El menu contextual y `MenuItem` siguen siendo marcados distintos (`context-menu-item` sin icono ni texto secundario); unificarlos exigiria cambiar el DOM.
 - No hay `@testing-library/react`: las pruebas de render usan `react-dom/client` + `act` en happy-dom (patron de `usePresence.test.ts`).
 
+## H2 #10 del plan de mejoras / modo presentacion (cerrado, 2026-09-10)
+
+**Base:** `723e67a` (`main`). Primera entrega de H2: «Modo presentacion (`F5`/boton): oculta el chrome, fondo del tema, navega por vistas con flechas, muestra titulo y leyenda de tonos; exporta a PDF multipagina (una pagina por vista)».
+
+### Entregado
+
+**Presentar** — `ui.presenting` (nunca persistido; al entrar limpia seleccion, menus, paleta, busqueda y herramienta). Se entra con **F5** (atajo `present`, ambito global, listado en la hoja de atajos en «Vista y paneles»), desde el menu «Mas › Lienzo › Presentar» y desde la paleta ⌘K; se sale con **Esc**, F5 o el boton de la esquina. Mientras se presenta, `EditorShell` **no monta** el chrome — barra, dock, inspector, minimapa, zoom, barra de vistas, migas, busqueda, paneles laterales, barra de estado y avisos — en vez de ocultarlo, para que no queden oyentes de teclado ni medidas fantasma; el lienzo ocupa el escenario completo sobre el fondo del tema. `EditorProvider` trata la presentacion como **solo lectura** (la misma guarda de `dispatch` que un lector), y en el lienzo cualquier arrastre — sobre una tarjeta o al lado — desplaza la hoja, sin seleccion ni redimensionado; el doble clic sigue permitiendo bajar a un grupo y Esc sube antes de salir.
+
+**La capa** (`src/components/editor/chrome/Presentation.tsx`): arriba a la izquierda el titulo del documento y la vista actual; arriba a la derecha salir; abajo al centro el paginador «1 de N» con ‹ › (solo con mas de una vista); abajo a la derecha la **leyenda** de lo que hay en pantalla — un chip por cada marca de entorno, criticidad y ciclo de vida presente, con los mismos tonos de las tarjetas, y una muestra de trazo por cada tipo de llamada dibujado (`legendFor(model)` en `meta.ts`) —; abajo a la izquierda las teclas. **← → / PageUp PageDown / Espacio / Inicio / Fin** recorren las vistas (`viewsOf`, la arquitectura completa primero) y cada cambio encuadra la vista con la camara que se desliza (`fitToBox`, margen 72, zoom maximo 1,6); al entrar se encuadra la vista actual y al salir la camara **vuelve a donde estaba** el autor. Todo en el cristal de los demas controles, en ambos temas.
+
+**PDF multipagina** — `rastersToPdf(pages)` en `pdf.ts` generaliza el escritor (catalogo, paginas, y por pagina la terna pagina/imagen/contenido, informacion al final; una sola pagina produce byte a byte lo de antes); `downloadPdfPages` en `export.ts`; comando `exportPdfViews` («PDF, una pagina por vista», menu Exportar), activo solo con mas de una vista: cada pagina se dibuja del modelo completo estrechado a esa vista (no de la lectura en pantalla, que puede estar profundizada), con titulo «Documento — Vista», respetando tema y metadatos de exportacion.
+
+**Decision de diseno**: se probo un boton en el grupo Lienzo de la barra superior y se retiro. Desplazaba 17 px el centro de la barra y con ello cambiaban las 22 lineas base visuales que incluyen la barra; una entrada en «Mas», la paleta y F5 dan el mismo acceso sin mover nada. Las dos lineas base de la **hoja de atajos** (claro y oscuro) se actualizaron a conciencia: la unica diferencia es la fila nueva «F5 · Presentar».
+
+### Pruebas ejecutadas
+
+| Comprobacion                                         | Resultado                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                           | 1161 pruebas (antes 1155): `setPresenting` limpia la sala y no se persiste; `legendFor` (una marca por palabra en orden de tarjeta, tipos de llamada presentes, vacio en un diagrama sin marcas); `rastersToPdf` (tres paginas con tamanos distintos, `xref` correcto, una pagina identica al escritor antiguo, rechazos)                                                           |
+| `npm run typecheck`, `lint`, `format:check`, `build` | Correctos                                                                                                                                                                                                                                                                                                                                                                           |
+| `styles:compare` (build anterior vs. nuevo)          | Diferencias solo en los estados con filas nuevas: hoja de atajos (F5), paleta (comando), menus Mas y Exportar (items). La barra superior identica tras retirar el boton                                                                                                                                                                                                             |
+| Playwright funcional                                 | **139 de 139** (3 nuevas en `e2e/present.spec.ts`: F5 quita el chrome, contador «1 de 2», leyenda visible, camara encuadra, ← → Inicio y boton recorren, arrastrar desplaza la hoja sin inspector, Esc devuelve chrome, vista y camara; menu Mas y paleta presentan; PDF con `/Count 2` y dos `/Type /Page`; con una vista el PDF por vistas esta deshabilitado y no hay paginador) |
+| Playwright visual                                    | 24 de 24 tras actualizar las 2 de la hoja de atajos                                                                                                                                                                                                                                                                                                                                 |
+| `npm run audit:controls`                             | **88 de 88** (antes 83): Mas › Presentar quita el chrome, Esc lo devuelve, F5 presenta, el boton de salir vuelve, F5 vuelve; el bucle de exportacion toma el primer item «PDF» ahora que hay dos                                                                                                                                                                                    |
+| Capturas revisadas                                   | Presentacion en oscuro y claro con titulo, vista, paginador, leyenda (PROD, CRITICAL, HIGH, MEDIUM, DEPRECATED · sync, async, event) y pista de teclas                                                                                                                                                                                                                              |
+
+### Limites conocidos
+
+- No hay pantalla completa del navegador (`requestFullscreen`); la presentacion ocupa la ventana. F11 del navegador la complementa.
+- La leyenda cubre entorno, criticidad, ciclo de vida y tipo de llamada; no tecnologia, responsable, repositorio ni etiquetas (son texto, no tonos).
+- El PDF por vistas es raster como el PDF sencillo: sin enlaces ni marcadores de pagina.
+- Sin estado visual capturado de la presentacion (anadir una linea base es decision humana); las capturas de revision estan en la carpeta temporal.
+
 ## CP2, CP4 a CP9: pendientes
 
 Orden previsto: F2 (editor general y flowchart), F4 (biblioteca de equipo, comentarios, publicaciones), F5, F6, F7 (CRDT y offline) y F8 (AWS). Ver `PLAN_MAESTRO.md`, seccion 9.
 
 ## Siguiente tarea exacta
 
-1. H1 cerrado del todo. Siguiente segun `PLAN_MEJORAS.md`: **H2** — #10 presentacion (M), #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S, ya puede apoyarse en los roles), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
-2. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
-3. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.
+1. Confirmar H2 #10 (presentacion) en un commit y `git push`; reconstruir la imagen Docker local.
+2. Seguir H2: #12 notas/texto/regiones (L, primer paso de F2), #20 plantillas propias (S), #14 iconos en servidor (M), #9 comentarios anclados (L), #11 conectores editables (L).
+3. Dar de alta el provider en Authentik siguiendo `docs/AUTHENTIK.md` cuando el usuario lo pida (hoy no existe), y probar el login de extremo a extremo.
+4. Abrir F2 (editor general) por las notas/texto/regiones de `PLAN_MEJORAS.md` H2 #12, sin romper la familia cloud.

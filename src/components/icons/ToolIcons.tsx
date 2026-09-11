@@ -438,6 +438,15 @@ export const StarIcon = ({ filled = false, ...p }: IconProps & { filled?: boolea
   </Icon>
 );
 
+/** A screen with a play mark: the diagram shown, not edited. */
+export const PresentIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="4.5" width="18" height="12" rx="2" />
+    <path d="M10 8.2v4.6l4-2.3z" fill="currentColor" stroke="none" />
+    <path d="M8 20h8" />
+  </Icon>
+);
+
 export const LockIcon = (p: IconProps) => (
   <Icon {...p}>
     <rect x="5" y="10.5" width="14" height="10" rx="2" />

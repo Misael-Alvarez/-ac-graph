@@ -48,6 +48,7 @@ const en = {
   'action.zoomIn': 'Zoom in',
   'action.zoomOut': 'Zoom out',
   'action.zoomFit': 'Fit to view',
+  'action.present': 'Present',
   'action.zoomReset': 'Reset zoom',
   'action.toggleTheme': 'Toggle dark mode',
   'action.toggleGrid': 'Toggle grid snap',
@@ -460,6 +461,8 @@ const en = {
   'export.svgHint': 'Vector, icons inlined, scales anywhere',
   'export.pdf': 'PDF',
   'export.pdfHint': 'One page sized to the diagram, print density',
+  'export.pdfViews': 'PDF, one page per view',
+  'export.pdfViewsHint': 'Every view of the diagram, in order',
   'export.markdown': 'Markdown',
   'export.markdownHint': 'Inventory and connections, for a README',
   'export.mermaid': 'Mermaid',
@@ -569,6 +572,16 @@ const en = {
   'a11y.callLabelled': '{from} to {to} ({label})',
   'a11y.more': 'and {count} more',
   'a11y.untitled': 'untitled',
+
+  'present.title': 'Presentation',
+  'present.exit': 'Exit the presentation',
+  'present.previous': 'Previous view',
+  'present.next': 'Next view',
+  'present.counter': '{index} of {total}',
+  'present.legend': 'Legend',
+  'present.calls': 'Calls',
+  'present.hintMove': 'views',
+  'present.hintExit': 'exit',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -610,6 +623,7 @@ const es: Record<MessageKey, string> = {
   'action.zoomIn': 'Acercar',
   'action.zoomOut': 'Alejar',
   'action.zoomFit': 'Ajustar a la vista',
+  'action.present': 'Presentar',
   'action.zoomReset': 'Restablecer zoom',
   'action.toggleTheme': 'Modo oscuro',
   'action.toggleGrid': 'Ajuste a la cuadrícula',
@@ -1027,6 +1041,8 @@ const es: Record<MessageKey, string> = {
   'export.svgHint': 'Vectorial, iconos incluidos, escala sin pérdida',
   'export.pdf': 'PDF',
   'export.pdfHint': 'Una página al tamaño del diagrama, calidad de impresión',
+  'export.pdfViews': 'PDF, una página por vista',
+  'export.pdfViewsHint': 'Todas las vistas del diagrama, en orden',
   'export.markdown': 'Markdown',
   'export.markdownHint': 'Inventario y conexiones, para un README',
   'export.mermaid': 'Mermaid',
@@ -1137,6 +1153,16 @@ const es: Record<MessageKey, string> = {
   'a11y.callLabelled': '{from} a {to} ({label})',
   'a11y.more': 'y {count} más',
   'a11y.untitled': 'sin título',
+
+  'present.title': 'Presentación',
+  'present.exit': 'Salir de la presentación',
+  'present.previous': 'Vista anterior',
+  'present.next': 'Vista siguiente',
+  'present.counter': '{index} de {total}',
+  'present.legend': 'Leyenda',
+  'present.calls': 'Llamadas',
+  'present.hintMove': 'vistas',
+  'present.hintExit': 'salir',
 };
 
 export const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, es };

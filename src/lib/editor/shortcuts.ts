@@ -67,6 +67,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     titleKey: 'shortcuts.view',
     items: [
       { id: 'zoomFit', keys: 'Mod+1', labelKey: 'action.zoomFit', scope: 'canvas' },
+      { id: 'present', keys: 'F5', labelKey: 'action.present', scope: 'global' },
       { id: 'zoomReset', keys: 'Mod+0', labelKey: 'action.zoomReset', scope: 'canvas' },
       { id: 'toggleGrid', keys: "Mod+'", labelKey: 'action.toggleGrid', scope: 'canvas' },
       { id: 'toggleMinimap', keys: 'Mod+M', labelKey: 'action.toggleMinimap', scope: 'canvas' },

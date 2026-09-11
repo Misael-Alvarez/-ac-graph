@@ -143,7 +143,11 @@ for (const item of ['PNG', 'SVG', 'PDF', 'Markdown', 'Mermaid', 'YAML']) {
   await settle(200);
   const [dl] = await Promise.all([
     page.waitForEvent('download', { timeout: 8000 }).catch(() => null),
-    page.getByRole('menuitem', { name: new RegExp(`^${item}`) }).click(),
+    // `.first()`: "PDF" is also the start of "PDF, una página por vista".
+    page
+      .getByRole('menuitem', { name: new RegExp(`^${item}`) })
+      .first()
+      .click(),
   ]);
   await settle(200);
   check(`exportar: ${item} descarga`, !!dl, dl ? await dl.suggestedFilename() : 'sin descarga');
@@ -242,6 +246,36 @@ for (const [name, expectSel] of [
   await settle(200);
   await page.getByRole('menuitem', { name: /Minimapa/ }).click();
   await settle();
+}
+// Presenting: the menu item, the top bar button and F5 all take the chrome away and bring it back
+{
+  await page.locator('.topbar .icon-button[aria-label="Más"]').click();
+  await settle(200);
+  await page.getByRole('menuitem', { name: /^Presentar/ }).click();
+  await settle(500);
+  check(
+    'más: Presentar quita el chrome',
+    (await page.locator('.editor-root.is-presenting').count()) === 1 &&
+      (await page.locator('.topbar').count()) === 0 &&
+      (await page.locator('.presentation-title').count()) === 1,
+  );
+  await page.keyboard.press('Escape');
+  await settle(500);
+  check('presentar: Escape devuelve el chrome', (await page.locator('.topbar').count()) === 1);
+  await page.keyboard.press('F5');
+  await settle(400);
+  check('teclado: F5 presenta', (await page.locator('.editor-root.is-presenting').count()) === 1);
+  await page.locator('.presentation-exit').click();
+  await settle(400);
+  check(
+    'presentar: el botón de salir vuelve',
+    (await page.locator('.editor-root.is-presenting').count()) === 0,
+  );
+  await page.keyboard.press('F5');
+  await settle(400);
+  await page.keyboard.press('F5');
+  await settle(400);
+  check('teclado: F5 vuelve', (await page.locator('.editor-root.is-presenting').count()) === 0);
 }
 // Zoom controls & minimap sync
 {

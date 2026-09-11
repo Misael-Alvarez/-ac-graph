@@ -79,8 +79,10 @@ export function EditorProvider({
   children: ReactNode;
 }) {
   const [doc, rawDispatch] = useReducer(docReducer, initialModel, initialDocState);
-  const dispatch = useMemo(() => guardDispatch(rawDispatch, readOnly), [rawDispatch, readOnly]);
   const [ui, dispatchUi] = useReducer(uiReducer, initialUiState);
+  // A presentation is read-only for its duration, whoever is presenting.
+  const locked = readOnly || ui.presenting;
+  const dispatch = useMemo(() => guardDispatch(rawDispatch, locked), [rawDispatch, locked]);
 
   // Preferences are read after mount so the server and client render the same
   // markup; reading localStorage during render would cause a hydration mismatch.
@@ -185,13 +187,13 @@ export function EditorProvider({
       dispatchUi,
       collisions,
       selectedShape,
-      canUndo: !readOnly && canUndo(doc),
-      canRedo: !readOnly && canRedo(doc),
-      readOnly,
+      canUndo: !locked && canUndo(doc),
+      canRedo: !locked && canRedo(doc),
+      readOnly: locked,
       title,
       t,
     }),
-    [doc, ui, view, views, activeView, dispatch, collisions, selectedShape, readOnly, title, t],
+    [doc, ui, view, views, activeView, dispatch, collisions, selectedShape, locked, title, t],
   );
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;
