@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** `main` en `3026f05` con la entrega de **H2 #11 conectores editables sin commit** (38 archivos modificados + `e2e/connectors.spec.ts` y `ConnectorHandles.tsx` nuevos; verificación completa hecha, incluidas las 2 líneas base visuales de `inspector for a connection` aceptadas a conciencia; ver `CHECKPOINTS.md`). Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio en `7c72a21` (H2 #11 conectores editables; las 2 líneas base visuales de `inspector for a connection` aceptadas a conciencia). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -36,7 +36,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `29e79f6` — Record the icons commit in the context and the checkpoint log
   - `0bb02b1` — Talk about the drawing: comment threads pinned to shapes and the sheet, live, outside the model
   - `3026f05` — Record the comments commit in the context and the checkpoint log
-  - _(sin commit)_ — H2 #11: conectores editables (rutas del autor, puertos, etiqueta reubicable, codos, grosor y color)
+  - `7c72a21` — Draw the line yourself: routes, ports, labels, elbows, weight and colour per connector, kept through views and code
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel

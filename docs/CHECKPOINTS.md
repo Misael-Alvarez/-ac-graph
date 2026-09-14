@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) y #11 conectores editables (en el arbol de trabajo sobre `3026f05`, verificado, sin commit)**. Contenedor local en http://127.0.0.1:3080 con la imagen de `0bb02b1` (Docker parado en esta sesion; no reconstruido). Para retomar: `docs/CONTEXTO.md`. Siguiente: lo que queda de H2 sin marcar (#15 iconos Azure/OCI, #16 importadores, #17 exportaciones, #18/#19 IA).
+> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) y #11 conectores editables (`7c72a21`)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 con la imagen de `0bb02b1` (Docker parado en esta sesion; no reconstruido). Para retomar: `docs/CONTEXTO.md`. Siguiente: lo que queda de H2 sin marcar (#15 iconos Azure/OCI, #16 importadores, #17 exportaciones, #18/#19 IA).
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -459,7 +459,7 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 
 ## H2 #11 del plan de mejoras / conectores editables (cerrado, 2026-09-14)
 
-**Base:** `3026f05` (`main`). Sexta entrega de H2: «Puntos de paso arrastrables, reruteo automatico al soltar, etiquetas desplazables a lo largo del trazo, eleccion de codo (ortogonal/curvo), grosor y color por conector. Quita el solape de etiquetas con bordes de grupo». Trabajo en el arbol, sin commit al escribir esto.
+**Base:** `3026f05` (`main`). Sexta entrega de H2: «Puntos de paso arrastrables, reruteo automatico al soltar, etiquetas desplazables a lo largo del trazo, eleccion de codo (ortogonal/curvo), grosor y color por conector. Quita el solape de etiquetas con bordes de grupo». Commit `7c72a21`.
 
 ### Entregado
 
