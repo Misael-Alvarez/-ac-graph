@@ -13,12 +13,15 @@ import { RuleSchema } from '@/lib/rules/schema';
 /**
  * Bumped whenever a stored model needs a migration.
  *
- * 4: `region`, `note` and `text` shapes. Additive, so every earlier document
- * reads unchanged and is re-stamped on the way in; a document written by a
- * *later* build is refused rather than opened with whatever this build happens
- * to understand of it.
+ * 4: `region`, `note` and `text` shapes.
+ * 5: connectors with a route of the author's (`manual`), chosen ports, a label
+ *    placed along the line, a colour, a weight and an elbow style.
+ * Every change so far is additive, so every earlier document reads unchanged
+ * and is re-stamped on the way in; a document written by a *later* build is
+ * refused rather than opened with whatever this build happens to understand
+ * of it.
  */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * What a shape is, in paint order.
@@ -47,6 +50,10 @@ export function isDecorative(shape: { type: string }): boolean {
 }
 export const BoundaryVariantSchema = z.enum(['outer', 'sub']);
 export const ConnectorStyleSchema = z.enum(['solid', 'dashed']);
+/** The face of a shape a connector leaves from or arrives at. */
+export const PortSchema = z.enum(['N', 'S', 'E', 'W']);
+export const ConnectorWeightSchema = z.enum(['thin', 'regular', 'bold']);
+export const ConnectorCurveSchema = z.enum(['rounded', 'orthogonal']);
 export const StackedGapSchema = z.enum(['tight', 'wide']);
 export const CloudProviderSchema = z.enum(['aws', 'azure', 'gcp', 'oci', 'ibm', 'aion', 'generic']);
 
@@ -220,7 +227,27 @@ export const ConnectorSchema = z.object({
   targetId: z.string(),
   label: z.string().default(''),
   style: ConnectorStyleSchema.default('solid'),
+  /** The whole polyline, ends included: the router's, or the author's when `manual`. */
   waypoints: z.array(PointSchema).default([]),
+  /**
+   * The route is the author's. The router then keeps it — re-anchoring the
+   * ends when a shape moves, sliding the whole line when both do — instead of
+   * drawing its own; absent, every move redraws the line from scratch.
+   */
+  manual: z.boolean().optional(),
+  /** Faces the line must use at each end; absent lets the router choose. */
+  sourcePort: PortSchema.optional(),
+  targetPort: PortSchema.optional(),
+  /**
+   * Where the label sits along the line, 0 at the source and 1 at the target;
+   * absent puts it in the middle of the longest segment, as it always was.
+   */
+  labelAt: z.number().min(0).max(1).optional(),
+  /** A colour of the author's for the line and its head; absent is the theme's. */
+  color: z.string().optional(),
+  weight: ConnectorWeightSchema.optional(),
+  /** Absent keeps the existing rounded elbows. */
+  curve: ConnectorCurveSchema.optional(),
   meta: EdgeMetaSchema.optional(),
 });
 
@@ -295,6 +322,9 @@ export type EdgeMeta = z.infer<typeof EdgeMetaSchema>;
 export type ShapeType = z.infer<typeof ShapeTypeSchema>;
 export type BoundaryVariant = z.infer<typeof BoundaryVariantSchema>;
 export type ConnectorStyle = z.infer<typeof ConnectorStyleSchema>;
+export type Port = z.infer<typeof PortSchema>;
+export type ConnectorWeight = z.infer<typeof ConnectorWeightSchema>;
+export type ConnectorCurve = z.infer<typeof ConnectorCurveSchema>;
 export type StackedGap = z.infer<typeof StackedGapSchema>;
 export type CloudProvider = z.infer<typeof CloudProviderSchema>;
 export type IconRef = z.infer<typeof IconRefSchema>;

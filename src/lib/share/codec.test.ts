@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TEMPLATES } from '@/lib/editor/templates';
-import { createEmptyModel, routeAllConnectors } from '@/lib/engine';
+import { createEmptyModel, routeAllConnectors, setRoute } from '@/lib/engine';
 import { parseDsl } from '@/lib/dsl';
 import {
   MAX_PAYLOAD_LENGTH,
@@ -35,7 +35,7 @@ describe('encodeDiagram / decodeDiagram', () => {
     expect(encodeURIComponent(payload)).toBe(payload);
   });
 
-  it('drops waypoints, which the router recomputes anyway', async () => {
+  it('drops the router\u2019s waypoints, which come back on load, and keeps the author\u2019s', async () => {
     const payload = await encodeDiagram(sample);
     const restored = await decodeDiagram(payload);
     expect(restored.connectors.every((c) => c.waypoints.length === 0)).toBe(true);
@@ -43,6 +43,22 @@ describe('encodeDiagram / decodeDiagram', () => {
     // And they come back the moment the diagram is routed.
     routeAllConnectors(restored);
     expect(restored.connectors.every((c) => c.waypoints.length >= 2)).toBe(true);
+
+    // A route somebody drew travels, rounded to whole pixels.
+    const drawn = structuredClone(sample);
+    drawn.connectors[0].manual = true;
+    drawn.connectors[0].waypoints = [
+      { x: 10.4, y: 20.6 },
+      { x: 300.2, y: 20.6 },
+      { x: 300.2, y: 400 },
+    ];
+    const back = await decodeDiagram(await encodeDiagram(drawn));
+    expect(back.connectors[0].manual).toBe(true);
+    expect(back.connectors[0].waypoints).toEqual([
+      { x: 10, y: 21 },
+      { x: 300, y: 21 },
+      { x: 300, y: 400 },
+    ]);
   });
 
   it('compresses well enough for every built-in template to fit', async () => {
@@ -51,6 +67,21 @@ describe('encodeDiagram / decodeDiagram', () => {
       expect(payload.length, template.id).toBeLessThan(MAX_PAYLOAD_LENGTH);
     }
   });
+
+  it.each(['rounded', 'orthogonal'] as const)(
+    'preserves a manual line and curve %s through viewer rerouting',
+    async (curve) => {
+      const model = structuredClone(sample);
+      const line = model.connectors[0];
+      setRoute(model, line, [line.waypoints[0], line.waypoints.at(-1)!]);
+      Object.assign(line, { curve, color: '#123456', weight: 'bold', labelAt: 0.2549 });
+      const back = await decodeDiagram(await encodeDiagram(model));
+      for (let i = 0; i < 3; i++) {
+        routeAllConnectors(back);
+        expect(back.connectors[0]).toEqual(line);
+      }
+    },
+  );
 
   it('is a fraction of the raw JSON, and compresses better the larger it gets', async () => {
     const ratio = async (m: Parameters<typeof encodeDiagram>[0]) =>

@@ -43,12 +43,13 @@ export function pasteShapes(
   }
 
   for (const c of data.connectors) {
+    // Everything the line was — its words, its kind, its faces, its colour,
+    // and a route of the author's — comes along; only the ids are new.
     model.connectors.push({
+      ...structuredClone(c),
       id: uid('cn'),
       sourceId: idMap.get(c.sourceId) ?? c.sourceId,
       targetId: idMap.get(c.targetId) ?? c.targetId,
-      label: c.label,
-      style: c.style,
       waypoints: c.waypoints.map((p) => ({ x: p.x + offsetX, y: p.y + offsetY })),
     });
   }

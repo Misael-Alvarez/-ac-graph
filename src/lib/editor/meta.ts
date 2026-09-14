@@ -1,5 +1,5 @@
 import type { Connector, DiagramModel, EdgeKind, EdgeMeta, NodeMeta, Shape } from '@/lib/domain';
-import { isDarkCanvas, mixHex, type CanvasTheme } from '@/lib/design/tokens';
+import { isColor, isDarkCanvas, mixHex, type CanvasTheme } from '@/lib/design/tokens';
 
 /**
  * How the facts recorded about a service or a call are drawn on the canvas.
@@ -273,7 +273,15 @@ export interface StrokeStyle {
  * a short dash: nothing travels along it at runtime. An explicit `dashed`
  * style set by hand wins over the kind; the author asked for it.
  */
-export function strokeFor(connector: Pick<Connector, 'style' | 'meta'>): StrokeStyle {
+export function strokeFor(connector: Pick<Connector, 'style' | 'meta' | 'weight'>): StrokeStyle {
+  const base = baseStroke(connector);
+  // The author's weight scales what the kind gave: a bold data flow is still
+  // heavier than a bold dependency.
+  const factor = connector.weight === 'thin' ? 0.7 : connector.weight === 'bold' ? 1.6 : 1;
+  return factor === 1 ? base : { ...base, width: Math.round(base.width * factor * 10) / 10 };
+}
+
+function baseStroke(connector: Pick<Connector, 'style' | 'meta'>): StrokeStyle {
   if (connector.style === 'dashed') return { dasharray: '7 5', width: 1.8 };
   switch (connector.meta?.kind) {
     case 'async':
@@ -287,6 +295,20 @@ export function strokeFor(connector: Pick<Connector, 'style' | 'meta'>): StrokeS
     default:
       return { width: 1.8 };
   }
+}
+
+/** The colours the author gave connectors, for the arrowheads a document needs. */
+export function connectorColorsIn(model: Pick<DiagramModel, 'connectors'>): string[] {
+  const colours = new Set<string>();
+  for (const connector of model.connectors) {
+    if (isColor(connector.color)) colours.add(connector.color.toLowerCase());
+  }
+  return [...colours];
+}
+
+/** The id of the arrowhead drawn in a colour: `arrowhead-c-ff9900`. */
+export function arrowheadIdFor(color: string): string {
+  return `arrowhead-c-${color.replace('#', '').toLowerCase()}`;
 }
 
 const DATA_CLASS_TONE: Record<NonNullable<EdgeMeta['dataClass']>, Tone> = {

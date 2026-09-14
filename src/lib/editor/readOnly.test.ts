@@ -17,6 +17,21 @@ describe('read-only guard', () => {
       { type: 'moveShapes', ids: ['a'], dx: 1, dy: 1, viewId: null },
       { type: 'setShapeProps', id: 'a', patch: { title: 'x' } },
       { type: 'addConnector', sourceId: 'a', targetId: 'b' },
+      {
+        type: 'setConnectorRoute',
+        id: 'c',
+        waypoints: [
+          { x: 0, y: 0 },
+          { x: 100, y: 100 },
+        ],
+        viewId: null,
+      },
+      { type: 'resetConnectorRoute', id: 'c' },
+      {
+        type: 'setConnectorProps',
+        id: 'c',
+        patch: { sourcePort: 'N', labelAt: 0.7, color: '#ff9900' },
+      },
       { type: 'autoLayout', viewId: null },
       { type: 'addView', name: 'v', from: null },
       { type: 'undo' },

@@ -8,6 +8,7 @@ import {
   focusSubtree,
   getShape,
   resolveView,
+  setRoute,
 } from '@/lib/engine';
 import { modelWith } from '@/lib/engine/testUtils';
 import type { EditorAction } from './actions';
@@ -671,6 +672,158 @@ describe('reverseConnector', () => {
     const { state } = withOneGroup();
     expect(run(state, { type: 'reverseConnector', id: 'ghost' })).toBe(state);
   });
+
+  it('turns the faces, the label and a hand-drawn route with the arrow', () => {
+    let state = initialDocState(createEmptyModel());
+    state = run(state, { type: 'addGroup', x: 0, y: 0 }, { type: 'addGroup', x: 900, y: 0 });
+    const items = state.model.shapes.filter((s) => s.type === 'item');
+    state = run(state, { type: 'addConnector', sourceId: items[0].id, targetId: items[1].id });
+    const id = state.model.connectors[0].id;
+    state = run(state, {
+      type: 'setConnectorProps',
+      id,
+      patch: { sourcePort: 'S', targetPort: 'N', labelAt: 0.25 },
+    });
+    const drawn = state.model.connectors[0].waypoints;
+    state = run(state, { type: 'setConnectorRoute', id, waypoints: drawn });
+    const before = state.model.connectors[0];
+    const after = run(state, { type: 'reverseConnector', id }).model.connectors[0];
+    expect(after.sourcePort).toBe('N');
+    expect(after.targetPort).toBe('S');
+    expect(after.labelAt).toBe(0.75);
+    expect(after.manual).toBe(true);
+    expect(after.waypoints).toEqual([...before.waypoints].reverse());
+  });
+});
+
+describe('routes and faces', () => {
+  it('moves a manual route with both shapes and restores it exactly through undo and redo', () => {
+    const model = modelWith([
+      { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+      { id: 'b', x: 400, y: 300, w: 100, h: 100 },
+    ]);
+    const line = addConnector(model, 'a', 'b');
+    setRoute(model, line, [
+      { x: 100, y: 50 },
+      { x: 200, y: 50 },
+      { x: 200, y: 350 },
+      { x: 400, y: 350 },
+    ]);
+    const state = initialDocState(model);
+    const moved = run(state, {
+      type: 'moveShapes',
+      ids: ['a', 'b'],
+      dx: 300,
+      dy: 400,
+      viewId: null,
+    });
+    expect(moved.model.connectors[0].waypoints).toEqual(
+      line.waypoints.map((p) => ({ x: p.x + 300, y: p.y + 400 })),
+    );
+    expect(moved.past).toHaveLength(1);
+    const undone = run(moved, { type: 'undo' });
+    expect(undone.model).toEqual(model);
+    expect(run(undone, { type: 'redo' }).model).toEqual(moved.model);
+  });
+
+  it('reverses an unpinned diagonal route without changing its geometry', () => {
+    const model = modelWith([
+      { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+      { id: 'b', x: 400, y: 400, w: 100, h: 100 },
+    ]);
+    const line = addConnector(model, 'a', 'b');
+    setRoute(model, line, [
+      { x: 100, y: 50 },
+      { x: 400, y: 450 },
+    ]);
+    line.labelAt = 0.25;
+    line.curve = 'orthogonal';
+    const state = initialDocState(model);
+    const reversed = run(state, { type: 'reverseConnector', id: line.id });
+    expect(reversed.model.connectors[0]).toEqual({
+      ...line,
+      sourceId: 'b',
+      targetId: 'a',
+      sourcePort: undefined,
+      targetPort: undefined,
+      labelAt: 0.75,
+      waypoints: [...line.waypoints].reverse(),
+    });
+    expect(run(reversed, { type: 'undo' }).model).toEqual(model);
+    expect(run(reversed, { type: 'reverseConnector', id: line.id }).model).toEqual(model);
+  });
+
+  function connected() {
+    let state = initialDocState(createEmptyModel());
+    state = run(state, { type: 'addGroup', x: 0, y: 0 }, { type: 'addGroup', x: 900, y: 600 });
+    const items = state.model.shapes.filter((s) => s.type === 'item');
+    state = run(state, { type: 'addConnector', sourceId: items[0].id, targetId: items[1].id });
+    return { state, id: state.model.connectors[0].id, items };
+  }
+
+  it('a fixed face redraws the line; a hand-drawn route is kept through a move and undone in one step', () => {
+    const { state, id, items } = connected();
+    const routed = run(state, { type: 'setConnectorProps', id, patch: { sourcePort: 'N' } });
+    const line = routed.model.connectors[0];
+    expect(line.waypoints[0]).toEqual({ x: items[0].x + items[0].w / 2, y: items[0].y });
+
+    const bent = run(routed, {
+      type: 'setConnectorRoute',
+      id,
+      waypoints: [
+        line.waypoints[0],
+        { x: line.waypoints[0].x, y: -200 },
+        { x: 2000, y: -200 },
+        line.waypoints[line.waypoints.length - 1],
+      ],
+    });
+    expect(bent.model.connectors[0].manual).toBe(true);
+    expect(bent.model.connectors[0].waypoints).toHaveLength(4);
+
+    const group = bent.model.shapes.find((s) => s.type === 'group')!;
+    const moved = run(bent, { type: 'moveShapes', ids: [group.id], dx: 50, dy: 0, viewId: null });
+    const kept = moved.model.connectors[0];
+    expect(kept.manual).toBe(true);
+    expect(kept.waypoints[0].x).toBe(items[0].x + items[0].w / 2 + 50);
+    expect(kept.waypoints[2]).toEqual({ x: 2000, y: -200 });
+
+    const undone = run(moved, { type: 'undo' }, { type: 'undo' });
+    expect(undone.model.connectors[0].manual).toBeUndefined();
+    expect(undone.model.connectors[0].waypoints).toEqual(line.waypoints);
+  });
+
+  it('a reset gives the line back to the router', () => {
+    const { state, id } = connected();
+    const bent = run(state, {
+      type: 'setConnectorRoute',
+      id,
+      waypoints: [
+        { x: 0, y: 0 },
+        { x: 5000, y: 5000 },
+        { x: 1, y: 1 },
+      ],
+    });
+    expect(bent.model.connectors[0].manual).toBe(true);
+    const reset = run(bent, { type: 'resetConnectorRoute', id });
+    expect(reset.model.connectors[0].manual).toBeUndefined();
+    expect(reset.model.connectors[0].waypoints).toEqual(state.model.connectors[0].waypoints);
+  });
+
+  it('colour, weight and label place are plain properties and reroute nothing', () => {
+    const { state, id } = connected();
+    const before = state.model.connectors[0].waypoints;
+    const styled = run(state, {
+      type: 'setConnectorProps',
+      id,
+      patch: { color: '#ff9900', weight: 'bold', labelAt: 0.2 },
+    });
+    expect(styled.model.connectors[0]).toMatchObject({
+      color: '#ff9900',
+      weight: 'bold',
+      labelAt: 0.2,
+    });
+    expect(styled.model.connectors[0].waypoints).toBe(before);
+  });
 });
 
 describe('views', () => {
@@ -796,6 +949,133 @@ describe('views', () => {
     expect(deleted.model.views[1].include).toEqual([]);
     expect(deleted.model.views[1].place).toEqual({});
   });
+});
+
+describe('view-authored connector routes', () => {
+  function arranged(bY = 300) {
+    const model = modelWith([
+      { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+      { id: 'b', x: 400, y: bY, w: 100, h: 100 },
+    ]);
+    const line = addConnector(model, 'a', 'b');
+    model.views = [
+      {
+        id: 'main',
+        name: 'Main',
+        kind: 'free',
+        place: {
+          a: { x: 300, y: 400, w: 100, h: 100 },
+          b: { x: 700, y: bY + 400, w: 100, h: 100 },
+        },
+      },
+      {
+        id: 'detail',
+        name: 'Detail',
+        kind: 'free',
+        place: {
+          a: { x: 200, y: 100, w: 100, h: 100 },
+          b: { x: 800, y: 700, w: 100, h: 100 },
+        },
+      },
+    ];
+    return { state: initialDocState(model), id: line.id };
+  }
+
+  it('normalizes a common view translation, including explicit null for the main view', () => {
+    const { state, id } = arranged();
+    const waypoints = [
+      { x: 400, y: 450 },
+      { x: 580, y: 450 },
+      { x: 580, y: 750 },
+      { x: 700, y: 750 },
+    ];
+    const edited = run(state, { type: 'setConnectorRoute', id, viewId: null, waypoints });
+    expect(edited.model.connectors[0].waypoints).toEqual(
+      waypoints.map((p) => ({ x: p.x - 300, y: p.y - 400 })),
+    );
+    expect(resolveView(edited.model, null).connectors[0].waypoints).toEqual(waypoints);
+    const snapshot = structuredClone(edited.model);
+    resolveView(edited.model, 'detail');
+    expect(resolveView(edited.model, 'main').connectors[0].waypoints).toEqual(waypoints);
+    expect(edited.model).toEqual(snapshot);
+    expect(edited.model.views).toEqual(state.model.views);
+    expect(edited.model.shapes).toEqual(state.model.shapes);
+    expect(edited.past).toHaveLength(1);
+    expect(run(edited, { type: 'undo' }).model).toEqual(state.model);
+    expect(run(edited, { type: 'undo' }, { type: 'redo' }).model).toEqual(edited.model);
+  });
+
+  it('uses base coordinates when viewId is omitted, even if the main view overrides both ends', () => {
+    const { state, id } = arranged();
+    const waypoints = [
+      { x: 100, y: 50 },
+      { x: 200, y: 50 },
+      { x: 200, y: 350 },
+      { x: 400, y: 350 },
+    ];
+    const edited = run(state, { type: 'setConnectorRoute', id, waypoints });
+    expect(edited.model.connectors[0].waypoints).toEqual(waypoints);
+    expect(resolveView(edited.model, null).connectors[0].waypoints).toEqual(
+      waypoints.map((p) => ({ x: p.x + 300, y: p.y + 400 })),
+    );
+  });
+
+  it.each([
+    {
+      name: 'separate horizontal ends',
+      bY: 300,
+      bends: [
+        { x: 500, y: 150 },
+        { x: 500, y: 750 },
+      ],
+    },
+    {
+      name: 'slanted ends that align only in base coordinates',
+      bY: 300,
+      bends: [
+        { x: 450, y: 50 },
+        { x: 550, y: 350 },
+      ],
+    },
+    {
+      name: 'bends that coincide only in base coordinates',
+      bY: 0,
+      bends: [
+        { x: 500, y: 150 },
+        { x: 500, y: 750 },
+      ],
+    },
+    { name: 'a shared bend', bY: 0, bends: [{ x: 500, y: 150 }] },
+    {
+      name: 'bends that coincide only in the authored view',
+      bY: 300,
+      bends: [
+        { x: 500, y: 150 },
+        { x: 500, y: 150 },
+        { x: 600, y: 500 },
+      ],
+    },
+  ])(
+    'round-trips independent endpoint placements with $name through view switching and undo',
+    ({ bY, bends }) => {
+      const { state, id } = arranged(bY);
+      const waypoints = [{ x: 300, y: 150 }, ...bends, { x: 800, y: 750 }];
+      const edited = run(state, { type: 'setConnectorRoute', id, viewId: 'detail', waypoints });
+      expect(edited.model.connectors[0].manual).toBe(true);
+      expect(resolveView(edited.model, 'detail').connectors[0].waypoints).toEqual(waypoints);
+      const snapshot = structuredClone(edited.model);
+      resolveView(edited.model, 'main');
+      expect(resolveView(edited.model, 'detail').connectors[0].waypoints).toEqual(waypoints);
+      expect(edited.model).toEqual(snapshot);
+      expect(edited.model.views).toEqual(state.model.views);
+      expect(edited.model.shapes).toEqual(state.model.shapes);
+      const undone = run(edited, { type: 'undo' });
+      expect(undone.model).toEqual(state.model);
+      expect(
+        resolveView(run(undone, { type: 'redo' }).model, 'detail').connectors[0].waypoints,
+      ).toEqual(waypoints);
+    },
+  );
 });
 
 describe('view-scoped geometry', () => {

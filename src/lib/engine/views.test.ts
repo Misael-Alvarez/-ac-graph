@@ -13,7 +13,7 @@ import {
   viewsOf,
 } from './views';
 import { forgetShapeInViews } from './model';
-import { addConnector } from './routing';
+import { addConnector, routeAllConnectors, setRoute } from './routing';
 import { modelWith } from './testUtils';
 import { contentBBox } from './geometry';
 import { exportToMarkdown } from './markdown';
@@ -61,6 +61,67 @@ describe('a model with no views', () => {
 });
 
 describe('resolveView', () => {
+  it('anchors edits from a displaced reading back to the base model without moving the edited bends', () => {
+    const model = modelWith([
+      { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+      { id: 'b', x: 400, y: 300, w: 100, h: 100 },
+    ]);
+    const line = addConnector(model, 'a', 'b');
+    setRoute(model, line, [
+      { x: 100, y: 50 },
+      { x: 200, y: 50 },
+      { x: 200, y: 350 },
+      { x: 400, y: 350 },
+    ]);
+    model.views = [
+      view({
+        place: {
+          a: { x: 100, y: 0, w: 100, h: 100 },
+          b: { x: 500, y: 300, w: 100, h: 100 },
+        },
+      }),
+    ];
+    const reading = resolveView(model, 'v1');
+    const edited = reading.connectors[0].waypoints.map((p, i) =>
+      i === 1 || i === 2 ? { ...p, x: p.x + 20 } : p,
+    );
+    setRoute(model, line, edited, reading);
+    expect(resolveView(model, 'v1').connectors[0].waypoints).toEqual(edited);
+    expect(line.waypoints[1]).toEqual({ x: 220, y: 50 });
+    expect(line.waypoints.at(-1)).toEqual({ x: 400, y: 350 });
+  });
+
+  it('translates a manual route with a view and leaves projection and the source stable', () => {
+    const model = modelWith([
+      { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+      { id: 'b', x: 400, y: 300, w: 100, h: 100 },
+    ]);
+    const line = addConnector(model, 'a', 'b');
+    setRoute(model, line, [
+      { x: 100, y: 50 },
+      { x: 200, y: 50 },
+      { x: 200, y: 350 },
+      { x: 400, y: 350 },
+    ]);
+    Object.assign(line, { curve: 'orthogonal', color: '#123456', weight: 'bold', labelAt: 0.2549 });
+    model.views = [
+      view({
+        place: {
+          a: { x: 300, y: 400, w: 100, h: 100 },
+          b: { x: 700, y: 700, w: 100, h: 100 },
+        },
+      }),
+    ];
+    const before = structuredClone(model);
+    const reading = resolveView(model, 'v1');
+    const expected = line.waypoints.map((p) => ({ x: p.x + 300, y: p.y + 400 }));
+    expect(reading.connectors[0]).toEqual({ ...line, waypoints: expected });
+    expect(projectView(reading).connectors[0]).toEqual(reading.connectors[0]);
+    routeAllConnectors(reading);
+    expect(reading.connectors[0].waypoints).toEqual(expected);
+    expect(model).toEqual(before);
+  });
+
   it('keeps only what the view includes', () => {
     const m = three();
     m.views = [view({ include: ['a', 'c'] })];
@@ -320,6 +381,28 @@ describe('projectView', () => {
     addConnector(model, 'a', 'hidden').label = 'EXCLUDED_CONNECTION';
     return model;
   }
+
+  it('keeps a route the author drew, re-anchored to where the view puts the shapes', () => {
+    const model = publication();
+    const line = model.connectors[0];
+    line.manual = true;
+    line.waypoints = [
+      { x: 370, y: 185 },
+      { x: 600, y: 185 },
+      { x: 600, y: 285 },
+      { x: 370, y: 285 },
+    ];
+    const projected = projectView(resolveView(model, 'public'));
+    const kept = projected.connectors.find((c) => c.id === line.id)!;
+    expect(kept.manual).toBe(true);
+    // The bend the author put at x=600 is still there; the ends sit on the shapes.
+    expect(kept.waypoints.some((p) => p.x === 600)).toBe(true);
+    expect(kept.waypoints.length).toBeGreaterThanOrEqual(3);
+    // The router's line is redrawn from nothing, as before.
+    const other = projected.connectors.find((c) => c.id !== line.id);
+    expect(other).toBeUndefined();
+    expect(model.connectors[0].waypoints).toEqual(line.waypoints);
+  });
 
   it('removes other views, rules, hidden shapes and dangling references without mutating the model', () => {
     const model = publication();

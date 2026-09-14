@@ -6,12 +6,14 @@ import * as E from '@/lib/engine';
 import type { AlignGuide } from '@/lib/engine';
 import {
   normaliseBox,
+  previewConnector,
   previewDrag,
   previewResize,
   resolveDragSet,
   shapesInLasso,
 } from '@/lib/editor/preview';
 import { pan, toCanvas, type Viewport } from '@/lib/editor/viewport';
+import { labelAnchor, positionAlong } from '@/lib/editor/connectorPath';
 
 export type Interaction =
   | {
@@ -37,17 +39,40 @@ export type Interaction =
       w: number;
       h: number;
     }
+  | {
+      kind: 'bend';
+      id: string;
+      index: number;
+      origin: Point;
+      originScreen: Point;
+      start: Point[];
+      waypoints: Point[];
+      moved: boolean;
+    }
+  | {
+      kind: 'label';
+      id: string;
+      origin: Point;
+      originScreen: Point;
+      anchor: Point;
+      waypoints: Point[];
+      labelAt: number;
+      moved: boolean;
+    }
   | { kind: 'lasso'; origin: Point; current: Point }
   | { kind: 'pan'; originScreen: Point; startViewport: Viewport }
   | null;
 
 interface Options {
   model: DiagramModel;
+  routingModel: DiagramModel;
   viewport: Viewport;
   gridSnap: boolean;
   selectedIds: Set<string>;
   onMoveShapes: (ids: string[], dx: number, dy: number) => void;
   onResizeShape: (id: string, w: number, h: number) => void;
+  onSetConnectorRoute: (id: string, waypoints: Point[]) => void;
+  onSetConnectorLabel: (id: string, labelAt: number) => void;
   onLassoSelect: (ids: string[]) => void;
   onViewportChange: (viewport: Viewport) => void;
   /** Screen coordinates relative to the canvas element. */
@@ -66,11 +91,14 @@ const DRAG_THRESHOLD = 3;
 
 export function usePointerTools({
   model,
+  routingModel,
   viewport,
   gridSnap,
   selectedIds,
   onMoveShapes,
   onResizeShape,
+  onSetConnectorRoute,
+  onSetConnectorLabel,
   onLassoSelect,
   onViewportChange,
   toLocal,
@@ -107,9 +135,9 @@ export function usePointerTools({
   // Model, viewport and settings cannot change mid-gesture, so reading them one
   // render behind is harmless; they live in a ref only to keep the window
   // listeners from re-subscribing on every frame.
-  const latest = useRef({ model, viewport, gridSnap, toLocal });
+  const latest = useRef({ model, viewport, gridSnap, toLocal, readOnly });
   useEffect(() => {
-    latest.current = { model, viewport, gridSnap, toLocal };
+    latest.current = { model, viewport, gridSnap, toLocal, readOnly };
   });
 
   const frame = useRef<number | null>(null);
@@ -182,6 +210,34 @@ export function usePointerTools({
           const h = Math.max(MIN_SHAPE_H, state.startH + (point.y - state.origin.y));
           return { ...state, w, h };
         }
+        case 'bend':
+        case 'label': {
+          if (
+            !state.moved &&
+            Math.abs(screen.x - state.originScreen.x) <= DRAG_THRESHOLD &&
+            Math.abs(screen.y - state.originScreen.y) <= DRAG_THRESHOLD
+          ) {
+            return state;
+          }
+          const dx = point.x - state.origin.x;
+          const dy = point.y - state.origin.y;
+          if (state.kind === 'label') {
+            return {
+              ...state,
+              moved: true,
+              labelAt: positionAlong(state.waypoints, {
+                x: state.anchor.x + dx,
+                y: state.anchor.y + dy,
+              }),
+            };
+          }
+          const start = state.start[state.index];
+          const snap = (n: number) => (latest.current.gridSnap ? E.snapToGrid(n) : n);
+          const waypoints = state.start.map((p, i) =>
+            i === state.index ? { x: snap(start.x + dx), y: snap(start.y + dy) } : p,
+          );
+          return { ...state, moved: true, waypoints };
+        }
         case 'lasso':
           return { ...state, current: point };
         default:
@@ -200,51 +256,94 @@ export function usePointerTools({
     [applyMove],
   );
 
-  const finish = useCallback(() => {
-    cancelFrame();
-    const current = interactionRef.current;
-    applyInteraction(null);
-    if (!current) return;
+  const finish = useCallback(
+    (screen: Point) => {
+      // Pointer-up can beat the queued animation frame. Commit its final position,
+      // not the last frame React happened to paint.
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      pending.current = screen;
+      applyMove();
+      cancelFrame();
+      const current = interactionRef.current;
+      applyInteraction(null);
+      if (!current || (latest.current.readOnly && current.kind !== 'lasso')) return;
 
-    switch (current.kind) {
-      case 'drag':
-        if (current.moved && (current.dx !== 0 || current.dy !== 0)) {
-          // One action for the whole gesture, so one undo step.
-          onMoveShapes(current.ids, current.dx, current.dy);
+      switch (current.kind) {
+        case 'drag':
+          if (current.moved && (current.dx !== 0 || current.dy !== 0)) {
+            // One action for the whole gesture, so one undo step.
+            onMoveShapes(current.ids, current.dx, current.dy);
+          }
+          break;
+        case 'resize':
+          if (current.w !== current.startW || current.h !== current.startH) {
+            onResizeShape(current.id, current.w, current.h);
+          }
+          break;
+        case 'bend':
+          if (
+            current.moved &&
+            current.waypoints.some(
+              (p, i) => p.x !== current.start[i].x || p.y !== current.start[i].y,
+            )
+          )
+            onSetConnectorRoute(current.id, current.waypoints);
+          break;
+        case 'label':
+          if (current.moved) onSetConnectorLabel(current.id, current.labelAt);
+          break;
+        case 'lasso': {
+          const box = normaliseBox(current.origin, current.current);
+          // The box is in canvas units, the threshold in screen pixels.
+          const minimum = DRAG_THRESHOLD / latest.current.viewport.zoom;
+          if (box.w > minimum && box.h > minimum) {
+            onLassoSelect(shapesInLasso(latest.current.model, box));
+          }
+          break;
         }
-        break;
-      case 'resize':
-        if (current.w !== current.startW || current.h !== current.startH) {
-          onResizeShape(current.id, current.w, current.h);
-        }
-        break;
-      case 'lasso': {
-        const box = normaliseBox(current.origin, current.current);
-        // The box is in canvas units, the threshold in screen pixels.
-        const minimum = DRAG_THRESHOLD / latest.current.viewport.zoom;
-        if (box.w > minimum && box.h > minimum) {
-          onLassoSelect(shapesInLasso(latest.current.model, box));
-        }
-        break;
+        default:
+          break;
       }
-      default:
-        break;
-    }
-  }, [onMoveShapes, onResizeShape, onLassoSelect, applyInteraction]);
+    },
+    [
+      onMoveShapes,
+      onResizeShape,
+      onSetConnectorRoute,
+      onSetConnectorLabel,
+      onLassoSelect,
+      applyInteraction,
+      applyMove,
+    ],
+  );
+
+  const cancel = useCallback(() => {
+    cancelFrame();
+    applyInteraction(null);
+  }, [applyInteraction]);
 
   useEffect(() => {
     if (!interaction) return;
     const onMove = (e: PointerEvent) => queueMove(latest.current.toLocal(e));
-    const onUp = () => finish();
+    const onUp = (e: PointerEvent) => finish(latest.current.toLocal(e));
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      cancel();
+    };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', cancel);
+    window.addEventListener('keydown', onEscape, true);
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', cancel);
+      window.removeEventListener('keydown', onEscape, true);
     };
-  }, [interaction, queueMove, finish]);
+  }, [interaction, queueMove, finish, cancel]);
 
   const startDrag = useCallback(
     (e: { clientX: number; clientY: number }, id: string) => {
@@ -288,6 +387,42 @@ export function usePointerTools({
     [model, viewport, toLocal, applyInteraction, readOnly],
   );
 
+  const startBend = (e: { clientX: number; clientY: number }, id: string, index: number) => {
+    if (readOnly) return;
+    const c = model.connectors.find((c) => c.id === id);
+    if (!c || index < 1 || index >= c.waypoints.length - 1) return;
+    const screen = toLocal(e);
+    applyInteraction({
+      kind: 'bend',
+      id,
+      index,
+      origin: toCanvas(viewport, screen),
+      originScreen: screen,
+      start: c.waypoints,
+      waypoints: c.waypoints,
+      moved: false,
+    });
+  };
+
+  const startLabel = (e: { clientX: number; clientY: number }, id: string) => {
+    if (readOnly) return;
+    const c = model.connectors.find((c) => c.id === id);
+    if (!c) return;
+    const anchor = labelAnchor(c.waypoints, c.labelAt);
+    if (!anchor) return;
+    const screen = toLocal(e);
+    applyInteraction({
+      kind: 'label',
+      id,
+      anchor,
+      origin: toCanvas(viewport, screen),
+      originScreen: screen,
+      waypoints: c.waypoints,
+      labelAt: c.labelAt ?? positionAlong(c.waypoints, anchor),
+      moved: false,
+    });
+  };
+
   const startLasso = useCallback(
     (e: { clientX: number; clientY: number }) => {
       const point = toCanvas(viewport, toLocal(e));
@@ -306,13 +441,19 @@ export function usePointerTools({
   /** The model to paint: the committed one, or a throw-away gesture preview. */
   const previewModel = useMemo(() => {
     if (interaction?.kind === 'drag') {
-      return previewDrag(model, interaction.affected, interaction.dx, interaction.dy);
+      return previewDrag(model, interaction.affected, interaction.dx, interaction.dy, routingModel);
     }
     if (interaction?.kind === 'resize') {
-      return previewResize(model, interaction.id, interaction.w, interaction.h);
+      return previewResize(model, interaction.id, interaction.w, interaction.h, routingModel);
+    }
+    if (interaction?.kind === 'bend' && interaction.moved) {
+      return previewConnector(model, interaction.id, { waypoints: interaction.waypoints });
+    }
+    if (interaction?.kind === 'label' && interaction.moved) {
+      return previewConnector(model, interaction.id, { labelAt: interaction.labelAt });
     }
     return model;
-  }, [model, interaction]);
+  }, [model, interaction, routingModel]);
 
   const lassoBox = useMemo(
     () =>
@@ -327,6 +468,8 @@ export function usePointerTools({
     guides: interaction?.kind === 'drag' ? interaction.guides : [],
     startDrag,
     startResize,
+    startBend,
+    startLabel,
     startLasso,
     startPan,
   };

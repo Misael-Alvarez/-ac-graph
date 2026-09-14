@@ -1,13 +1,16 @@
 import { z } from 'zod';
-import type { EdgeMeta, NodeMeta } from '@/lib/domain';
+import type { ConnectorCurve, ConnectorWeight, EdgeMeta, NodeMeta, Port } from '@/lib/domain';
 import { RuleSchema } from '@/lib/rules/schema';
 import {
   ViewKindSchema,
+  ConnectorCurveSchema,
+  ConnectorWeightSchema,
   CriticalitySchema,
   DataClassSchema,
   EdgeKindSchema,
   EnvironmentSchema,
   LifecycleSchema,
+  PortSchema,
   ProtocolSchema,
 } from '@/lib/domain';
 
@@ -69,6 +72,19 @@ export const EdgeLongSchema = z.object({
   kind: EdgeKindSchema.optional(),
   auth: z.string().optional(),
   dataClass: DataClassSchema.optional(),
+
+  /* How the line is drawn, when the author drew it. Geometry, like `layout`:
+     written by the canvas so a hand-made route survives the next parse, and
+     never something one has to write by hand. */
+  /** Points on a manual route; endpoint coordinates also preserve a route with no bends. */
+  via: z.array(PositionSchema).optional(),
+  /** The faces the line uses: `[from, to]`, either may be `auto`. */
+  ports: z.tuple([PortSchema.or(z.literal('auto')), PortSchema.or(z.literal('auto'))]).optional(),
+  /** Where the label sits along the line, 0 at `from` and 1 at `to`. */
+  labelAt: z.number().min(0).max(1).optional(),
+  color: z.string().optional(),
+  weight: ConnectorWeightSchema.optional(),
+  curve: ConnectorCurveSchema.optional(),
 });
 
 /**
@@ -119,7 +135,15 @@ export const DslDocumentSchema = z.object({
   boundaries: z.record(z.string(), BoundarySpecSchema).optional(),
   /** Absent for a page that so far only has notes on it. */
   nodes: z.record(z.string(), NodeEntrySchema).default({}),
-  edges: z.array(z.union([EdgeLongSchema, z.record(z.string(), z.string())])).default([]),
+  edges: z
+    .array(
+      z.union([
+        EdgeLongSchema,
+        // Invalid long-form values must not bypass validation as shorthand.
+        z.record(z.string(), z.string()).refine((edge) => !('from' in edge && 'to' in edge)),
+      ]),
+    )
+    .default([]),
   notes: z.record(z.string(), NoteSpecSchema).optional(),
   layout: z.record(z.string(), PositionSchema).optional(),
   views: z.record(z.string(), ViewSpecSchema).optional(),
@@ -140,6 +164,18 @@ export interface NormalisedEdge {
   label: string;
   style: 'solid' | 'dashed';
   meta?: EdgeMeta;
+  /** The line as drawn, when the long form said so. */
+  line?: EdgeLine;
+}
+
+export interface EdgeLine {
+  via?: Position[];
+  sourcePort?: Port;
+  targetPort?: Port;
+  labelAt?: number;
+  color?: string;
+  weight?: ConnectorWeight;
+  curve?: ConnectorCurve;
 }
 
 /** The parts of a node spec that describe the service rather than draw it. */
@@ -168,6 +204,19 @@ function pickEdgeMeta(edge: z.infer<typeof EdgeLongSchema>): EdgeMeta | undefine
   return Object.keys(meta).length ? meta : undefined;
 }
 
+/** The parts of a long-form edge that say how the line is drawn. */
+function pickEdgeLine(edge: z.infer<typeof EdgeLongSchema>): EdgeLine | undefined {
+  const line: EdgeLine = {};
+  if (edge.via?.length) line.via = edge.via;
+  if (edge.ports?.[0] && edge.ports[0] !== 'auto') line.sourcePort = edge.ports[0];
+  if (edge.ports?.[1] && edge.ports[1] !== 'auto') line.targetPort = edge.ports[1];
+  if (edge.labelAt !== undefined) line.labelAt = edge.labelAt;
+  if (edge.color) line.color = edge.color;
+  if (edge.weight) line.weight = edge.weight;
+  if (edge.curve) line.curve = edge.curve;
+  return Object.keys(line).length ? line : undefined;
+}
+
 export function normaliseEdges(edges: DslDocument['edges']): NormalisedEdge[] {
   const out: NormalisedEdge[] = [];
   for (const edge of edges) {
@@ -179,6 +228,7 @@ export function normaliseEdges(edges: DslDocument['edges']): NormalisedEdge[] {
         label: long.label ?? '',
         style: long.style ?? 'solid',
         meta: pickEdgeMeta(long),
+        line: pickEdgeLine(long),
       });
       continue;
     }

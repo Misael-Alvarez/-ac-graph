@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import type { DiagramModel } from '@/lib/domain';
 import { iconKeysIn, contentBBox, routeAllConnectors } from '@/lib/engine';
+import { connectorColorsIn } from '@/lib/editor/meta';
 import { canvasTheme } from '@/lib/design/tokens';
 import { fitToBox, pan, viewportTransform, zoomAt, type Viewport } from '@/lib/editor/viewport';
 import { safeDecodeDiagram } from '@/lib/share/codec';
@@ -146,7 +147,12 @@ export function SharedDiagram() {
           }
         }}
       >
-        <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={model.customIcons} />
+        <Defs
+          theme={theme}
+          iconKeys={iconKeysIn(model)}
+          customIcons={model.customIcons}
+          connectorColors={connectorColorsIn(model)}
+        />
         <g transform={viewportTransform(viewport)}>
           <DiagramScene model={model} theme={theme} />
         </g>

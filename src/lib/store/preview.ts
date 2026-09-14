@@ -3,6 +3,7 @@ import { contentBBox } from '@/lib/engine';
 import { canvasTheme, isColor, isDarkCanvas, mixHex, readableTextOn } from '@/lib/design/tokens';
 import { paletteFor, themedFill } from '@/lib/editor/providers';
 import { firstLine } from '@/lib/editor/richText';
+import { labelAnchor, waypointsToPath } from '@/lib/editor/connectorPath';
 import {
   connectorLabel,
   connectorTags,
@@ -166,17 +167,18 @@ export function renderPreview(model: DiagramModel, dark = false): string {
   for (const connector of model.connectors) {
     const points = connector.waypoints;
     if (points.length < 2) continue;
-    const d = points.map((p, i) => `${i ? 'L' : 'M'}${r(p.x)},${r(p.y)}`).join('');
+    const d = waypointsToPath(points, connector.curve === 'orthogonal' ? 0 : undefined);
     const stroke = strokeFor(connector);
+    const color = isColor(connector.color) ? connector.color : theme.connector;
     parts.push(
-      `<path d="${d}" fill="none" stroke="${theme.connector}" stroke-width="${stroke.width}" stroke-linecap="round" stroke-linejoin="round"${stroke.dasharray ? ` stroke-dasharray="${stroke.dasharray}"` : ''}/>`,
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${stroke.width}" stroke-linecap="round" stroke-linejoin="round"${stroke.dasharray ? ` stroke-dasharray="${stroke.dasharray}"` : ''}/>`,
     );
-    parts.push(arrowhead(points[points.length - 2], points[points.length - 1], theme.connector));
+    parts.push(arrowhead(points[points.length - 2], points[points.length - 1], color));
 
     const label = connectorLabel(connector);
     const tags = connectorTags(connector);
     if (!label && !tags.length) continue;
-    const mid = midpoint(points);
+    const mid = labelAnchor(points, connector.labelAt)!;
     const labelW = label ? label.length * 6.2 + 20 : 0;
     const tagWs = tags.map((tag) => Math.ceil(tag.text.length * 8.5 * 0.62) + 12);
     const total = labelW + tagWs.reduce((sum, w) => sum + w + 4, label ? 0 : -4);
@@ -244,28 +246,6 @@ function arrowhead(from: { x: number; y: number }, to: { x: number; y: number },
   const size = 7;
   const p = (a: number, d: number) => `${r(to.x - Math.cos(a) * d)},${r(to.y - Math.sin(a) * d)}`;
   return `<path d="M${r(to.x)},${r(to.y)} L${p(angle - 0.45, size)} L${p(angle + 0.45, size)} Z" fill="${fill}"/>`;
-}
-
-function midpoint(points: { x: number; y: number }[]): { x: number; y: number } {
-  const lengths: number[] = [];
-  let total = 0;
-  for (let i = 1; i < points.length; i++) {
-    const l = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-    lengths.push(l);
-    total += l;
-  }
-  let remaining = total / 2;
-  for (let i = 1; i < points.length; i++) {
-    if (remaining <= lengths[i - 1]) {
-      const t = lengths[i - 1] ? remaining / lengths[i - 1] : 0;
-      return {
-        x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
-        y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
-      };
-    }
-    remaining -= lengths[i - 1];
-  }
-  return points[points.length - 1];
 }
 
 /** The first service icon inside a group or container, for its tint. */

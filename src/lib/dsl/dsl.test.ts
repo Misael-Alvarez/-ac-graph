@@ -7,6 +7,7 @@ import { parseDsl } from './parse';
 import { serializeDsl } from './serialize';
 import { dominantCloud, matchServiceLabel, resolveService, shortenService } from './services';
 import { normaliseEdges } from './schema';
+import { labelAnchor } from '@/lib/editor/connectorPath';
 
 const SAMPLE = `version: 1
 cloud: aws
@@ -142,6 +143,40 @@ describe('parseDsl', () => {
     for (const c of model!.connectors) expect(c.waypoints.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('rejects an unknown curve instead of treating an invalid long-form edge as shorthand', () => {
+    const result = parseDsl(`${SAMPLE}  - from: api\n    to: db\n    curve: bezier\n`);
+    expect(result.model).toBeNull();
+    expect(result.diagnostics.some((d) => d.severity === 'error')).toBe(true);
+  });
+
+  it('draws a line the way the document says: bends, faces, label place, colour and weight', () => {
+    const { model, diagnostics } = parseDsl(
+      `${SAMPLE}  - from: api
+    to: db
+    via: [[50, 900], [1200, 900]]
+    ports: [S, auto]
+    labelAt: 0.2
+    color: "#ff9900"
+    weight: bold
+`,
+    );
+    expect(diagnostics).toEqual([]);
+    const drawn = model!.connectors.find((c) => c.manual);
+    expect(drawn).toBeDefined();
+    expect(drawn!.sourcePort).toBe('S');
+    expect(drawn!.targetPort).toBeUndefined();
+    expect(drawn!.labelAt).toBe(0.2);
+    expect(drawn!.color).toBe('#ff9900');
+    expect(drawn!.weight).toBe('bold');
+    // The bends are where the document put them; the ends are on the shapes.
+    expect(drawn!.waypoints.slice(1, -1)).toEqual([
+      { x: 50, y: 900 },
+      { x: 1200, y: 900 },
+    ]);
+    const api = model!.shapes.find((s) => s.type === 'item' && s.title === 'API pública')!;
+    expect(drawn!.waypoints[0]).toEqual({ x: api.x + api.w / 2, y: api.y + api.h });
+  });
+
   it('groups nodes inside the boundary they declare', () => {
     const { model, diagnostics } = parseDsl(`version: 1
 cloud: aws
@@ -243,6 +278,129 @@ describe('serializeDsl', () => {
     const round = parseDsl(serializeDsl(moved)).model!;
     const same = round.shapes.find((s) => s.type === 'group' && s.title === group.title)!;
     expect({ x: same.x, y: same.y }).toEqual({ x: 1234, y: 567 });
+  });
+
+  it('round-trips a hand-drawn line and forgets the bends without the layout', () => {
+    const model = parseDsl(SAMPLE).model!;
+    const line = model.connectors[0];
+    const s = E.getShape(model, line.sourceId)!;
+    const t = E.getShape(model, line.targetId)!;
+    E.setRoute(model, line, [
+      { x: s.x + s.w, y: s.y + s.h / 2 },
+      { x: 2000, y: s.y + s.h / 2 },
+      { x: 2000, y: t.y + t.h / 2 },
+      { x: t.x + t.w, y: t.y + t.h / 2 },
+    ]);
+    line.sourcePort = 'E';
+    line.targetPort = 'E';
+    line.labelAt = 0.333;
+    line.color = '#0f62fe';
+    line.weight = 'thin';
+    line.curve = 'orthogonal';
+
+    const source = serializeDsl(model);
+    expect(source).toContain('via: [[');
+    expect(source).toContain('ports: [E, E]');
+    expect(source).toContain('labelAt: 0.333\n');
+    expect(source).toContain('color: "#0f62fe"');
+    expect(source).toContain('weight: thin');
+    expect(source).toContain('curve: orthogonal');
+
+    const back = parseDsl(source).model!;
+    const kept = back.connectors.find((c) => c.manual)!;
+    expect(kept.waypoints.slice(1, -1).map((p) => p.x)).toEqual([2000, 2000]);
+    expect(kept).toMatchObject({
+      sourcePort: 'E',
+      targetPort: 'E',
+      labelAt: 0.333,
+      color: '#0f62fe',
+      weight: 'thin',
+      curve: 'orthogonal',
+    });
+    // Twice is the same as once.
+    expect(serializeDsl(back)).toBe(source);
+
+    // Without the layout the route is the router's again, but the line keeps its look.
+    const bare = parseDsl(serializeDsl(model, { includeLayout: false })).model!;
+    const styled = bare.connectors.find((c) => c.color === '#0f62fe')!;
+    expect(styled.manual).toBeUndefined();
+    expect(styled.sourcePort).toBe('E');
+    expect(styled.curve).toBe('orthogonal');
+  });
+
+  it.each([undefined, 'rounded', 'orthogonal'] as const)(
+    'round-trips curve %s independently of a manual route',
+    (curve) => {
+      const model = parseDsl(SAMPLE).model!;
+      model.connectors[0].curve = curve;
+      const source = serializeDsl(model);
+      const back = parseDsl(source).model!;
+      expect(back.connectors[0].curve).toBe(curve);
+      expect(back.connectors[0].manual).toBeUndefined();
+      expect(serializeDsl(back)).toBe(source);
+    },
+  );
+
+  it.each([false, true])('round-trips a two-point manual route with fixed ports: %s', (fixed) => {
+    const model = parseDsl(SAMPLE).model!;
+    const line = model.connectors[0];
+    const s = E.getShape(model, line.sourceId)!;
+    const t = E.getShape(model, line.targetId)!;
+    if (fixed) {
+      line.sourcePort = 'E';
+      line.targetPort = 'W';
+    }
+    // Implicit faces need not be the pair the automatic router would choose.
+    E.setRoute(model, line, [E.ports(s).E, E.ports(t).W]);
+    const before = structuredClone(line);
+    const source = serializeDsl(model);
+    const back = parseDsl(source).model!;
+    const kept = back.connectors[0];
+    expect(kept.manual).toBe(true);
+    expect(kept.waypoints).toEqual(before.waypoints);
+    expect(kept.sourcePort).toBe(before.sourcePort);
+    expect(kept.targetPort).toBe(before.targetPort);
+    E.routeAllConnectors(back);
+    expect(kept.waypoints).toEqual(before.waypoints);
+    expect(serializeDsl(back)).toBe(source);
+    expect(
+      parseDsl(serializeDsl(model, { includeLayout: false })).model!.connectors[0].manual,
+    ).toBeUndefined();
+  });
+
+  it('retains label precision on a long manual route', () => {
+    const model = parseDsl(SAMPLE).model!;
+    const line = model.connectors[0];
+    E.routeThrough(model, line, [
+      { x: 10000, y: 500 },
+      { x: 10000, y: 1000 },
+    ]);
+    line.labelAt = 0.2549;
+    const anchor = labelAnchor(line.waypoints, line.labelAt);
+    const back = parseDsl(serializeDsl(model)).model!.connectors[0];
+    expect(back.labelAt).toBe(line.labelAt);
+    expect(labelAnchor(back.waypoints, back.labelAt)).toEqual(anchor);
+  });
+
+  it('keeps implicit faces, fractional and coincident bends across recompilation', () => {
+    const model = parseDsl(SAMPLE).model!;
+    const line = model.connectors[0];
+    const s = E.getShape(model, line.sourceId)!;
+    const t = E.getShape(model, line.targetId)!;
+    // The first bend now lies above the source, though the line still leaves east.
+    line.manual = true;
+    line.waypoints = [
+      E.ports(s).E,
+      { x: s.x + 0.25, y: s.y - 200.75 },
+      { x: s.x + 0.25, y: s.y - 200.75 },
+      E.ports(t).W,
+    ];
+    const source = serializeDsl(model);
+    const back = parseDsl(source).model!;
+    expect(back.connectors[0].waypoints).toEqual(line.waypoints);
+    expect(back.connectors[0].sourcePort).toBeUndefined();
+    expect(back.connectors[0].targetPort).toBeUndefined();
+    expect(serializeDsl(back)).toBe(source);
   });
 
   it('preserves connector labels and styles', () => {

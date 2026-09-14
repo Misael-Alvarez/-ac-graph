@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { labelAnchor, waypointsToPath } from './connectorPath';
+import {
+  labelAnchor,
+  pathLength,
+  pointAlong,
+  positionAlong,
+  waypointsToPath,
+} from './connectorPath';
 
 describe('waypointsToPath', () => {
   it('returns nothing for a degenerate path', () => {
@@ -53,6 +59,16 @@ describe('waypointsToPath', () => {
     expect(path.endsWith('L100,50')).toBe(true);
   });
 
+  it('uses square elbows at radius zero and retains rounded elbows by default', () => {
+    const line = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+    ];
+    expect(waypointsToPath(line, 0)).toBe('M0,0 L100,0 L100,100');
+    expect(waypointsToPath(line, undefined)).toContain('Q');
+  });
+
   it('skips the curve when the radius collapses to zero', () => {
     const path = waypointsToPath(
       [
@@ -88,5 +104,35 @@ describe('labelAnchor', () => {
       { x: 40, y: 400 },
     ]);
     expect(anchor).toEqual({ x: 20, y: 200 });
+  });
+});
+
+describe('along the line', () => {
+  const line = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 50 },
+  ];
+
+  it('measures the line and walks it by share', () => {
+    expect(pathLength(line)).toBe(150);
+    expect(pointAlong(line, 0)).toEqual({ x: 0, y: 0 });
+    expect(pointAlong(line, 0.5)).toEqual({ x: 75, y: 0 });
+    expect(pointAlong(line, 1)).toEqual({ x: 100, y: 50 });
+    expect(pointAlong(line, 2)).toEqual({ x: 100, y: 50 });
+    expect(pointAlong([{ x: 1, y: 1 }], 0.5)).toBeNull();
+  });
+
+  it('says how far along the nearest point is, clamped to the ends', () => {
+    expect(positionAlong(line, { x: 75, y: 10 })).toBeCloseTo(0.5);
+    expect(positionAlong(line, { x: 130, y: 25 })).toBeCloseTo(125 / 150);
+    expect(positionAlong(line, { x: -500, y: 0 })).toBe(0);
+    expect(positionAlong([{ x: 0, y: 0 }], { x: 3, y: 3 })).toBe(0.5);
+  });
+
+  it('puts the label where the author left it, else on the longest segment', () => {
+    expect(labelAnchor(line)).toEqual({ x: 50, y: 0 });
+    expect(labelAnchor(line, 0.9)).toEqual({ x: 100, y: 35 });
+    expect(labelAnchor(line, 0)).toEqual({ x: 0, y: 0 });
   });
 });

@@ -71,13 +71,19 @@ export async function safeDecodeDiagram(payload: string): Promise<DiagramModel |
 /**
  * Drops what a viewer does not need.
  *
- * Connector waypoints are recomputed by the router on load, and they are a large
- * share of the payload — leaving them out is the difference between a link that
- * fits and one that does not.
+ * The router's waypoints are recomputed on load, and they are a large share
+ * of the payload — leaving them out is the difference between a link that
+ * fits and one that does not. A route the author drew is theirs to keep, so
+ * it travels, rounded to whole pixels.
  */
 function stripForSharing(model: DiagramModel): DiagramModel {
   return {
     ...model,
-    connectors: model.connectors.map((c) => ({ ...c, waypoints: [] })),
+    connectors: model.connectors.map((c) => ({
+      ...c,
+      waypoints: c.manual
+        ? c.waypoints.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
+        : [],
+    })),
   };
 }

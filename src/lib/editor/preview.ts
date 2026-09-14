@@ -1,4 +1,4 @@
-import type { DiagramModel, Shape } from '@/lib/domain';
+import type { Connector, DiagramModel, Shape } from '@/lib/domain';
 import * as E from '@/lib/engine';
 
 /**
@@ -20,8 +20,25 @@ export function resolveDragSet(model: DiagramModel, ids: Iterable<string>): Set<
   return affected;
 }
 
-function withShapes(model: DiagramModel, shapes: Shape[]): DiagramModel {
-  return { ...model, shapes, connectors: model.connectors.map((c) => ({ ...c })) };
+function withShapes(
+  model: DiagramModel,
+  shapes: Shape[],
+  affected: Set<string>,
+  routingModel: DiagramModel,
+): DiagramModel {
+  const routes =
+    routingModel === model ? null : new Map(routingModel.connectors.map((c) => [c.id, c]));
+  return {
+    ...model,
+    shapes,
+    connectors: model.connectors.map((c) => ({
+      ...c,
+      waypoints:
+        c.manual && (affected.has(c.sourceId) || affected.has(c.targetId))
+          ? (routes?.get(c.id)?.waypoints ?? c.waypoints)
+          : c.waypoints,
+    })),
+  };
 }
 
 /** The model as it would look mid-drag, without committing anything. */
@@ -30,23 +47,50 @@ export function previewDrag(
   affected: Set<string>,
   dx: number,
   dy: number,
+  routingModel = model,
 ): DiagramModel {
   if (!affected.size || (dx === 0 && dy === 0)) return model;
   const shapes = model.shapes.map((s) =>
     affected.has(s.id) ? { ...s, x: s.x + dx, y: s.y + dy } : s,
   );
-  const preview = withShapes(model, shapes);
-  E.routeConnectorsFor(preview, affected);
+  // Named views resolve routes against base geometry on commit; preview must
+  // use that same reference, not compound the view's existing displacement.
+  const preview = withShapes(model, shapes, affected, routingModel);
+  E.routeConnectorsFor(preview, affected, routingModel);
   return preview;
 }
 
+/**
+ * The model as it would look with one connector's line or label moved by the
+ * hand that is still moving it. The route is shown as given — the ends are
+ * put back on their faces only when the gesture ends and the route is set.
+ */
+export function previewConnector(
+  model: DiagramModel,
+  id: string,
+  patch: Partial<Pick<Connector, 'waypoints' | 'labelAt'>>,
+): DiagramModel {
+  const index = model.connectors.findIndex((c) => c.id === id);
+  if (index < 0) return model;
+  const connectors = model.connectors.slice();
+  connectors[index] = { ...connectors[index], ...patch };
+  return { ...model, connectors };
+}
+
 /** The model as it would look mid-resize. */
-export function previewResize(model: DiagramModel, id: string, w: number, h: number): DiagramModel {
+export function previewResize(
+  model: DiagramModel,
+  id: string,
+  w: number,
+  h: number,
+  routingModel = model,
+): DiagramModel {
   const target = E.getShape(model, id);
   if (!target) return model;
 
   const shapes = model.shapes.map((s) => (s.id === id ? { ...s, w, h, manualSize: true } : s));
-  const preview = withShapes(model, shapes);
+  const affected = E.collectDescendantIds(model, id);
+  const preview = withShapes(model, shapes, affected, routingModel);
 
   const resized = E.getShape(preview, id);
   if (resized?.type === 'group') {
@@ -57,7 +101,7 @@ export function previewResize(model: DiagramModel, id: string, w: number, h: num
     );
     E.relayoutGroup(preview, E.getShape(preview, id)!);
   }
-  E.routeConnectorsFor(preview, E.collectDescendantIds(preview, id));
+  E.routeConnectorsFor(preview, affected, routingModel);
   return preview;
 }
 

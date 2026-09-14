@@ -51,9 +51,67 @@ export function waypointsToPath(points: Point[], radius = CORNER_RADIUS): string
   return parts.join(' ');
 }
 
-/** Point at which a connector's label should sit. */
-export function labelAnchor(points: Point[]): Point | null {
+/** Length of a polyline. */
+export function pathLength(points: Point[]): number {
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) total += dist(points[i], points[i + 1]);
+  return total;
+}
+
+/** The point a share `t` (0 at the start, 1 at the end) of the way along a polyline. */
+export function pointAlong(points: Point[], t: number): Point | null {
   if (points.length < 2) return null;
+  const total = pathLength(points);
+  const share = Math.max(0, Math.min(1, t));
+  if (total === 0) return { ...points[0] };
+  let remaining = share * total;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const length = dist(a, b);
+    if (remaining <= length || i === points.length - 2) {
+      const k = length === 0 ? 0 : Math.min(1, remaining / length);
+      return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+    }
+    remaining -= length;
+  }
+  return { ...points[points.length - 1] };
+}
+
+/**
+ * How far along a polyline the point nearest to `p` is, as a share of its
+ * length — what a label dragged along the line is set to.
+ */
+export function positionAlong(points: Point[], p: Point): number {
+  if (points.length < 2) return 0.5;
+  const total = pathLength(points);
+  if (total === 0) return 0.5;
+  let best = { distance: Infinity, along: 0 };
+  let before = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const vx = b.x - a.x;
+    const vy = b.y - a.y;
+    const len2 = vx * vx + vy * vy;
+    const k =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2));
+    const q = { x: a.x + vx * k, y: a.y + vy * k };
+    const distance = dist(p, q);
+    if (distance < best.distance) best = { distance, along: before + dist(a, q) };
+    before += dist(a, b);
+  }
+  return Math.max(0, Math.min(1, best.along / total));
+}
+
+/**
+ * Point at which a connector's label should sit: where the author put it, as
+ * a share of the way along the line, or failing that the middle of the
+ * longest segment.
+ */
+export function labelAnchor(points: Point[], at?: number): Point | null {
+  if (points.length < 2) return null;
+  if (at !== undefined) return pointAlong(points, at);
   if (points.length === 2) {
     return { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 };
   }

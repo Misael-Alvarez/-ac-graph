@@ -317,6 +317,7 @@ export class LocalDiagramRepository implements DiagramRepository {
     const current = await tx.store.get(threadId);
     if (!current || current.diagramId !== diagramId) {
       tx.abort();
+      await tx.done.catch(() => {});
       throw new Error(`Thread not found: ${threadId}`);
     }
     const next = CommentThreadSchema.parse(update(CommentThreadSchema.parse(current)));

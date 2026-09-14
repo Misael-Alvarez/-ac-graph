@@ -138,10 +138,19 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
       const to = keyByItemId.get(connector.targetId);
       if (!from || !to) return null;
       // The short form says only what the arrow looks like. An edge that also
-      // says how the call is made has to spell itself out.
+      // says how the call is made, or how its line is drawn, has to spell
+      // itself out. A hand-drawn route is geometry, and follows `layout`.
       const meta = connector.meta;
       const described = meta && Object.values(meta).some(Boolean);
-      if (connector.style === 'dashed' || described) {
+      const drawn =
+        connector.sourcePort ||
+        connector.targetPort ||
+        connector.labelAt !== undefined ||
+        connector.color ||
+        connector.weight ||
+        connector.curve ||
+        (includeLayout && connector.manual && connector.waypoints.length >= 2);
+      if (connector.style === 'dashed' || described || drawn) {
         const long: Record<string, unknown> = { from, to };
         if (connector.label) long.label = connector.label;
         if (connector.style === 'dashed') long.style = 'dashed';
@@ -149,6 +158,18 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
         if (meta?.kind) long.kind = meta.kind;
         if (meta?.auth) long.auth = meta.auth;
         if (meta?.dataClass) long.dataClass = meta.dataClass;
+        if (includeLayout && connector.manual && connector.waypoints.length >= 2) {
+          // Include the ends to retain implicit faces even when the first bend
+          // was dragged across the shape. routeThrough removes repeated anchors.
+          long.via = connector.waypoints.map((p) => [p.x, p.y]);
+        }
+        if (connector.sourcePort || connector.targetPort) {
+          long.ports = [connector.sourcePort ?? 'auto', connector.targetPort ?? 'auto'];
+        }
+        if (connector.labelAt !== undefined) long.labelAt = connector.labelAt;
+        if (connector.color) long.color = connector.color;
+        if (connector.weight) long.weight = connector.weight;
+        if (connector.curve) long.curve = connector.curve;
         return long;
       }
       return { [`${from} -> ${to}`]: connector.label };
@@ -253,6 +274,19 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
     }
   };
   flowPairs(yaml.get('layout', true));
+  const edgesNode = yaml.get('edges', true);
+  if (edgesNode instanceof YAMLSeq) {
+    for (const edge of edgesNode.items) {
+      if (!isYAMLMap(edge)) continue;
+      const via = edge.get('via', true);
+      if (via instanceof YAMLSeq) {
+        via.flow = true;
+        for (const pair of via.items) if (pair instanceof YAMLSeq) pair.flow = true;
+      }
+      const ports = edge.get('ports', true);
+      if (ports instanceof YAMLSeq) ports.flow = true;
+    }
+  }
   const notesNode = yaml.get('notes', true);
   if (isYAMLMap(notesNode)) {
     for (const pair of notesNode.items) flowPairs(pair.value);

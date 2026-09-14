@@ -478,6 +478,36 @@ textarea:focus-visible {
   vector-effect: non-scaling-stroke;
 }
 
+.connector-handle {
+  cursor: move;
+  outline: none;
+}
+.connector-handle-dot {
+  fill: var(--surface-raised);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.connector-handle:hover .connector-handle-dot,
+.connector-handle:focus-visible .connector-handle-dot {
+  fill: var(--accent);
+  stroke: var(--surface-raised);
+  stroke-width: 2;
+}
+.connector-label-control {
+  cursor: move;
+  outline: none;
+}
+.connector-label-control:focus-visible .connector-label {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+@media (pointer: coarse) {
+  .connector-handle-hit {
+    r: 22px;
+  }
+}
+
 /* A conversation's pin: a bubble on the corner of what it is about, drawn in
    screen pixels whatever the zoom (the group undoes it), in the accent so it
    reads as chrome and never as part of the drawing. */
@@ -5866,7 +5896,8 @@ select.input.is-choice {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  overflow: hidden;
+  /* The camera owns panning, even when an off-screen SVG handle takes focus. */
+  overflow: clip;
   animation: room-in var(--duration-slow) var(--ease-out) both;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -7560,7 +7591,7 @@ body,
 .connector .connector-label {
   transition: stroke 140ms var(--ease-out);
 }
-.connector:hover .connector-stroke {
+.connector:not([data-colored]):hover .connector-stroke {
   stroke: var(--accent);
 }
 .connector:hover .connector-label {

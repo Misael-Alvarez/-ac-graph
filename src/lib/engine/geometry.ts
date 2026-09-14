@@ -1,4 +1,4 @@
-import type { BBox, DiagramModel, Point, Shape } from '@/lib/domain';
+import type { BBox, DiagramModel, Point, Port, Shape } from '@/lib/domain';
 import { G } from './constants';
 
 export function bbox(s: Shape): BBox {
@@ -22,7 +22,7 @@ export function geometricallyContains(outer: BBox, inner: BBox): boolean {
   );
 }
 
-export type PortName = 'N' | 'S' | 'E' | 'W';
+export type PortName = Port;
 
 export function ports(s: Shape): Record<PortName, Point> {
   const { x, y, w, h } = s;

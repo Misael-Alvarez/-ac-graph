@@ -178,11 +178,13 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     case 'setShapeProps': {
       const shape = E.getShape(draft, action.id);
       if (!shape) return NOTHING;
+      const geometry = ['x', 'y', 'w', 'h', 'manualSize'].some((key) => key in action.patch);
+      const previous = geometry ? current(draft) : undefined;
       Object.assign(shape, action.patch);
       // Content edits are shared, but must not reset a view's arrangement.
-      if (['x', 'y', 'w', 'h', 'manualSize'].some((key) => key in action.patch)) {
+      if (geometry) {
         if (shape.type === 'group') E.relayoutGroup(draft, shape);
-        E.routeConnectorsFor(draft, E.collectDescendantIds(draft, action.id));
+        E.routeConnectorsFor(draft, E.collectDescendantIds(draft, action.id), previous);
       }
       return NOTHING;
     }
@@ -244,13 +246,40 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       const connector = draft.connectors.find((c) => c.id === action.id);
       if (!connector) return NOTHING;
       [connector.sourceId, connector.targetId] = [connector.targetId, connector.sourceId];
+      // Everything that had a direction turns with it: the faces, the label's
+      // place along the line, and a hand-drawn route, read backwards.
+      [connector.sourcePort, connector.targetPort] = [connector.targetPort, connector.sourcePort];
+      if (connector.labelAt !== undefined) connector.labelAt = 1 - connector.labelAt;
+      if (connector.manual) connector.waypoints = [...connector.waypoints].reverse();
       E.routeConnector(draft, connector);
       return NOTHING;
     }
 
     case 'setConnectorProps': {
       const c = draft.connectors.find((x) => x.id === action.id);
-      if (c) Object.assign(c, action.patch);
+      if (!c) return NOTHING;
+      const previous = current(draft);
+      Object.assign(c, action.patch);
+      // A new face at either end is a new line — or, for a route of the
+      // author's, the same line brought to the new face.
+      if ('sourcePort' in action.patch || 'targetPort' in action.patch)
+        E.routeConnector(draft, c, previous);
+      return NOTHING;
+    }
+
+    case 'setConnectorRoute': {
+      const c = draft.connectors.find((x) => x.id === action.id);
+      if (!c) return NOTHING;
+      const base = current(draft);
+      const previous =
+        action.viewId === undefined ? base : E.resolveView(base, action.viewId ?? null);
+      E.setRoute(draft, c, action.waypoints, previous);
+      return NOTHING;
+    }
+
+    case 'resetConnectorRoute': {
+      const c = draft.connectors.find((x) => x.id === action.id);
+      if (c) E.resetRoute(draft, c);
       return NOTHING;
     }
 

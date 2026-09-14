@@ -1,7 +1,7 @@
 import type { DiagramModel, Shape } from '@/lib/domain';
 import { isDecorative } from '@/lib/domain';
 import type { CanvasTheme } from '@/lib/design/tokens';
-import { ConnectorLayer } from './ConnectorLayer';
+import { ConnectorLayer, type ConnectorLayerProps } from './ConnectorLayer';
 import {
   BoundaryShape,
   ContainerShape,
@@ -54,11 +54,7 @@ export interface DiagramSceneProps {
   /** Omitted when rendering for export or an embed, which is what keeps
    *  selection outlines and resize handles out of the produced file. */
   interactionFor?: (shape: Shape) => ShapeInteraction | undefined;
-  connectorInteraction?: {
-    selectedId?: string | null;
-    onContextMenu?: (e: React.MouseEvent, id: string) => void;
-    onClick?: (e: React.MouseEvent, id: string) => void;
-  };
+  connectorInteraction?: Omit<ConnectorLayerProps, 'connectors' | 'theme'>;
 }
 
 /**

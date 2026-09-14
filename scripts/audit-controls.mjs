@@ -586,6 +586,85 @@ for (const [tool, prefix] of [
   await page.getByRole('button', { name: 'Discontinua' }).click();
   await settle(250);
   check('conector: estilo discontinua → trazo', (await stroke()) === '7 5');
+  const line = page.locator('.connector.is-selected .connector-stroke');
+  const chooseLine = (group, option) =>
+    page
+      .getByRole('radiogroup', { name: group, exact: true })
+      .getByRole('radio', { name: option, exact: true })
+      .click();
+  for (const [group, face] of [
+    ['Puerto de origen', 'Arriba'],
+    ['Puerto de destino', 'Abajo'],
+  ]) {
+    const before = await line.getAttribute('d');
+    await chooseLine(group, face);
+    await settle(150);
+    const fixed = await line.getAttribute('d');
+    check(`conector: ${group} cambia el anclaje`, fixed !== before);
+    await chooseLine(group, 'Automático');
+    await settle(150);
+    check(`conector: ${group} vuelve a automático`, (await line.getAttribute('d')) === before);
+  }
+  await chooseLine('Codos', 'Ortogonales');
+  check('conector: codos ortogonales sin curvas', !(await line.getAttribute('d')).includes('Q'));
+  await chooseLine('Codos', 'Redondeados');
+  check('conector: codos redondeados con curvas', (await line.getAttribute('d')).includes('Q'));
+  const regularWidth = Number(await line.getAttribute('stroke-width'));
+  for (const weight of ['Grueso', 'Fino', 'Normal']) {
+    await chooseLine('Grosor', weight);
+    const width = Number(await line.getAttribute('stroke-width'));
+    check(
+      `conector: grosor ${weight} cambia el trazo`,
+      weight === 'Grueso'
+        ? width > regularWidth
+        : weight === 'Fino'
+          ? width < regularWidth
+          : width === regularWidth,
+    );
+  }
+  await page.locator('.inspector .color-field .input').fill('#cc4422');
+  check(
+    'conector: color de línea y punta coinciden',
+    (await line.getAttribute('stroke')) === '#cc4422' &&
+      (await page.locator('#arrowhead-c-cc4422 path').getAttribute('fill')) === '#cc4422',
+  );
+  await page.locator('.inspector .color-field .input').fill('');
+  check(
+    'conector: vaciar color recupera el tema',
+    (await line.getAttribute('stroke')) !== '#cc4422',
+  );
+  const label = page.locator('.connector.is-selected .connector-label');
+  const labelBefore = [await label.getAttribute('x'), await label.getAttribute('y')].join(',');
+  await page.getByRole('spinbutton', { name: 'Posición de la etiqueta', exact: true }).fill('15');
+  check(
+    'conector: porcentaje mueve la etiqueta',
+    [await label.getAttribute('x'), await label.getAttribute('y')].join(',') !== labelBefore,
+  );
+  await page.getByRole('button', { name: 'Restablecer posición de etiqueta' }).click();
+  check(
+    'conector: restablecer etiqueta recupera el segmento',
+    [await label.getAttribute('x'), await label.getAttribute('y')].join(',') === labelBefore,
+  );
+  const handles = page.locator('[data-bend-index]');
+  const handleCount = await handles.count();
+  const autoRoute = await line.getAttribute('d');
+  await page.getByRole('button', { name: 'Añadir punto de ruta', exact: true }).click();
+  check('conector: añadir punto dibuja un control', (await handles.count()) === handleCount + 1);
+  const handle = handles.first();
+  await handle.focus();
+  const position = await handle.getAttribute('transform');
+  await page.keyboard.press('ArrowRight');
+  check('conector: flechas mueven el punto', (await handle.getAttribute('transform')) !== position);
+  await page.keyboard.press('Delete');
+  check(
+    'conector: Supr quita solo el punto',
+    (await handles.count()) === handleCount && (await line.count()) === 1,
+  );
+  await page.getByRole('button', { name: 'Restablecer ruta automática' }).click();
+  check(
+    'conector: restablecer ruta devuelve el dibujo al enrutador',
+    (await line.getAttribute('d')) === autoRoute,
+  );
   const d0 = await page.locator('.connector.is-selected .connector-stroke').getAttribute('d');
   await page.getByRole('button', { name: 'Invertir sentido' }).click();
   await settle(300);

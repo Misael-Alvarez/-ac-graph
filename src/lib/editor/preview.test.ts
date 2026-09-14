@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { addConnector, addGroup, children, createEmptyModel, getShape } from '@/lib/engine';
-import { normaliseBox, previewDrag, previewResize, resolveDragSet, shapesInLasso } from './preview';
+import {
+  addConnector,
+  addGroup,
+  children,
+  createEmptyModel,
+  getShape,
+  resolveView,
+  routeAllConnectors,
+  setRoute,
+} from '@/lib/engine';
+import { modelWith } from '@/lib/engine/testUtils';
+import { docReducer, initialDocState } from './reducer';
+import {
+  normaliseBox,
+  previewConnector,
+  previewDrag,
+  previewResize,
+  resolveDragSet,
+  shapesInLasso,
+} from './preview';
 
 function twoGroups() {
   const m = createEmptyModel();
@@ -24,6 +42,30 @@ describe('resolveDragSet', () => {
 });
 
 describe('previewDrag', () => {
+  it('translates manual bends with the selection while retaining their appearance', () => {
+    const model = modelWith([
+      { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+      { id: 'b', x: 400, y: 300, w: 100, h: 100 },
+    ]);
+    const line = addConnector(model, 'a', 'b');
+    setRoute(model, line, [
+      { x: 100, y: 50 },
+      { x: 200, y: 50 },
+      { x: 200, y: 350 },
+      { x: 400, y: 350 },
+    ]);
+    Object.assign(line, { curve: 'orthogonal', color: '#123456', weight: 'bold', labelAt: 0.2549 });
+    const before = structuredClone(model);
+    const preview = previewDrag(model, new Set(['a', 'b']), 300, 400);
+    expect(preview.connectors[0]).toEqual({
+      ...line,
+      waypoints: line.waypoints.map((p) => ({ x: p.x + 300, y: p.y + 400 })),
+    });
+    routeAllConnectors(preview);
+    expect(preview.connectors[0].waypoints[1]).toEqual({ x: 500, y: 450 });
+    expect(model).toEqual(before);
+  });
+
   it('offsets only the affected shapes', () => {
     const { model, a, b } = twoGroups();
     const preview = previewDrag(model, resolveDragSet(model, [a.id]), 50, 25);
@@ -59,6 +101,18 @@ describe('previewDrag', () => {
   });
 });
 
+describe('previewConnector', () => {
+  it('retains curve, color and weight while previewing a moved label', () => {
+    const { model } = twoGroups();
+    const line = model.connectors[0];
+    Object.assign(line, { curve: 'orthogonal', color: '#123456', weight: 'bold' });
+    const preview = previewConnector(model, line.id, { labelAt: 0.2549 });
+    expect(preview.connectors[0]).toEqual({ ...line, labelAt: 0.2549 });
+    expect(line.labelAt).toBeUndefined();
+    expect(previewConnector(model, 'missing', { labelAt: 0 })).toBe(model);
+  });
+});
+
 describe('previewResize', () => {
   it('applies the new size and marks it manual', () => {
     const { model, a } = twoGroups();
@@ -84,6 +138,48 @@ describe('previewResize', () => {
     const { model } = twoGroups();
     expect(previewResize(model, 'ghost', 100, 100)).toBe(model);
   });
+});
+
+describe('view preview parity', () => {
+  it.each(['move', 'resize'] as const)(
+    'matches the committed %s after independent view placements',
+    (kind) => {
+      const model = modelWith([
+        { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+        { id: 'b', x: 400, y: 300, w: 100, h: 100 },
+      ]);
+      const line = addConnector(model, 'a', 'b');
+      setRoute(model, line, [
+        { x: 100, y: 50 },
+        { x: 200, y: 50 },
+        { x: 200, y: 350 },
+        { x: 400, y: 350 },
+      ]);
+      model.views = [
+        { id: 'main', name: 'Main', kind: 'free' },
+        {
+          id: 'detail',
+          name: 'Detail',
+          kind: 'free',
+          place: { a: { x: 0, y: 100, w: 100, h: 100 } },
+        },
+      ];
+      const before = structuredClone(model);
+      const reading = resolveView(model, 'detail');
+      const preview =
+        kind === 'move'
+          ? previewDrag(reading, new Set(['a', 'b']), 50, 30, model)
+          : previewResize(reading, 'a', 160, 140, model);
+      const after = docReducer(
+        initialDocState(model),
+        kind === 'move'
+          ? { type: 'moveShapes', ids: ['a', 'b'], dx: 50, dy: 30, viewId: 'detail' }
+          : { type: 'resizeShape', id: 'a', w: 160, h: 140, viewId: 'detail' },
+      );
+      expect(preview.connectors).toEqual(resolveView(after.model, 'detail').connectors);
+      expect(model).toEqual(before);
+    },
+  );
 });
 
 describe('lasso helpers', () => {

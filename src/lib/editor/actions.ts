@@ -1,4 +1,4 @@
-import type { Connector, CustomIcon, DiagramModel, Shape } from '@/lib/domain';
+import type { Connector, CustomIcon, DiagramModel, Point, Shape } from '@/lib/domain';
 import type { AlignEdge, ClipboardPayload, DecorationType, DistributeAxis } from '@/lib/engine';
 import type { CloudTarget } from '@/data/cloudEquivalents';
 import type { Locale } from '@/lib/i18n/messages';
@@ -77,6 +77,16 @@ export type EditorAction =
   | { type: 'deleteConnector'; id: string }
   | { type: 'reverseConnector'; id: string }
   | ({ type: 'setConnectorProps'; id: string; patch: Partial<Connector> } & Coalescable)
+  /** The author draws the line: these points, ends re-anchored, kept from now on. */
+  | ({
+      type: 'setConnectorRoute';
+      id: string;
+      waypoints: Point[];
+      /** Omitted means base coordinates; null means the resolved main view. */
+      viewId?: string | null;
+    } & Coalescable)
+  /** The router draws it again. */
+  | { type: 'resetConnectorRoute'; id: string }
   | { type: 'paste'; payload: ClipboardPayload; offsetX: number; offsetY: number }
   | { type: 'duplicateShapes'; ids: string[] }
   | { type: 'autoLayout'; viewId: string | null; drillPath?: string[] }

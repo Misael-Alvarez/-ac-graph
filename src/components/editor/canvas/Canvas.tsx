@@ -6,6 +6,7 @@ import { isDecorative } from '@/lib/domain';
 import { CommentPins } from '../comments/CommentPins';
 import * as E from '@/lib/engine';
 import { iconKeysIn } from '@/lib/engine';
+import { connectorColorsIn } from '@/lib/editor/meta';
 import { canvasTheme } from '@/lib/design/tokens';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import {
@@ -19,6 +20,7 @@ import {
   type Viewport,
 } from '@/lib/editor/viewport';
 import { describeDiagram } from '@/lib/editor/describe';
+import { labelAnchor, positionAlong } from '@/lib/editor/connectorPath';
 import { isTextEntryTarget } from '@/lib/editor/domFocus';
 import { useEditor } from '../EditorProvider';
 import { serviceDescription } from '@/lib/i18n/serviceCopy';
@@ -31,6 +33,7 @@ import { DiagramScene } from './DiagramScene';
 import type { ShapeInteraction } from './shapes';
 import { EmptyState } from './EmptyState';
 import { SelectionToolbar } from './SelectionToolbar';
+import { ConnectorHandles } from './ConnectorHandles';
 
 const HANDLE = 9;
 /** How long the camera takes to glide to a commanded viewport. */
@@ -55,6 +58,7 @@ export function Canvas() {
 
   const tools = usePointerTools({
     model: view,
+    routingModel: doc.model,
     viewport: ui.viewport,
     gridSnap: ui.gridSnap,
     selectedIds: ui.selectedIds,
@@ -63,6 +67,10 @@ export function Canvas() {
       dispatch({ type: 'moveShapes', ids, dx, dy, viewId: ui.activeViewId }),
     onResizeShape: (id, w, h) =>
       dispatch({ type: 'resizeShape', id, w, h, viewId: ui.activeViewId }),
+    onSetConnectorRoute: (id, waypoints) =>
+      dispatch({ type: 'setConnectorRoute', id, waypoints, viewId: ui.activeViewId }),
+    onSetConnectorLabel: (id, labelAt) =>
+      dispatch({ type: 'setConnectorProps', id, patch: { labelAt } }),
     onLassoSelect: (ids) => dispatchUi({ type: 'select', ids }),
     onViewportChange: (viewport) => dispatchUi({ type: 'setViewport', viewport }),
     readOnly,
@@ -477,6 +485,15 @@ export function Canvas() {
     () => model.shapes.filter((s) => ui.selectedIds.has(s.id)),
     [model.shapes, ui.selectedIds],
   );
+  const selectedConnector = model.connectors.find((c) => c.id === ui.selectedConnectorId);
+  const labelBurst = useRef({ key: '', at: 0, count: 0 });
+
+  const onConnectorPointerDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0 || spaceHeld || ui.tool !== 'select' || ui.presenting) return;
+    e.stopPropagation();
+    takeKeyboard();
+    dispatchUi({ type: 'selectConnector', id });
+  };
 
   const cursor =
     spaceHeld || ui.tool === 'pan' ? 'grab' : ui.tool === 'select' ? 'default' : 'crosshair';
@@ -512,7 +529,12 @@ export function Canvas() {
         aria-describedby="canvas-description"
         tabIndex={-1}
       >
-        <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={doc.model.customIcons} />
+        <Defs
+          theme={theme}
+          iconKeys={iconKeysIn(model)}
+          customIcons={doc.model.customIcons}
+          connectorColors={connectorColorsIn(model)}
+        />
         {ui.gridSnap && (
           <>
             <pattern
@@ -544,9 +566,76 @@ export function Canvas() {
                 selectedId: ui.selectedConnectorId,
                 onClick: (e, id) => {
                   e.stopPropagation();
+                  if (ui.presenting || ui.tool !== 'select') return;
                   dispatchUi({ type: 'selectConnector', id });
                 },
+                onPointerDown: onConnectorPointerDown,
+                onDoubleClick: (e, id) => {
+                  if (readOnly || spaceHeld || ui.tool !== 'select') return;
+                  e.stopPropagation();
+                  const connector = model.connectors.find((c) => c.id === id);
+                  if (!connector) return;
+                  const { waypoints, index } = E.insertBend(
+                    connector.waypoints,
+                    toCanvas(ui.viewport, toLocal(e)),
+                  );
+                  dispatch({ type: 'setConnectorRoute', id, waypoints, viewId: ui.activeViewId });
+                  requestAnimationFrame(() =>
+                    document
+                      .querySelector<SVGElement>(`[data-bend-index="${index}"]`)
+                      ?.focus({ preventScroll: true }),
+                  );
+                },
+                labelPositionName: t('canvas.labelPosition'),
+                onLabelPointerDown:
+                  readOnly || ui.tool !== 'select'
+                    ? undefined
+                    : (e, id) => {
+                        if (e.button !== 0 || spaceHeld) return;
+                        onConnectorPointerDown(e, id);
+                        tools.startLabel(e, id);
+                      },
+                onLabelKeyDown: readOnly
+                  ? undefined
+                  : (e, id) => {
+                      if (e.altKey || e.ctrlKey || e.metaKey) return;
+                      const directions: Record<string, number> = {
+                        ArrowLeft: -1,
+                        ArrowDown: -1,
+                        ArrowRight: 1,
+                        ArrowUp: 1,
+                      };
+                      if (!(e.key in directions) && e.key !== 'Home' && e.key !== 'End') return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const connector = model.connectors.find((c) => c.id === id);
+                      if (!connector) return;
+                      const anchor = labelAnchor(connector.waypoints, connector.labelAt);
+                      if (!anchor) return;
+                      const at = connector.labelAt ?? positionAlong(connector.waypoints, anchor);
+                      const labelAt =
+                        e.key === 'Home'
+                          ? 0
+                          : e.key === 'End'
+                            ? 1
+                            : Math.max(
+                                0,
+                                Math.min(1, at + directions[e.key] * (e.shiftKey ? 0.1 : 0.01)),
+                              );
+                      const now = Date.now();
+                      if (labelBurst.current.key !== id || now - labelBurst.current.at > 800)
+                        labelBurst.current.count++;
+                      labelBurst.current.key = id;
+                      labelBurst.current.at = now;
+                      dispatch({
+                        type: 'setConnectorProps',
+                        id,
+                        patch: { labelAt },
+                        coalesceKey: `label:${id}:${labelBurst.current.count}`,
+                      });
+                    },
                 onContextMenu: (e, id) => {
+                  if (ui.presenting) return;
                   e.preventDefault();
                   e.stopPropagation();
                   dispatchUi({ type: 'selectConnector', id });
@@ -682,6 +771,30 @@ export function Canvas() {
                 />
               )}
             </g>
+
+            {!readOnly && ui.tool === 'select' && selectedConnector && (
+              <ConnectorHandles
+                key={selectedConnector.id}
+                connector={selectedConnector}
+                zoom={shown.zoom}
+                t={t}
+                onPointerDown={(e, index) => {
+                  if (e.button !== 0 || spaceHeld) return;
+                  e.stopPropagation();
+                  takeKeyboard();
+                  tools.startBend(e, selectedConnector.id, index);
+                }}
+                onChange={(waypoints, coalesceKey) =>
+                  dispatch({
+                    type: 'setConnectorRoute',
+                    id: selectedConnector.id,
+                    waypoints,
+                    coalesceKey,
+                    viewId: ui.activeViewId,
+                  })
+                }
+              />
+            )}
 
             {/* Resize handle, only for a single selection of a sizeable shape.
               Sized against the zoom: as a plain canvas rectangle it shrank to

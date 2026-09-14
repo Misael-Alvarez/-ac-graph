@@ -128,11 +128,11 @@ export function resolveView(model: DiagramModel, viewId: string | null): Diagram
     }
   }
 
-  // Waypoints are always the router's, never a person's — `SharedDiagram`
-  // rebuilds them from nothing on every share. So a view that moved a shape can
-  // simply re-route rather than carry a second set of routes per view, which
-  // would be state to store, migrate and keep in sync for no gain.
-  if (keep || hasOverrides) routeAllConnectors(resolved);
+  // Routes are not stored per view. A view that moved a shape simply re-routes
+  // — the router redraws its own lines and re-anchors the author's — rather
+  // than carrying a second set of routes per view, which would be state to
+  // store, migrate and keep in sync for no gain.
+  if (keep || hasOverrides) routeAllConnectors(resolved, model);
 
   return resolved;
 }
@@ -157,7 +157,8 @@ export function editViewGeometry(
   edit: (reading: DiagramModel) => void,
 ): void {
   const view = getView(model, viewId);
-  const before = focusSubtree(resolveView(model, viewId), drillPath);
+  const resolved = focusSubtree(resolveView(model, viewId), drillPath);
+  const before = { ...resolved, shapes: resolved.shapes.map((s) => ({ ...s })) };
   const local = model.views.length > 1 || Boolean(view.place);
   const reading = {
     ...before,
@@ -186,7 +187,7 @@ export function editViewGeometry(
       if (after.order !== previous.order) shape.order = after.order;
     }
   }
-  if (!local && changed.size) routeConnectorsFor(model, changed);
+  if (!local && changed.size) routeConnectorsFor(model, changed, before);
 }
 
 /**
@@ -207,7 +208,9 @@ export function projectView(reading: DiagramModel): DiagramModel {
     })),
     connectors: reading.connectors
       .filter((c) => visible.has(c.sourceId) && visible.has(c.targetId))
-      .map((c) => ({ ...c, waypoints: [] })),
+      // The router's lines are redrawn from the shapes; the author's are kept
+      // and only re-anchored, which is what `routeConnector` does with them.
+      .map((c) => ({ ...c, waypoints: c.manual ? c.waypoints : [] })),
   };
   routeAllConnectors(projected);
   return projected;

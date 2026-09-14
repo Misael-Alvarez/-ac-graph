@@ -1,6 +1,7 @@
 import type { DiagramModel } from '@/lib/domain';
 import { canvasTheme, fontSize, fontWeight, providerColors } from '@/lib/design/tokens';
 import { iconKeysIn, contentBBox } from '@/lib/engine';
+import { connectorColorsIn } from '@/lib/editor/meta';
 import { AION_LOGO } from '@/data/aionLogo';
 import type { BrandMode } from '@/lib/editor';
 import { Defs } from './Defs';
@@ -57,7 +58,12 @@ export function DiagramDocument({
     >
       {title && <title>{title}</title>}
       {description && <desc>{description}</desc>}
-      <Defs theme={theme} iconKeys={iconKeysIn(model)} customIcons={model.customIcons} />
+      <Defs
+        theme={theme}
+        iconKeys={iconKeysIn(model)}
+        customIcons={model.customIcons}
+        connectorColors={connectorColorsIn(model)}
+      />
       <rect x={originX} y={originY} width={width} height={height} fill={theme.sheet} />
       <DiagramScene model={model} theme={theme} />
       {showFooter && (

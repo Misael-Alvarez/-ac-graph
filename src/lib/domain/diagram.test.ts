@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CURRENT_SCHEMA_VERSION,
+  ConnectorSchema,
   isDecorative,
   parseDiagramModel,
   safeParseDiagramModel,
@@ -28,7 +29,7 @@ describe('parseDiagramModel', () => {
   it('re-stamps every earlier version with the current one', () => {
     // The changes so far are additive, so a document from any earlier build is
     // a valid document of this one — and says so once read.
-    for (const version of [1, 2, 3]) {
+    for (const version of [1, 2, 3, 4]) {
       const model = parseDiagramModel({
         schemaVersion: version,
         canvas: { w: 100, h: 100 },
@@ -72,6 +73,30 @@ describe('parseDiagramModel', () => {
     });
     expect(model.connectors[0]).toMatchObject({ label: '', style: 'solid', waypoints: [] });
     expect(model.showFooter).toBe(false);
+  });
+
+  it('retains optional connector geometry and rejects unknown curve modes', () => {
+    const line = {
+      id: 'c',
+      sourceId: 'a',
+      targetId: 'b',
+      manual: true,
+      waypoints: [
+        { x: 0, y: 0 },
+        { x: 100, y: 100 },
+      ],
+      sourcePort: 'E',
+      targetPort: 'N',
+      labelAt: 0.2549,
+      color: '#123456',
+      weight: 'bold',
+    };
+    for (const curve of ['rounded', 'orthogonal']) {
+      expect(ConnectorSchema.parse({ ...line, curve })).toMatchObject({ ...line, curve });
+    }
+    expect(ConnectorSchema.parse(line).curve).toBeUndefined();
+    expect(ConnectorSchema.safeParse({ ...line, curve: 'bezier' }).success).toBe(false);
+    expect(CURRENT_SCHEMA_VERSION).toBe(5);
   });
 
   it('rejects a shape with a bad type', () => {

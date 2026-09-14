@@ -1,5 +1,5 @@
 import { parseDocument, type Document } from 'yaml';
-import type { DiagramModel, Shape, View } from '@/lib/domain';
+import type { Connector, DiagramModel, Point, Shape, View } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import { SERVICE_ICONS } from '@/data/serviceIcons';
 import { PROVIDER_COLORS, providerOf } from '@/lib/editor/providers';
@@ -232,6 +232,9 @@ export function compile(
     itemIdByNode.set(nodeId, item.id);
   }
 
+  /** The bends an edge asked for, to draw once every shape has settled. */
+  const drawnRoutes: { connector: Connector; via: Point[] }[] = [];
+
   for (const edge of edges) {
     const sourceId = itemIdByNode.get(edge.from);
     const targetId = itemIdByNode.get(edge.to);
@@ -240,6 +243,17 @@ export function compile(
     connector.label = edge.label;
     connector.style = edge.style;
     connector.meta = edge.meta;
+    if (edge.line) {
+      if (edge.line.sourcePort) connector.sourcePort = edge.line.sourcePort;
+      if (edge.line.targetPort) connector.targetPort = edge.line.targetPort;
+      if (edge.line.labelAt !== undefined) connector.labelAt = edge.line.labelAt;
+      if (edge.line.color) connector.color = edge.line.color;
+      if (edge.line.weight) connector.weight = edge.line.weight;
+      if (edge.line.curve) connector.curve = edge.line.curve;
+      if (edge.line.via?.length) {
+        drawnRoutes.push({ connector, via: edge.line.via.map(([x, y]) => ({ x, y })) });
+      }
+    }
   }
 
   /** The group that represents a node, resolved through its item. */
@@ -305,6 +319,9 @@ export function compile(
   }
 
   E.routeAllConnectors(model);
+  // Routes the author drew, last of all: their bends are absolute, like
+  // `layout`, and only make sense once nothing else is going to move.
+  for (const { connector, via } of drawnRoutes) E.routeThrough(model, connector, via);
 
   // The decoration, once the architecture has settled: a note without a place
   // of its own goes below whatever there is, and each one below the last.

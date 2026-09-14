@@ -1,6 +1,7 @@
 import { spriteFor } from '@/components/icons/svgIconDefs';
 import type { CanvasTheme } from '@/lib/design/tokens';
 import type { CustomIcon } from '@/lib/domain';
+import { arrowheadIdFor } from '@/lib/editor/meta';
 
 /**
  * Shared SVG definitions: the service icon sprite, the arrowhead marker and the
@@ -15,6 +16,7 @@ export function Defs({
   idPrefix = '',
   iconKeys,
   customIcons = [],
+  connectorColors = [],
 }: {
   theme: CanvasTheme;
   idPrefix?: string;
@@ -23,8 +25,18 @@ export function Defs({
   iconKeys: Iterable<string>;
   /** The document's own icons; those in use are emitted as symbols too. */
   customIcons?: CustomIcon[];
+  /** Colours the author gave connectors: each needs an arrowhead of its own. */
+  connectorColors?: string[];
 }) {
   const wanted = new Set(iconKeys);
+  // A marker cannot take its colour from the path it ends, so every colour a
+  // line wears gets a head to match; without one, a coloured line ends in a
+  // grey point, which is the first thing anyone sees.
+  const heads: [string, string][] = [
+    ['arrowhead', theme.connector],
+    ['arrowhead-ink', theme.titleText],
+    ...connectorColors.map((color): [string, string] => [arrowheadIdFor(color), color]),
+  ];
   return (
     <defs>
       <g dangerouslySetInnerHTML={{ __html: spriteFor(wanted) }} />
@@ -51,12 +63,7 @@ export function Defs({
           would otherwise wear a head half again as large as its neighbours.
           The back of the head is drawn in a shallow curve, so it reads as a
           point rather than a triangle. */}
-      {(
-        [
-          ['arrowhead', theme.connector],
-          ['arrowhead-ink', theme.titleText],
-        ] as const
-      ).map(([name, fill]) => (
+      {heads.map(([name, fill]) => (
         <marker
           key={name}
           id={`${idPrefix}${name}`}

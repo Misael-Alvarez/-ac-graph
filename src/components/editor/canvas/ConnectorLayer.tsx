@@ -1,8 +1,9 @@
 import type { Connector } from '@/lib/domain';
 import type { CanvasTheme } from '@/lib/design/tokens';
-import { fontSize, fontWeight } from '@/lib/design/tokens';
-import { labelAnchor, waypointsToPath } from '@/lib/editor/connectorPath';
+import { fontSize, fontWeight, isColor } from '@/lib/design/tokens';
+import { labelAnchor, positionAlong, waypointsToPath } from '@/lib/editor/connectorPath';
 import {
+  arrowheadIdFor,
   badgeWidth,
   connectorLabel,
   connectorTags,
@@ -10,12 +11,17 @@ import {
   toneColors,
 } from '@/lib/editor/meta';
 
-interface ConnectorLayerProps {
+export interface ConnectorLayerProps {
   connectors: Connector[];
   theme: CanvasTheme;
   selectedId?: string | null;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
   onClick?: (e: React.MouseEvent, id: string) => void;
+  onPointerDown?: (e: React.PointerEvent, id: string) => void;
+  onDoubleClick?: (e: React.MouseEvent, id: string) => void;
+  onLabelPointerDown?: (e: React.PointerEvent, id: string) => void;
+  onLabelKeyDown?: (e: React.KeyboardEvent, id: string) => void;
+  labelPositionName?: string;
 }
 
 const LABEL_H = 20;
@@ -40,18 +46,30 @@ export function ConnectorLayer({
   selectedId,
   onContextMenu,
   onClick,
+  onPointerDown,
+  onDoubleClick,
+  onLabelPointerDown,
+  onLabelKeyDown,
+  labelPositionName,
 }: ConnectorLayerProps) {
   const interactive = Boolean(onContextMenu || onClick);
   return (
     <g>
       {connectors.map((c) => {
-        const d = waypointsToPath(c.waypoints);
+        const d = waypointsToPath(c.waypoints, c.curve === 'orthogonal' ? 0 : undefined);
         if (!d) return null;
         // What the chip says: the label, or the protocol when there is none.
         const label = connectorLabel(c);
         const tags = connectorTags(c);
-        const anchor = label || tags.length ? labelAnchor(c.waypoints) : null;
+        const anchor = label || tags.length ? labelAnchor(c.waypoints, c.labelAt) : null;
         const selected = selectedId === c.id;
+        const ownColor = isColor(c.color) ? c.color : undefined;
+        const color = ownColor ?? (selected ? theme.titleText : theme.connector);
+        const marker = ownColor
+          ? arrowheadIdFor(ownColor)
+          : selected
+            ? 'arrowhead-ink'
+            : 'arrowhead';
         const stroke = strokeFor(c);
         // Rough advance width; the label chip only has to look balanced.
         const labelWidth = label ? label.length * 6.2 + LABEL_PAD * 2 : 0;
@@ -72,6 +90,8 @@ export function ConnectorLayer({
           <g
             key={c.id}
             className={interactive ? `connector${selected ? ' is-selected' : ''}` : undefined}
+            data-connector-id={interactive ? c.id : undefined}
+            data-colored={ownColor ? true : undefined}
           >
             {selected && (
               <path
@@ -100,12 +120,12 @@ export function ConnectorLayer({
               className="connector-stroke"
               d={d}
               fill="none"
-              stroke={selected ? theme.titleText : theme.connector}
+              stroke={color}
               strokeWidth={selected ? stroke.width + 0.4 : stroke.width}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray={stroke.dasharray}
-              markerEnd={selected ? 'url(#arrowhead-ink)' : 'url(#arrowhead)'}
+              markerEnd={`url(#${marker})`}
             />
             {interactive && selected && (
               <path
@@ -129,10 +149,30 @@ export function ConnectorLayer({
                 style={{ cursor: 'pointer' }}
                 onContextMenu={(e) => onContextMenu?.(e, c.id)}
                 onClick={(e) => onClick?.(e, c.id)}
+                onPointerDown={(e) => onPointerDown?.(e, c.id)}
+                onDoubleClick={(e) => onDoubleClick?.(e, c.id)}
               />
             )}
             {anchor && (
-              <g pointerEvents="none">
+              <g
+                data-connector-label={interactive ? c.id : undefined}
+                className={selected && onLabelPointerDown ? 'connector-label-control' : undefined}
+                pointerEvents={interactive ? 'all' : 'none'}
+                role={selected && onLabelPointerDown ? 'slider' : undefined}
+                tabIndex={selected && onLabelPointerDown ? 0 : undefined}
+                aria-label={selected && onLabelPointerDown ? labelPositionName : undefined}
+                aria-valuemin={selected && onLabelPointerDown ? 0 : undefined}
+                aria-valuemax={selected && onLabelPointerDown ? 100 : undefined}
+                aria-valuenow={
+                  selected && onLabelPointerDown
+                    ? Math.round((c.labelAt ?? positionAlong(c.waypoints, anchor)) * 100)
+                    : undefined
+                }
+                onPointerDown={(e) => (onLabelPointerDown ?? onPointerDown)?.(e, c.id)}
+                onKeyDown={(e) => onLabelKeyDown?.(e, c.id)}
+                onClick={(e) => onClick?.(e, c.id)}
+                onContextMenu={(e) => onContextMenu?.(e, c.id)}
+              >
                 {label && (
                   <>
                     <rect
