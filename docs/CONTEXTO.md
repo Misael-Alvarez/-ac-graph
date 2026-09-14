@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `7c72a21` (H2 #11 conectores editables; las 2 líneas base visuales de `inspector for a connection` aceptadas a conciencia). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio en `db431ad` (H2 #16 importadores) sobre `7c72a21` (H2 #11 conectores editables). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -37,6 +37,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `0bb02b1` — Talk about the drawing: comment threads pinned to shapes and the sheet, live, outside the model
   - `3026f05` — Record the comments commit in the context and the checkpoint log
   - `7c72a21` — Draw the line yourself: routes, ports, labels, elbows, weight and colour per connector, kept through views and code
+  - `86ac20f` — Record the connectors commit in the context and the checkpoint log
+  - `db431ad` — Read what the infrastructure says: CloudFormation, Docker Compose and Pulumi become diagrams like Terraform does
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -53,7 +55,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 ## 3. Entorno y comandos
 
 - Node del host: v25.5.0; el proyecto fija `>=24.20.0 <25` (`.nvmrc` 24.20.0). Funciona con 25 en la práctica; CI usa 24. Para verificar con el Node exacto sin instalarlo: `npm exec --cache /var/folders/wy/kf7vlr0s0013stp8jdglkst80000gn/T/opencode/npm-cache --package=node@24.20.0 -- node --version` deja el binario en esa caché; anteponerlo al `PATH` (`…/_npx/<hash>/node_modules/node/bin`) hace que `npm test`, `build`, Playwright y las auditorías corran con 24.20.0.
-- Docker no estaba arrancado en la sesión del 2026-09-14: las pruebas `.pg.test.ts` (73) y `audit:roles` quedaron sin ejecutar; el contenedor de 3080 no se reconstruyó.
+- Docker Desktop se arranca con `open -g -a Docker` (el daemon tarda ~30 s). El 2026-09-14 se ejecutaron con él las 73 `.pg.test.ts` y `audit:roles` (39/39); el contenedor de 3080 sigue con la imagen de `0bb02b1`.
 - Para una comparación de estilos contra el commit base sin tocar el árbol: `git worktree add --detach <tmp> HEAD`, copiar `node_modules` con `cp -cR` (clon APFS, ~7 s; un enlace simbólico no sirve: Turbopack lo rechaza), `npm run build` y `PORT=3102 npm start` allí, y `styles:snapshot` con `http://127.0.0.1:3102` como segundo argumento.
 - **Puertos:** `next dev` 3000 · servidor de pruebas 3100 (`127.0.0.1`) · Docker 3080 (loopback) · PostgreSQL 55432.
 - **Nunca** ejecutar `node .next/standalone/server.js` a mano tras un build: `npm start` copia `public` y `.next/static` al standalone; sin eso los chunks dan 404 y la página queda en "Cargando…".
@@ -168,16 +170,17 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Portada: `src/components/library/Library.tsx` (estado y composición) + `LibraryHeader`, `LibraryHero`, `LibraryToolbar` (exporta `FAVOURITES`/`NO_FOLDER`), `DiagramCard`, `TemplateGallery` (exporta `TemplatePreview`), `WorkspaceActions`, `CountUp`; vista previa real `src/lib/store/preview.ts`.
 - App: `src/components/app/` (providers, tooltips, ripple, tema, `PageState` para 404/error).
 - Victorias rápidas: `src/lib/editor/describe.ts` (descripción accesible), `src/lib/editor/usePresence.ts` (salidas), `src/lib/library/{prefs,dropImport}.ts` (orden/favoritos, soltar archivo), `repositoryUrl`/`stripMetadata` en `src/lib/editor/meta.ts`, `exportTheme`/`exportMeta` en `uiState.ts`.
+- Importación: `src/lib/import/{shared,index,terraform,kubernetes,openapi,cloudformation,compose,pulumi}.ts` (contrato `ImportResult`, `detectFormat` en orden terraform → cloudformation → openapi → pulumi → kubernetes → compose), tablas tipo → servicio en `src/data/resourceServices.ts`, diálogo `MarkdownDialog` en `Modals.tsx`, soltar archivo `src/lib/library/dropImport.ts`.
 - Servidor: `src/server/**`, rutas `src/app/api/**`; CLI y MCP en `bin/`. Colaboración: `src/server/collab/{events,presence,stream,bus,collaboration}.ts` (hub local, roster, SSE, transporte `LISTEN/NOTIFY`, coordinador por réplica). Roles: `src/server/diagrams/{repository,errors,schemas}.ts`, rutas `src/app/api/diagrams/[id]/members/**`, cliente `src/lib/store/httpRepository.ts` (`MembersApi`), solo lectura `src/lib/editor/readOnly.ts` + `readOnly` en `EditorProvider`, UI `ShareDialog.tsx` (`SharePeople`) y `Library.tsx`.
 - Observabilidad: `src/server/observability/{context,log,metrics,request,tracing,startup}.ts`, `src/instrumentation.ts` (hooks de Next), `src/app/api/metrics/route.ts`, `readObservabilityEnv` en `src/server/env.ts`, helper de tests `src/server/testing/logs.ts`.
 - Herramientas: `scripts/{audit-controls,audit-roles,style-snapshot,css-match-map,consolidate-css}.mjs`, `scripts/lib/tour.mjs`.
-- Pruebas: `src/**/*.test.ts` (1288 sin PostgreSQL; +73 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (158 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`; `audit:controls` 124, `audit:roles` 39.
+- Pruebas: `src/**/*.test.ts` (1398 sin PostgreSQL; 1471 con `TEST_DATABASE_URL`), `e2e/*.spec.ts` (161 funcionales + `visual.spec.ts` 24), líneas base en `e2e/__screenshots__/`; `audit:controls` 124, `audit:roles` 39.
 
 ## 8. Siguiente paso recomendado
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **Cerrar la entrega de #11:** con Docker arrancado, `TEST_DATABASE_URL=… npm test` (las 73 `.pg.test.ts`) y `audit:roles` para confirmar que el esquema 5 no cambia nada en servidor, y reconstruir la imagen de 3080 con el commit de #11.
-2. **H2: #10, #12, #20, #14, #9 y #11 hechos; #13 (⌘F) ya existe** (`FindBar`, E2E «⌘F finds a shape…», auditoría). Quedan sin marcar #15 iconos oficiales Azure/OCI (M), #16 importadores CloudFormation/Compose/Pulumi (M c/u), #17 exportación draw.io/PPTX (M/L), #18 IA que edita (L) y #19 revisión asistida (M). Por valor visible con menos riesgo: #15 → #16 → #17; #18/#19 requieren `ANTHROPIC_API_KEY` para verificarse de verdad.
+1. **Portada:** el usuario pidió (2026-09-14) mejorar el front de la biblioteca: botones con fallos, el logo de AION como vuelta al inicio, miniaturas que muestren la vista previa real (algunas salen rotas), quitar las métricas del hero y rediseñar con la sobriedad de Emil Kowalski («startup profesional»). Reconstruir la imagen de 3080 con lo que se entregue.
+2. **H2: #10, #12, #20, #14, #9, #11 y #16 hechos; #13 (⌘F) ya existe** (`FindBar`, E2E «⌘F finds a shape…», auditoría). Quedan sin marcar #15 iconos oficiales Azure/OCI (M; exige descargar los packs oficiales y revisar licencias), #17 exportación draw.io/PPTX (M/L), #18 IA que edita (L) y #19 revisión asistida (M). Por valor visible con menos riesgo: #17 → #15; #18/#19 requieren `ANTHROPIC_API_KEY` para verificarse de verdad.
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.
