@@ -35,7 +35,8 @@ const TOOLS = [
     name: 'read_architecture',
     description:
       'Read an architecture from a file. Accepts the AC Graph DSL, a Terraform plan or HCL, ' +
-      'Kubernetes manifests, or an OpenAPI description — it works out which. Returns the ' +
+      'a CloudFormation or SAM template, Kubernetes manifests, a Docker Compose file, a Pulumi ' +
+      'stack export or preview, or an OpenAPI description — it works out which. Returns the ' +
       'services, what connects to what, and the metadata each carries.',
     inputSchema: {
       type: 'object',

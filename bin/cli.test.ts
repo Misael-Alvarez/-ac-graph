@@ -194,6 +194,43 @@ describe('import', () => {
   it('refuses something that is not infrastructure', async () => {
     const path = await write('notes.txt', 'just some prose');
     expect(await main(['import', path])).toBe(1);
+    expect(stderr()).toContain('CloudFormation');
+  });
+
+  it('reads a Compose file, a template and a Pulumi export without a flag', async () => {
+    const compose = await write(
+      'docker-compose.yml',
+      'services:\n  db:\n    image: postgres:16\n  app:\n    build: .\n    depends_on: [db]\n',
+    );
+    expect(await main(['import', compose])).toBe(0);
+    expect(stdout()).toContain('postgresql');
+    expect(stdout()).toContain('technology: build');
+
+    const template = await write(
+      'template.yaml',
+      'Resources:\n  Orders:\n    Type: AWS::SQS::Queue\n  Fn:\n    Type: AWS::Serverless::Function\n    Properties:\n      Events:\n        Q: {Type: SQS, Properties: {Queue: !GetAtt Orders.Arn}}\n',
+    );
+    out = [];
+    await main(['check', template, '--json', '--exit-zero']);
+    expect(JSON.parse(stdout()).format).toBe('cloudformation');
+    expect(JSON.parse(stdout()).edges).toBe(1);
+
+    const pulumi = await write(
+      'stack.json',
+      JSON.stringify({
+        deployment: {
+          resources: [
+            {
+              urn: 'urn:pulumi:dev::shop::aws:sqs/queue:Queue::orders',
+              type: 'aws:sqs/queue:Queue',
+            },
+          ],
+        },
+      }),
+    );
+    out = [];
+    await main(['check', pulumi, '--json', '--exit-zero']);
+    expect(JSON.parse(stdout()).format).toBe('pulumi');
   });
 });
 

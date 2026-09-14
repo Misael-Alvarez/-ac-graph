@@ -126,6 +126,36 @@ describe('reading', () => {
     expect((await call('read_architecture', { path })).data.format).toBe('terraform');
   });
 
+  it('reads a template, a Compose file and a Pulumi export the same way', async () => {
+    const template = await write(
+      'template.yaml',
+      'AWSTemplateFormatVersion: "2010-09-09"\nResources:\n  Orders:\n    Type: AWS::SQS::Queue\n',
+    );
+    expect((await call('read_architecture', { path: template })).data.format).toBe(
+      'cloudformation',
+    );
+
+    const compose = await write('compose.yaml', 'services:\n  db:\n    image: postgres:16\n');
+    expect((await call('read_architecture', { path: compose })).data.format).toBe('compose');
+
+    const pulumi = await write(
+      'stack.json',
+      JSON.stringify({
+        deployment: {
+          resources: [
+            {
+              urn: 'urn:pulumi:dev::shop::aws:sqs/queue:Queue::orders',
+              type: 'aws:sqs/queue:Queue',
+            },
+          ],
+        },
+      }),
+    );
+    const { data } = await call('read_architecture', { path: pulumi });
+    expect(data.format).toBe('pulumi');
+    expect(data.services.map((s: { name: string }) => s.name)).toEqual(['Orders']);
+  });
+
   it('carries the metadata through, which is the part worth querying', async () => {
     const path = await write('a.yaml', ARCH);
     const { data } = await call('read_architecture', { path });

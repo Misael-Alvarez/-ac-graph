@@ -13,7 +13,8 @@ import type { DslDocument } from '@/lib/dsl';
  * round-trips through the same serialiser as everything else.
  */
 
-export type ImportFormat = 'terraform' | 'kubernetes' | 'openapi';
+export type ImportFormat =
+  'terraform' | 'cloudformation' | 'kubernetes' | 'compose' | 'pulumi' | 'openapi';
 
 /**
  * Something the importer had to guess at or could not use.
@@ -36,7 +37,8 @@ export interface ImportWarning {
     | 'unknownKind'
     | 'serviceSelectsNothing'
     | 'ingressMissingService'
-    | 'noOperations';
+    | 'noOperations'
+    | 'unknownImages';
   values?: Record<string, string | number>;
 }
 
@@ -100,4 +102,18 @@ export function environmentFrom(name: string): 'dev' | 'qa' | 'staging' | 'prod'
 export function titleFrom(id: string): string {
   const words = id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   return words ? words[0].toUpperCase() + words.slice(1) : id;
+}
+
+/**
+ * A CamelCase identifier as words: `CheckoutFunction` → `Checkout Function`.
+ *
+ * An acronym stays together — `APIGateway` is `API Gateway`, not `A P I
+ * Gateway` — because the boundary that matters is the one before a capital
+ * followed by lower case. Anything not CamelCase comes back untouched.
+ */
+export function wordsFrom(id: string): string {
+  return id
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .trim();
 }

@@ -226,7 +226,7 @@ const en = {
   'import.clients': 'Clients',
   'import.operationOne': '{count} operation',
   'import.operationMany': '{count} operations',
-  'import.warn.noResources': 'The plan declares no resources.',
+  'import.warn.noResources': 'The file declares no resources.',
   'import.warn.readFromHcl':
     'Read from HCL, so counts, conditionals and for_each are not reflected.',
   'import.warn.unknownResourceTypes':
@@ -237,11 +237,16 @@ const en = {
   'import.warn.ingressMissingService': 'An Ingress points at a Service "{name}" this file lacks.',
   'import.warn.noOperations':
     'The description declares no operations, so only the API itself is drawn.',
+  'import.warn.unknownImages':
+    'Drawn as plain containers, being images this does not know: {images}.',
   'import.title': 'Import an architecture',
   'import.subtitle':
-    'Paste a Terraform plan, Kubernetes manifests, an OpenAPI description or a Markdown outline. It works out which.',
+    'Paste Terraform, CloudFormation, Kubernetes, Docker Compose, Pulumi, OpenAPI or a Markdown outline. It works out which.',
   'import.detected.terraform': 'Terraform',
+  'import.detected.cloudformation': 'CloudFormation',
   'import.detected.kubernetes': 'Kubernetes',
+  'import.detected.compose': 'Docker Compose',
+  'import.detected.pulumi': 'Pulumi',
   'import.detected.openapi': 'OpenAPI',
   'import.detected.markdown': 'Markdown outline',
   'import.detecting': 'Waiting for something to read',
@@ -641,7 +646,7 @@ const en = {
   'share.you': 'you',
   'library.sharedWithYou': 'Shared with you',
   'library.dropHint':
-    'Drop to import: a diagram, YAML, Mermaid, Terraform, Kubernetes, OpenAPI or Markdown',
+    'Drop to import: a diagram, YAML, Mermaid, Terraform, CloudFormation, Kubernetes, Compose, Pulumi, OpenAPI or Markdown',
   'library.sort': 'Sort by',
   'library.sortRecent': 'Recently edited',
   'library.sortName': 'Name',
@@ -889,7 +894,7 @@ const es: Record<MessageKey, string> = {
   'import.clients': 'Clientes',
   'import.operationOne': '{count} operación',
   'import.operationMany': '{count} operaciones',
-  'import.warn.noResources': 'El plan no declara ningún recurso.',
+  'import.warn.noResources': 'El archivo no declara ningún recurso.',
   'import.warn.readFromHcl':
     'Leído del HCL, así que count, los condicionales y for_each no se reflejan.',
   'import.warn.unknownResourceTypes':
@@ -903,11 +908,16 @@ const es: Record<MessageKey, string> = {
     'Un Ingress apunta a un Service "{name}" que este archivo no tiene.',
   'import.warn.noOperations':
     'La descripción no declara operaciones, así que sólo se dibuja la API.',
+  'import.warn.unknownImages':
+    'Dibujados como contenedores genéricos, por ser imágenes que no conoce: {images}.',
   'import.title': 'Importar una arquitectura',
   'import.subtitle':
-    'Pega un plan de Terraform, manifests de Kubernetes, una descripción OpenAPI o un esquema en Markdown. Él deduce cuál es.',
+    'Pega Terraform, CloudFormation, Kubernetes, Docker Compose, Pulumi, OpenAPI o un esquema en Markdown. Él deduce cuál es.',
   'import.detected.terraform': 'Terraform',
+  'import.detected.cloudformation': 'CloudFormation',
   'import.detected.kubernetes': 'Kubernetes',
+  'import.detected.compose': 'Docker Compose',
+  'import.detected.pulumi': 'Pulumi',
   'import.detected.openapi': 'OpenAPI',
   'import.detected.markdown': 'Esquema en Markdown',
   'import.detecting': 'Esperando algo que leer',
@@ -1314,7 +1324,7 @@ const es: Record<MessageKey, string> = {
   'share.you': 'tú',
   'library.sharedWithYou': 'Compartido contigo',
   'library.dropHint':
-    'Suelta para importar: un diagrama, YAML, Mermaid, Terraform, Kubernetes, OpenAPI o Markdown',
+    'Suelta para importar: un diagrama, YAML, Mermaid, Terraform, CloudFormation, Kubernetes, Compose, Pulumi, OpenAPI o Markdown',
   'library.sort': 'Ordenar por',
   'library.sortRecent': 'Editados recientemente',
   'library.sortName': 'Nombre',

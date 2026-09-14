@@ -311,10 +311,11 @@ Lambda -> DynamoDB : R/W`;
   /**
    * What this is, worked out as it is typed.
    *
-   * One box rather than four tabs: nobody arrives here unsure what they are
-   * holding, so asking them to classify it first is asking them to do the
-   * computer's job. Markdown is the fallback because it is the only one of the
-   * four with nothing to announce itself by — an outline is just prose.
+   * One box rather than a tab per format: nobody arrives here unsure what they
+   * are holding, so asking them to classify it first is asking them to do the
+   * computer's job. Terraform, CloudFormation, Kubernetes, Compose, Pulumi and
+   * OpenAPI each announce themselves; Markdown is the fallback because it is
+   * the only one with nothing to announce itself by — an outline is just prose.
    */
   const read = useMemo(() => {
     if (!text.trim()) return null;

@@ -105,7 +105,8 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   is detected, never merged silently — the loser chooses whose version to keep.
 - **A library that keeps up.** Sort by recent edit, name or creation, star what
   matters, and drop any file on the page — a project export, YAML, Mermaid,
-  Terraform, a Kubernetes manifest, OpenAPI or a Markdown outline — to import it.
+  Terraform, CloudFormation, a Kubernetes manifest, Docker Compose, a Pulumi
+  export, OpenAPI or a Markdown outline — to import it.
 - **Talk about it.** Right-click a shape or the sheet and leave a comment;
   threads pin to what they are about, follow it when it moves, and open in a
   panel where they are answered, resolved and reopened. A viewer may comment
@@ -126,9 +127,10 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
 - **Official icons.** AWS, Google Cloud and IBM Cloud services draw with the
   vendors' own architecture artwork, vendored under `vendor/icons` with
   per-symbol provenance in `src/data/iconSources.json`.
-- **Import what already exists.** Paste a Terraform plan or `main.tf`,
-  Kubernetes manifests or an OpenAPI description and get the architecture — one
-  box, no format to choose. Each reader produces a DSL document and lets the
+- **Import what already exists.** Paste a Terraform plan or `main.tf`, a
+  CloudFormation or SAM template, Kubernetes manifests, a Docker Compose file,
+  a Pulumi stack export or preview, or an OpenAPI description and get the
+  architecture — one box, no format to choose. Each reader produces a DSL document and lets the
   compiler do the rest, so an import is editable as code the moment it lands.
 - **Share a link.** The diagram travels compressed inside the URL, so a link
   works with no account and no server holding your data. `/api/embed` renders it
@@ -300,7 +302,8 @@ src/lib/domain/   Zod schemas — the single source of truth for every type
 src/lib/engine/   Pure geometry, routing, layout. No browser APIs, so it can
                   render on a server for embeds.
 src/lib/dsl/      YAML and Mermaid, in and out
-src/lib/import/   Terraform, Kubernetes and OpenAPI, each into a DSL document
+src/lib/import/   Terraform, CloudFormation, Kubernetes, Compose, Pulumi and
+                  OpenAPI, each into a DSL document
 src/lib/rules/    Declarative standards, and checking a model against them
 src/lib/ai/       Prompts, output schema, rate limiting
 src/lib/share/    Link codec and share/embed URLs

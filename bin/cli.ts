@@ -29,7 +29,8 @@ import { LOCALES, translate, type Locale, type MessageKey } from '@/lib/i18n/mes
 const USAGE = `ac-graph — architecture from the terminal
 
   ac-graph check <file>         Analyse and report; exits non-zero on findings
-  ac-graph import <file>        Terraform, Kubernetes or OpenAPI to DSL
+  ac-graph import <file>        Infrastructure to DSL: Terraform, CloudFormation,
+                                Kubernetes, Compose, Pulumi or OpenAPI
   ac-graph mermaid <file>       Draw it, as a Mermaid flowchart
   ac-graph diff <a> <b>         What changed between two architectures
   ac-graph fmt <file>           Rewrite a DSL document in canonical form
@@ -244,7 +245,11 @@ async function check(path: string, options: Options): Promise<number> {
 async function runImport(path: string, options: Options): Promise<number> {
   const source = await readFile(path, 'utf8');
   const format = detectFormat(source);
-  if (!format) throw new Error(`${path} is not Terraform, Kubernetes or OpenAPI.`);
+  if (!format) {
+    throw new Error(
+      `${path} is not Terraform, CloudFormation, Kubernetes, Docker Compose, Pulumi or OpenAPI.`,
+    );
+  }
 
   const result = importArchitecture(source, format, options.locale);
   const { model } = compile(result.document, options.locale);

@@ -3,18 +3,24 @@ import { compile, parseDsl } from '@/lib/dsl';
 import { fromMermaid } from '@/lib/dsl/mermaid';
 import { markdownToDiagram } from '@/lib/editor/markdownImport';
 import type { Locale } from '@/lib/i18n/messages';
-import { ImportError, detectFormat, importArchitecture, type ImportFormat } from '@/lib/import';
+import {
+  ImportError,
+  detectFormat,
+  importArchitecture,
+  type ImportFormat,
+  type ImportResult,
+} from '@/lib/import';
 import type { WorkspaceExport } from '@/lib/store/types';
 
 /**
  * A file dropped on the library, read as whatever it turns out to be.
  *
  * The person does not have to say what the file is: a project export, a
- * whole-workspace dump, a DSL document, a Mermaid flowchart, Terraform, a
- * Kubernetes manifest, an OpenAPI description or a Markdown outline are told
- * apart by their contents, in the order in which telling them apart is
- * cheapest and least ambiguous. What cannot be told apart is refused with a
- * reason rather than drawn wrong.
+ * whole-workspace dump, a DSL document, a Mermaid flowchart, Terraform,
+ * CloudFormation, a Kubernetes manifest, a Compose file, a Pulumi export, an
+ * OpenAPI description or a Markdown outline are told apart by their contents,
+ * in the order in which telling them apart is cheapest and least ambiguous.
+ * What cannot be told apart is refused with a reason rather than drawn wrong.
  */
 export type DroppedFormat = 'json' | 'workspace' | 'dsl' | 'mermaid' | 'markdown' | ImportFormat;
 
@@ -40,17 +46,27 @@ export function readDroppedFile(name: string, text: string, locale: Locale): Dro
   if (!source) throw new DropImportError('empty');
   const title = titleFromFileName(name);
 
-  if (source.startsWith('{') || source.startsWith('[')) return fromJson(source, title);
-
+  // Infrastructure first, JSON or not: a Terraform plan, a CloudFormation
+  // template and a Pulumi export all arrive as JSON, and treating every brace
+  // as a project export would refuse all three as "not a diagram".
   const format = detectFormat(source);
   if (format) {
+    let imported: ImportResult;
     try {
-      const imported = importArchitecture(source, format, locale);
-      return { kind: 'diagram', title, model: compile(imported.document, locale).model, format };
+      imported = importArchitecture(source, format, locale);
     } catch (thrown) {
       throw new DropImportError(thrown instanceof ImportError ? thrown.code : 'unrecognised');
     }
+    const { model } = compile(imported.document, locale);
+    // A file that is all plumbing — an IAM-only template, `services: {}` —
+    // reads fine and draws nothing. The dialog shows that as "0 services" and
+    // withholds the button; here the equivalent is to say so rather than file
+    // a blank diagram under the file's name.
+    if (!model.shapes.length) throw new DropImportError('empty');
+    return { kind: 'diagram', title, model, format };
   }
+
+  if (source.startsWith('{') || source.startsWith('[')) return fromJson(source, title);
 
   if (/^\s*(?:%%.*\n\s*)*(?:flowchart|graph)\s+\w/.test(source)) {
     const { model } = fromMermaid(source, locale);

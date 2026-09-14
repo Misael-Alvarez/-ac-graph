@@ -82,11 +82,81 @@ describe('readDroppedFile', () => {
       'en',
     );
     expect(tf).toMatchObject({ kind: 'diagram', format: 'terraform' });
+
+    const compose = readDroppedFile(
+      'docker-compose.yml',
+      'services:\n  db:\n    image: postgres:16\n  app:\n    build: .\n    depends_on: [db]\n',
+      'en',
+    );
+    expect(compose).toMatchObject({ kind: 'diagram', title: 'docker-compose', format: 'compose' });
+    expect(compose.kind === 'diagram' && compose.model.connectors).toHaveLength(1);
+  });
+
+  it('reads infrastructure that happens to be JSON, rather than refusing it as not a diagram', () => {
+    // A Terraform plan, a CloudFormation template and a Pulumi export all
+    // start with a brace; none of them is a project export.
+    const plan = readDroppedFile(
+      'plan.json',
+      JSON.stringify({
+        format_version: '1.2',
+        planned_values: {
+          root_module: {
+            resources: [{ address: 'aws_s3_bucket.logs', type: 'aws_s3_bucket', name: 'logs' }],
+          },
+        },
+      }),
+      'en',
+    );
+    expect(plan).toMatchObject({ kind: 'diagram', title: 'plan', format: 'terraform' });
+
+    const template = readDroppedFile(
+      'template.json',
+      JSON.stringify({
+        AWSTemplateFormatVersion: '2010-09-09',
+        Resources: { Logs: { Type: 'AWS::S3::Bucket' } },
+      }),
+      'en',
+    );
+    expect(template).toMatchObject({ kind: 'diagram', format: 'cloudformation' });
+    expect(template.kind === 'diagram' && template.model.shapes.length).toBeGreaterThan(0);
+
+    const pulumi = readDroppedFile(
+      'stack.json',
+      JSON.stringify({
+        version: 3,
+        deployment: {
+          resources: [
+            {
+              urn: 'urn:pulumi:dev::shop::aws:s3/bucket:Bucket::logs',
+              custom: true,
+              type: 'aws:s3/bucket:Bucket',
+            },
+          ],
+        },
+      }),
+      'en',
+    );
+    expect(pulumi).toMatchObject({ kind: 'diagram', format: 'pulumi' });
   });
 
   it('reads a Markdown outline', () => {
     const md = readDroppedFile('notes.md', '# Platform\n\n## API\n- Gateway\n- Lambda\n', 'en');
     expect(md).toMatchObject({ kind: 'diagram', title: 'notes', format: 'markdown' });
+  });
+
+  it('refuses infrastructure that draws nothing, rather than filing a blank diagram', () => {
+    // An empty services map and an IAM-only template both read fine and
+    // produce no shapes; the dialog shows "0 services" and withholds the button.
+    expect(() =>
+      readDroppedFile('compose.yaml', 'services:\n  {}\nvolumes:\n  data: {}\n', 'en'),
+    ).toThrowError(expect.objectContaining({ code: 'empty' }));
+    expect(() =>
+      readDroppedFile(
+        'template.yaml',
+        'AWSTemplateFormatVersion: "2010-09-09"\nResources:\n  Role:\n    Type: AWS::IAM::Role\n',
+        'en',
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'empty' }));
   });
 
   it('refuses what it cannot read, with a reason', () => {
