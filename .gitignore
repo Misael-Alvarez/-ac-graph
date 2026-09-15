@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+# …except Amazon's public RDS CA bundle, which the image needs to verify the database's TLS.
+!deploy/aws/rds-global-bundle.pem
 
 # debug
 npm-debug.log*
