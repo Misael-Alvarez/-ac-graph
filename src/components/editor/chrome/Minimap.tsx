@@ -94,9 +94,12 @@ export function Minimap({ size }: { size: { width: number; height: number } }) {
           goTo(e);
         }}
         onPointerMove={(e) => {
-          // The primary button is still down: `buttons`, not a piece of state,
-          // because pointer capture already guarantees the moves arrive here.
-          if (e.buttons & 1) goTo(e);
+          // The primary button is still down — `buttons`, not a piece of
+          // state — *and* the press was on the map: a drag that began on the
+          // canvas also delivers its moves to whatever it passes over, and a
+          // resize whose corner crossed the map used to throw the camera
+          // across the sheet.
+          if (e.buttons & 1 && e.currentTarget.hasPointerCapture(e.pointerId)) goTo(e);
         }}
         onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
       >

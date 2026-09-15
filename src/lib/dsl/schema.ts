@@ -47,6 +47,9 @@ export const NodeSpecSchema = z.object({
   criticality: CriticalitySchema.optional(),
   lifecycle: LifecycleSchema.optional(),
   tags: z.array(z.string()).optional(),
+
+  /** Pinned on the canvas: geometry, like `layout`, and written with it. */
+  locked: z.boolean().optional(),
 });
 
 /** `fn: lambda` is shorthand for `fn: { service: lambda }`. */
@@ -56,6 +59,7 @@ export const BoundarySpecSchema = z.object({
   label: z.string().optional(),
   variant: z.enum(['outer', 'sub']).default('outer'),
   service: z.string().optional(),
+  locked: z.boolean().optional(),
 });
 
 /**
@@ -125,6 +129,7 @@ export const NoteSpecSchema = z.object({
   size: z.tuple([z.number(), z.number()]).optional(),
   /** The note's paper, the region's tint or the text's ink. */
   fill: z.string().optional(),
+  locked: z.boolean().optional(),
 });
 
 export const DslDocumentSchema = z.object({

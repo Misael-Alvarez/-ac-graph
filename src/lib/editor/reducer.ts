@@ -1,5 +1,5 @@
 import { applyPatches, current, enablePatches, produceWithPatches, type Patch } from 'immer';
-import type { DiagramModel } from '@/lib/domain';
+import type { DiagramModel, Shape } from '@/lib/domain';
 import { isDecorative } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import type { SwitchCloudResult } from '@/lib/engine';
@@ -62,6 +62,13 @@ interface ActionOutcome {
 
 const NOTHING: ActionOutcome = { created: [] };
 const madeIds = (...ids: string[]): ActionOutcome => ({ created: ids });
+
+/** The fields of a shape that say where it is and how big. */
+const GEOMETRY_KEYS: ReadonlySet<string> = new Set(['x', 'y', 'w', 'h', 'manualSize']);
+
+/** The ids that exist in `model` and are free to be moved. */
+const movable = (model: DiagramModel, ids: string[]) =>
+  ids.filter((id) => E.getShape(model, id) && !E.isLocked(model, id));
 
 /**
  * Applies one action to an Immer draft.
@@ -150,14 +157,19 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       return NOTHING;
     }
 
+    // Locked shapes sit out every geometry action below. Filtered here, at the
+    // one place all of them pass through, rather than in each control: the
+    // arrow keys, the inspector's fields, the alignment toolbar and the
+    // auto-layout then agree without each having to remember.
     case 'moveShapes': {
       E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], (reading) => {
         E.applyMoves(
           reading,
-          E.outermost(
-            reading,
-            action.ids.filter((id) => E.getShape(reading, id)),
-          ).map((s) => ({ id: s.id, dx: action.dx, dy: action.dy })),
+          E.outermost(reading, movable(reading, action.ids)).map((s) => ({
+            id: s.id,
+            dx: action.dx,
+            dy: action.dy,
+          })),
         );
       });
       return NOTHING;
@@ -167,6 +179,7 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       E.editViewGeometry(draft, action.viewId, [], (reading) => {
         const shape = E.getShape(reading, action.id);
         if (!shape || (shape.w === action.w && shape.h === action.h)) return;
+        if (E.isLocked(reading, action.id)) return;
         shape.w = action.w;
         shape.h = action.h;
         shape.manualSize = true;
@@ -178,9 +191,17 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     case 'setShapeProps': {
       const shape = E.getShape(draft, action.id);
       if (!shape) return NOTHING;
-      const geometry = ['x', 'y', 'w', 'h', 'manualSize'].some((key) => key in action.patch);
+      // A lock keeps geometry out of a patch too — unless the patch is what
+      // lifts it, so "unlock and move" can be said in one breath.
+      const patch: Partial<Shape> =
+        action.patch.locked !== false && E.isLocked(draft, action.id)
+          ? Object.fromEntries(
+              Object.entries(action.patch).filter(([key]) => !GEOMETRY_KEYS.has(key)),
+            )
+          : action.patch;
+      const geometry = [...GEOMETRY_KEYS].some((key) => key in patch);
       const previous = geometry ? current(draft) : undefined;
-      Object.assign(shape, action.patch);
+      Object.assign(shape, patch);
       // Content edits are shared, but must not reset a view's arrangement.
       if (geometry) {
         if (shape.type === 'group') E.relayoutGroup(draft, shape);
@@ -189,10 +210,22 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
       return NOTHING;
     }
 
+    case 'setLocked': {
+      for (const id of action.ids) {
+        const shape = E.getShape(draft, id);
+        if (!shape) continue;
+        // Written only when set: a document full of `locked: false` says
+        // nothing more than one that leaves the field out.
+        if (action.locked) shape.locked = true;
+        else delete shape.locked;
+      }
+      return NOTHING;
+    }
+
     case 'alignShapes':
     case 'distributeShapes': {
       E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], (reading) => {
-        const ids = action.ids.filter((id) => E.getShape(reading, id));
+        const ids = movable(reading, action.ids);
         const moves =
           action.type === 'alignShapes'
             ? E.alignMoves(reading, ids, action.edge)
@@ -205,7 +238,7 @@ function applyAction(draft: DiagramModel, action: EditorAction): ActionOutcome {
     case 'reorderItem': {
       E.editViewGeometry(draft, action.viewId, action.drillPath ?? [], (reading) => {
         const item = E.getShape(reading, action.id);
-        if (!item?.parentId) return;
+        if (!item?.parentId || E.isLocked(reading, item.id)) return;
         const siblings = E.children(reading, item.parentId)
           .filter((s) => s.type === 'item')
           .sort((a, b) => a.y - b.y);

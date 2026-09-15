@@ -127,9 +127,16 @@ export const initialUiState: UiState = {
   toast: null,
 };
 
+/**
+ * What a lasso does to the selection: `replace` it, as a plain drag does;
+ * `add` to it with Shift held; `subtract` from it with Alt held.
+ */
+export type SelectionMode = 'replace' | 'add' | 'subtract';
+
 export type UiAction =
   | { type: 'setTool'; tool: ToolMode }
   | { type: 'select'; ids: string[]; additive?: boolean }
+  | { type: 'modifySelection'; ids: string[]; mode: SelectionMode }
   | { type: 'toggleSelected'; id: string }
   | { type: 'clearSelection' }
   | { type: 'selectConnector'; id: string | null }
@@ -177,6 +184,15 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       const ids = action.additive
         ? new Set([...state.selectedIds, ...action.ids])
         : new Set(action.ids);
+      return { ...state, selectedIds: ids, selectedConnectorId: null };
+    }
+
+    case 'modifySelection': {
+      const ids = new Set(action.mode === 'replace' ? [] : state.selectedIds);
+      for (const id of action.ids) {
+        if (action.mode === 'subtract') ids.delete(id);
+        else ids.add(id);
+      }
       return { ...state, selectedIds: ids, selectedConnectorId: null };
     }
 

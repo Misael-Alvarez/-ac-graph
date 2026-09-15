@@ -5,7 +5,8 @@ import { CLOUD_TARGETS, getEquivalents } from '@/data/cloudEquivalents';
 import type { NodeMeta, Shape } from '@/lib/domain';
 import { canvasTheme, providerColors } from '@/lib/design/tokens';
 import { CLOUD_KEY_PREFIX } from '@/lib/editor/providers';
-import { TrashIcon } from '@/components/icons/ToolIcons';
+import { isLocked } from '@/lib/engine';
+import { LockIcon, TrashIcon, UnlockIcon } from '@/components/icons/ToolIcons';
 import { useEditor } from '../../EditorProvider';
 import { IconPicker } from '../IconPicker';
 import { Field, NumberField } from '@/components/ui/Field';
@@ -81,6 +82,11 @@ export function ShapeInspector({
   // one field would otherwise erase the rest of what the node knows about
   // itself.
   const patchMeta = (values: Partial<NodeMeta>) => patch({ meta: { ...shape.meta, ...values } });
+
+  // Pinned by its own flag, or by a group above it: either way the geometry
+  // fields have nothing to offer. Only its own flag is this shape's to lift.
+  const lockedItself = shape.locked === true;
+  const pinned = lockedItself || isLocked(view, shape.id);
 
   const theme = canvasTheme(ui.dark);
   // What the colour *is* for each kind of thing, said in its own word: a card
@@ -305,6 +311,7 @@ export function ShapeInspector({
           <NumberField
             label="X"
             value={Math.round(shape.x)}
+            disabled={pinned}
             onCommit={(x) =>
               dispatch({
                 type: 'moveShapes',
@@ -320,6 +327,7 @@ export function ShapeInspector({
           <NumberField
             label="Y"
             value={Math.round(shape.y)}
+            disabled={pinned}
             onCommit={(y) =>
               dispatch({
                 type: 'moveShapes',
@@ -336,7 +344,7 @@ export function ShapeInspector({
             label="W"
             value={Math.round(shape.w)}
             min={40}
-            disabled={shape.type === 'item' || shape.type === 'container'}
+            disabled={pinned || shape.type === 'item' || shape.type === 'container'}
             onCommit={(w) =>
               dispatch({
                 type: 'resizeShape',
@@ -352,7 +360,7 @@ export function ShapeInspector({
             label="H"
             value={Math.round(shape.h)}
             min={40}
-            disabled={shape.type === 'item' || shape.type === 'container'}
+            disabled={pinned || shape.type === 'item' || shape.type === 'container'}
             onCommit={(h) =>
               dispatch({
                 type: 'resizeShape',
@@ -407,6 +415,21 @@ export function ShapeInspector({
       </Section>
 
       <div className="inspector-actions">
+        {/* Pin or release. The label says what the press will do, as the menu's
+          solid/dashed row does; what it did shows on the canvas as a padlock
+          and here as the position fields going quiet. A shape pinned through
+          its group has nothing of its own to release, and the button says so. */}
+        <button
+          type="button"
+          className="button"
+          data-lock={lockedItself ? 'on' : 'off'}
+          disabled={pinned && !lockedItself}
+          title={pinned && !lockedItself ? t('inspector.lockedWithParent') : undefined}
+          onClick={() => dispatch({ type: 'setLocked', ids: [shape.id], locked: !lockedItself })}
+        >
+          {lockedItself ? <UnlockIcon size={14} /> : <LockIcon size={14} />}{' '}
+          {t(lockedItself ? 'action.unlock' : 'action.lock')}
+        </button>
         <button
           type="button"
           className="button is-danger"

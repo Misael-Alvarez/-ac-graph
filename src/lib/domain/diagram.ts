@@ -16,12 +16,13 @@ import { RuleSchema } from '@/lib/rules/schema';
  * 4: `region`, `note` and `text` shapes.
  * 5: connectors with a route of the author's (`manual`), chosen ports, a label
  *    placed along the line, a colour, a weight and an elbow style.
+ * 6: `locked` on shapes.
  * Every change so far is additive, so every earlier document reads unchanged
  * and is re-stamped on the way in; a document written by a *later* build is
  * refused rather than opened with whatever this build happens to understand
  * of it.
  */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * What a shape is, in paint order.
@@ -213,6 +214,14 @@ export const ShapeSchema = z
     stacked_gap: StackedGapSchema.optional(),
     order: z.number().optional(),
     manualSize: z.boolean().optional(),
+    /**
+     * Pinned where it is: nothing moves or resizes it — not a drag, not the
+     * arrow keys, not an alignment, not the auto-layout — until it is unlocked.
+     * It is still selected, edited, deleted and copied like any other shape;
+     * a copy is never locked. Content, not a per-view reading: a boundary
+     * locked so nobody nudges it by accident is locked in every view.
+     */
+    locked: z.boolean().optional(),
     meta: NodeMetaSchema.optional(),
   })
   .transform((shape) =>

@@ -46,6 +46,22 @@ export function isRelated(model: DiagramModel, a: string, b: string): boolean {
   return a === b || isAncestor(model, b, a) || isAncestor(model, a, b);
 }
 
+/**
+ * Whether a shape is pinned in place: locked itself, or inside a locked ancestor.
+ *
+ * Locking a group locks what it holds. Its container and items only ever move
+ * with it, so a lock on the group that left the items free to be dragged out
+ * of position would be a lock on nothing.
+ */
+export function isLocked(model: DiagramModel, id: string): boolean {
+  let shape = getShape(model, id);
+  while (shape) {
+    if (shape.locked) return true;
+    shape = shape.parentId ? getShape(model, shape.parentId) : undefined;
+  }
+  return false;
+}
+
 export function collectDescendantIds(model: DiagramModel, rootId: string): Set<string> {
   const set = new Set([rootId]);
   let changed = true;

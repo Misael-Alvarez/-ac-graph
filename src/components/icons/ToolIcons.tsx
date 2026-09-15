@@ -503,6 +503,14 @@ export const LockIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** The same padlock with its shackle swung open. */
+export const UnlockIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5" y="10.5" width="14" height="10" rx="2" />
+    <path d="M8 10.5V7.5a4 4 0 017.4-2.1" />
+  </Icon>
+);
+
 export const UsersIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="9" cy="8" r="3.2" />

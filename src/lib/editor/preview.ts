@@ -60,6 +60,57 @@ export function previewDrag(
   return preview;
 }
 
+/** Marks the ids of shapes that exist only while a copy is being dragged. */
+export const GHOST_PREFIX = 'ghost-';
+
+/**
+ * The model as it would look with a copy of `clone` dragged `dx, dy` away.
+ *
+ * The originals stay where they are; the copy is appended under ids that no
+ * committed shape can have, so React keys and `data-shape-id` never collide
+ * with the originals, and nothing that counts shapes counts the ghost. Its
+ * internal connectors travel with it as they are: `pasteShapes` offsets them
+ * the same way when the copy is made real — and, like it, the ghost arrives
+ * unlocked, so no padlock is drawn on a copy that is still being placed.
+ */
+export function previewDuplicate(
+  model: DiagramModel,
+  clone: E.ClipboardPayload,
+  dx: number,
+  dy: number,
+): DiagramModel {
+  if (!clone.shapes.length || (dx === 0 && dy === 0)) return model;
+  const ghostId = (id: string) => GHOST_PREFIX + id;
+  const copied = new Set(clone.shapes.map((s) => s.id));
+  return {
+    ...model,
+    shapes: [
+      ...model.shapes,
+      ...clone.shapes.map((s) => {
+        const ghost = {
+          ...s,
+          id: ghostId(s.id),
+          parentId: s.parentId && copied.has(s.parentId) ? ghostId(s.parentId) : s.parentId,
+          x: s.x + dx,
+          y: s.y + dy,
+        };
+        delete ghost.locked;
+        return ghost;
+      }),
+    ],
+    connectors: [
+      ...model.connectors,
+      ...clone.connectors.map((c) => ({
+        ...c,
+        id: ghostId(c.id),
+        sourceId: ghostId(c.sourceId),
+        targetId: ghostId(c.targetId),
+        waypoints: c.waypoints.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+      })),
+    ],
+  };
+}
+
 /**
  * The model as it would look with one connector's line or label moved by the
  * hand that is still moving it. The route is shown as given — the ends are

@@ -13,6 +13,7 @@ import {
   deleteShape,
   getShape,
   isAncestor,
+  isLocked,
   isRelated,
   relayoutGroup,
   reorderItem,
@@ -209,6 +210,21 @@ describe('hierarchy helpers', () => {
       { id: 'other', type: 'group' },
     ]);
     expect([...collectDescendantIds(m, 'g')].sort()).toEqual(['c', 'g', 'i1', 'i2']);
+  });
+
+  it('reads a lock through the ancestors', () => {
+    const m = modelWith([
+      { id: 'g', type: 'group', locked: true },
+      { id: 'c', type: 'container', parentId: 'g' },
+      { id: 'i', type: 'item', parentId: 'c' },
+      { id: 'x', type: 'group' },
+      { id: 'xi', type: 'item', parentId: 'x', locked: true },
+    ]);
+    expect(isLocked(m, 'g')).toBe(true);
+    expect(isLocked(m, 'i')).toBe(true);
+    expect(isLocked(m, 'x')).toBe(false);
+    expect(isLocked(m, 'xi')).toBe(true);
+    expect(isLocked(m, 'ghost')).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { contentBBox, cloneShapes, projectView, resolveView } from '@/lib/engine';
+import { contentBBox, cloneShapes, getShape, projectView, resolveView } from '@/lib/engine';
 import type { ServiceIcon } from '@/lib/editor';
 import type { CustomIcon } from '@/lib/domain';
 import { describeDiagram } from '@/lib/editor/describe';
@@ -59,6 +59,7 @@ const EDITING_COMMANDS = new Set([
   'redo',
   'delete',
   'duplicate',
+  'lock',
   'autoLayout',
   'clear',
   'templates',
@@ -79,6 +80,10 @@ export function useCommands(): CommandSet {
     () => new Set(view.shapes.filter((s) => ui.selectedIds.has(s.id)).map((s) => s.id)),
     [view, ui.selectedIds],
   );
+  // The lock command releases only when everything selected is pinned by its
+  // own flag; with anything free in the selection, it pins the lot.
+  const allLocked =
+    selectedIds.size > 0 && [...selectedIds].every((id) => getShape(view, id)?.locked === true);
 
   const viewportSize = useCallback(() => {
     const el = document.querySelector('.canvas-surface');
@@ -211,6 +216,13 @@ export function useCommands(): CommandSet {
             offsetX: 40,
             offsetY: 40,
           }),
+        selectedIds.size > 0,
+      ),
+      command(
+        'lock',
+        allLocked ? 'action.unlock' : 'action.lock',
+        allLocked ? 'unlock' : 'lock',
+        () => dispatch({ type: 'setLocked', ids: [...selectedIds], locked: !allLocked }),
         selectedIds.size > 0,
       ),
       command('autoLayout', 'action.autoLayout', 'autoLayout', () =>
@@ -426,6 +438,7 @@ export function useCommands(): CommandSet {
     canUndo,
     canRedo,
     selectedIds,
+    allLocked,
     view,
     ui.activeViewId,
     ui.drillPath,

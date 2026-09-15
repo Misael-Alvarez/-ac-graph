@@ -49,3 +49,22 @@ test('dragging across the map keeps moving the canvas', async ({ page }) => {
   const end = await page.locator('.canvas-surface > g').first().getAttribute('transform');
   expect(end).not.toBe(midway);
 });
+
+test('a drag that began on the canvas leaves the camera alone when it crosses the map', async ({
+  page,
+}) => {
+  await addGroupAt(page, 200, 200);
+  await page.locator('[data-tool="select"]').click();
+  const map = (await page.locator('.minimap-surface').boundingBox())!;
+  const before = await page.locator('.canvas-surface > g').first().getAttribute('transform');
+
+  // A lasso from the sheet dragged across the map: the map is not the one
+  // holding the pointer, so it must not steer the canvas.
+  const group = (await page.locator('[data-shape-id^="grp_"]').first().boundingBox())!;
+  await page.mouse.move(group.x - 40, group.y + group.height + 40);
+  await page.mouse.down();
+  await page.mouse.move(map.x + map.width / 2, map.y + map.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  expect(await page.locator('.canvas-surface > g').first().getAttribute('transform')).toBe(before);
+});

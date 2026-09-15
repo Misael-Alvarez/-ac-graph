@@ -65,16 +65,36 @@ export function Canvas() {
     toLocal,
     onMoveShapes: (ids, dx, dy) =>
       dispatch({ type: 'moveShapes', ids, dx, dy, viewId: ui.activeViewId }),
+    onDuplicateShapes: (clone, dx, dy) => {
+      // The hand was holding the copy, so the copy is what stays selected —
+      // picked up below, once the reducer has given it its ids.
+      selectNextCreated.current = true;
+      dispatch({ type: 'paste', payload: clone, offsetX: dx, offsetY: dy });
+    },
     onResizeShape: (id, w, h) =>
       dispatch({ type: 'resizeShape', id, w, h, viewId: ui.activeViewId }),
     onSetConnectorRoute: (id, waypoints) =>
       dispatch({ type: 'setConnectorRoute', id, waypoints, viewId: ui.activeViewId }),
     onSetConnectorLabel: (id, labelAt) =>
       dispatch({ type: 'setConnectorProps', id, patch: { labelAt } }),
-    onLassoSelect: (ids) => dispatchUi({ type: 'select', ids }),
+    onLassoSelect: (ids, mode) => dispatchUi({ type: 'modifySelection', ids, mode }),
     onViewportChange: (viewport) => dispatchUi({ type: 'setViewport', viewport }),
     readOnly,
   });
+
+  /* A copy dropped by an Alt-drag takes the selection with it. The ids exist
+     only after the reducer has run, so the request is noted on the way in and
+     honoured when `lastCreated` reports them; the outermost of them, since a
+     group's container and item travel inside it. */
+  const selectNextCreated = useRef(false);
+  useEffect(() => {
+    if (!selectNextCreated.current || !doc.lastCreated.length) return;
+    selectNextCreated.current = false;
+    dispatchUi({
+      type: 'select',
+      ids: E.outermost(view, doc.lastCreated).map((s) => s.id),
+    });
+  }, [doc.lastCreated, view, dispatchUi]);
 
   // Drilling re-frames on what it descended into; narrowing the canvas without
   // moving the camera leaves the reader looking at empty paper. Seeded with the
@@ -323,7 +343,9 @@ export function Canvas() {
           break;
         }
         default:
-          dispatchUi({ type: 'clearSelection' });
+          // Shift adds to the selection and Alt takes from it, so a press on
+          // the sheet with either held keeps what is already selected.
+          if (!e.shiftKey && !e.altKey) dispatchUi({ type: 'clearSelection' });
           tools.startLasso(e);
       }
     },
@@ -495,8 +517,15 @@ export function Canvas() {
     dispatchUi({ type: 'selectConnector', id });
   };
 
+  const duplicating = tools.interaction?.kind === 'drag' && tools.interaction.clone !== undefined;
   const cursor =
-    spaceHeld || ui.tool === 'pan' ? 'grab' : ui.tool === 'select' ? 'default' : 'crosshair';
+    spaceHeld || ui.tool === 'pan'
+      ? 'grab'
+      : duplicating
+        ? 'copy'
+        : ui.tool === 'select'
+          ? 'default'
+          : 'crosshair';
 
   /** The handle is drawn inside the zoomed group, so its size has to undo it. */
   const handleSize = HANDLE / shown.zoom;
@@ -745,6 +774,28 @@ export function Canvas() {
                 />
               ))}
 
+              {/* The mark of a pinned shape: a padlock inside its top-right
+                corner, in screen pixels whatever the zoom. Chrome, like the
+                selection outline — a lock is an editing aid, not a fact about
+                the architecture, so exports and embeds never carry it. */}
+              {!ui.presenting &&
+                model.shapes
+                  .filter((s) => s.locked)
+                  .map((s) => (
+                    <g
+                      key={`k-${s.id}`}
+                      className="lock-mark"
+                      data-locked-id={s.id}
+                      transform={`translate(${s.x + s.w} ${s.y}) scale(${1 / shown.zoom})`}
+                    >
+                      <rect x={-26} y={6} width={20} height={20} rx={5} className="lock-mark-pad" />
+                      <g transform="translate(-23 9) scale(0.583)">
+                        <rect x="5" y="10.5" width="14" height="10" rx="2" />
+                        <path d="M8 10.5V7.5a4 4 0 018 0v3" />
+                      </g>
+                    </g>
+                  ))}
+
               {ui.connectorSourceId &&
                 (() => {
                   const source = E.getShape(model, ui.connectorSourceId);
@@ -796,24 +847,28 @@ export function Canvas() {
               />
             )}
 
-            {/* Resize handle, only for a single selection of a sizeable shape.
-              Sized against the zoom: as a plain canvas rectangle it shrank to
-              three unclickable pixels when the diagram was zoomed out, and grew
-              into a slab when it was zoomed in. */}
-            {!readOnly && selectedShapes.length === 1 && selectedShapes[0].type !== 'container' && (
-              <rect
-                x={selectedShapes[0].x + selectedShapes[0].w - handleSize / 2}
-                y={selectedShapes[0].y + selectedShapes[0].h - handleSize / 2}
-                width={handleSize}
-                height={handleSize}
-                rx={2 / shown.zoom}
-                className="resize-handle"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  tools.startResize(e, selectedShapes[0].id);
-                }}
-              />
-            )}
+            {/* Resize handle, only for a single selection of a sizeable shape
+              that is not pinned: a handle on a locked shape would promise a
+              resize the reducer refuses. Sized against the zoom: as a plain
+              canvas rectangle it shrank to three unclickable pixels when the
+              diagram was zoomed out, and grew into a slab when it was zoomed in. */}
+            {!readOnly &&
+              selectedShapes.length === 1 &&
+              selectedShapes[0].type !== 'container' &&
+              !E.isLocked(model, selectedShapes[0].id) && (
+                <rect
+                  x={selectedShapes[0].x + selectedShapes[0].w - handleSize / 2}
+                  y={selectedShapes[0].y + selectedShapes[0].h - handleSize / 2}
+                  width={handleSize}
+                  height={handleSize}
+                  rx={2 / shown.zoom}
+                  className="resize-handle"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    tools.startResize(e, selectedShapes[0].id);
+                  }}
+                />
+              )}
           </g>
         )}
       </svg>

@@ -463,6 +463,60 @@ describe('serializeDsl', () => {
     expect(serializeDsl(round)).toBe(source);
   });
 
+  it('round-trips a lock on a node, a boundary and a note, and leaves it out without layout', () => {
+    const model = parseDsl(`${SAMPLE}boundaries:\n  vpc: { label: VPC }\n`).model!;
+    const groups = model.shapes.filter((s) => s.type === 'group');
+    groups[0].locked = true;
+    const boundary = model.shapes.find((s) => s.type === 'boundary')!;
+    boundary.locked = true;
+    const note = E.addDecoration(model, 'note', 100, 900, 'Pinned');
+    note.locked = true;
+
+    const source = serializeDsl(model);
+    // Keys are derived from titles on the way out.
+    expect(source).toMatch(/\n  api-p-blica:\n(?:    .*\n)*    locked: true\n/);
+    expect(source).toMatch(/\n  vpc:\n    label: VPC\n    locked: true\n/);
+    expect(source).toMatch(/\n  pinned:\n(?:    .*\n)*    locked: true\n/);
+    // The unpinned node stays shorthand: only what is pinned says so.
+    expect(source).toContain('  lambda: lambda\n');
+
+    const round = parseDsl(source).model!;
+    const back = round.shapes.filter((s) => s.locked);
+    expect(back.map((s) => s.type).sort()).toEqual(['boundary', 'group', 'note']);
+    expect(round.shapes.filter((s) => s.type === 'group' && !s.locked)).toHaveLength(2);
+    expect(serializeDsl(round)).toBe(source);
+
+    // Written for the assistant, without geometry, a lock has nothing to pin.
+    expect(serializeDsl(model, { includeLayout: false })).not.toContain('locked');
+  });
+
+  it('keeps a pinned group where its layout puts it, even over a boundary it is not in', () => {
+    const source = `version: 1
+cloud: aws
+boundaries:
+  vpc: { label: VPC }
+nodes:
+  inside: { service: lambda, in: vpc }
+  pinned: { service: dynamodb, locked: true }
+  free: dynamodb
+layout:
+  inside: [100, 100]
+  pinned: [120, 120]
+  free: [140, 140]
+`;
+    const model = parseDsl(source).model!;
+    const at = (title: string) => {
+      const item = model.shapes.find((s) => s.type === 'item' && s.title === title)!;
+      const container = E.getShape(model, item.parentId!)!;
+      const group = E.getShape(model, container.parentId!)!;
+      return { x: group.x, y: group.y, locked: group.locked };
+    };
+    expect(at('DynamoDB')).toEqual({ x: 120, y: 120, locked: true });
+    // The free one overlapping the boundary was pushed clear; the pinned one was not.
+    const free = model.shapes.find((s) => s.type === 'group' && !s.locked && s.title !== 'Lambda')!;
+    expect(free.x !== 140 || free.y !== 140).toBe(true);
+  });
+
   it('places a note that says nothing about where below the diagram', () => {
     const { model, diagnostics } = parseDsl(
       `${SAMPLE}notes:\n  a: { text: first }\n  b: { text: second }\n`,

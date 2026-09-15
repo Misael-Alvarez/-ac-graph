@@ -23,6 +23,23 @@ describe('selection', () => {
     expect(ids(s)).toEqual(['a', 'b']);
   });
 
+  it('a lasso replaces, adds to or subtracts from the selection', () => {
+    let s = uiReducer(initialUiState, { type: 'select', ids: ['a', 'b'] });
+    s = uiReducer(s, { type: 'modifySelection', ids: ['b', 'c'], mode: 'add' });
+    expect(ids(s)).toEqual(['a', 'b', 'c']);
+    s = uiReducer(s, { type: 'modifySelection', ids: ['a', 'zz'], mode: 'subtract' });
+    expect(ids(s)).toEqual(['b', 'c']);
+    s = uiReducer(s, { type: 'modifySelection', ids: ['d'], mode: 'replace' });
+    expect(ids(s)).toEqual(['d']);
+  });
+
+  it('a lasso in any mode lets go of a selected connector', () => {
+    let s = uiReducer(initialUiState, { type: 'selectConnector', id: 'c1' });
+    s = uiReducer(s, { type: 'modifySelection', ids: ['a'], mode: 'add' });
+    expect(s.selectedConnectorId).toBeNull();
+    expect(ids(s)).toEqual(['a']);
+  });
+
   it('toggles a single shape in and out', () => {
     let s = uiReducer(initialUiState, { type: 'toggleSelected', id: 'a' });
     expect(ids(s)).toEqual(['a']);

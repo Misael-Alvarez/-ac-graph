@@ -189,6 +189,7 @@ export function compile(
       const resolved = resolveService(spec.service, cloud);
       if (resolved) boundary.icon = { kind: 'symbol', key: resolved };
     }
+    if (spec.locked) boundary.locked = true;
     boundaryIdByKey.set(key, boundary.id);
   }
 
@@ -212,6 +213,7 @@ export function compile(
     const [x, y] = document.layout?.[nodeId] ?? auto.get(nodeId) ?? [MARGIN, MARGIN];
     const group = E.addGroup(model, x, y);
     group.title = spec.label ?? service?.label ?? nodeId;
+    if (spec.locked) group.locked = true;
 
     const palette = PROVIDER_COLORS[providerOf(serviceKey)];
     group.fill = palette.fill;
@@ -311,8 +313,9 @@ export function compile(
     for (const group of allGroups) {
       if (members.has(group.id)) continue;
       // A group that belongs to a different boundary must stay where it is:
-      // moving it would drag its own boundary out of shape.
-      if (boundedGroupIds.has(group.id)) continue;
+      // moving it would drag its own boundary out of shape. So must a pinned
+      // one: that is the whole of what its lock promises.
+      if (boundedGroupIds.has(group.id) || group.locked) continue;
       if (!E.rectsOverlap(E.bbox(boundary), E.bbox(group))) continue;
       moveClear(model, group, boundary, allGroups);
     }
@@ -334,6 +337,7 @@ export function compile(
       const shape = E.addDecoration(model, spec.kind, x, y, spec.text);
       if (spec.size) [shape.w, shape.h] = spec.size;
       if (spec.fill) shape.fill = spec.fill;
+      if (spec.locked) shape.locked = true;
       if (!spec.at) autoY += shape.h + 24;
       decorationByKey.set(key, shape);
     }

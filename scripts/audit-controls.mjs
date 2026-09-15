@@ -536,6 +536,44 @@ for (const [tool, prefix] of [
     'inspector: posición X → mueve',
     (await page.locator(rectSel).nth(2).getAttribute('x')) !== x0,
   );
+  // Lock pins the card: a padlock on the canvas, X gone quiet, an arrow key
+  // that moves nothing; Unlock gives all three back.
+  const lockButton = page.locator('.inspector .button[data-lock]');
+  await lockButton.click();
+  await settle(250);
+  check(
+    'inspector: Bloquear → candado en el lienzo',
+    (await page.locator('.canvas-surface .lock-mark').count()) === 1,
+  );
+  check(
+    'inspector: Bloquear → X desactivado',
+    await page.getByLabel('X', { exact: true }).isDisabled(),
+  );
+  const xLocked = await page.locator(rectSel).nth(2).getAttribute('x');
+  await page
+    .locator(rectSel)
+    .nth(2)
+    .click({ position: { x: 30, y: 20 } });
+  await page.keyboard.press('ArrowRight');
+  await settle(250);
+  check(
+    'inspector: bloqueada, flecha → no mueve',
+    (await page.locator(rectSel).nth(2).getAttribute('x')) === xLocked,
+  );
+  check('inspector: el botón pasa a Desbloquear', /Desbloquear/.test(await lockButton.innerText()));
+  await lockButton.click();
+  await settle(250);
+  await page
+    .locator(rectSel)
+    .nth(2)
+    .click({ position: { x: 30, y: 20 } });
+  await page.keyboard.press('ArrowRight');
+  await settle(250);
+  check(
+    'inspector: Desbloquear → flecha mueve, candado fuera',
+    (await page.locator(rectSel).nth(2).getAttribute('x')) !== xLocked &&
+      (await page.locator('.canvas-surface .lock-mark').count()) === 0,
+  );
   // Delete
   const n0 = await shapes();
   await page.locator('.inspector .button.is-danger').click();
@@ -760,6 +798,29 @@ for (const [tool, prefix] of [
   check('menú contextual: Duplicar añade', (await shapes()) > n0);
   await page.keyboard.press('Meta+z');
   await settle(200);
+  // Lock from the menu draws the padlock on the group; the row then offers to unlock.
+  await page.mouse.click(g.x + 30, g.y + 12, { button: 'right' });
+  await settle(300);
+  await page.getByRole('menuitem', { name: /^Bloquear posición/ }).click();
+  await settle(300);
+  check(
+    'menú contextual: Bloquear posición → candado',
+    (await page.locator('.canvas-surface .lock-mark').count()) === 1,
+  );
+  await page.mouse.click(g.x + 30, g.y + 12, { button: 'right' });
+  await settle(300);
+  check(
+    'menú contextual: la fila ofrece Desbloquear',
+    (await page.getByRole('menuitem', { name: /^Desbloquear posición/ }).count()) === 1,
+  );
+  await page.keyboard.press('Escape');
+  await settle(200);
+  await page.keyboard.press('Meta+z');
+  await settle(200);
+  check(
+    'menú contextual: deshacer quita el candado',
+    (await page.locator('.canvas-surface .lock-mark').count()) === 0,
+  );
 }
 // Comments: from the menu to the panel to a pin, and back out again
 {

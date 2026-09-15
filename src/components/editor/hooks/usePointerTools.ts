@@ -5,13 +5,16 @@ import type { DiagramModel, Point } from '@/lib/domain';
 import * as E from '@/lib/engine';
 import type { AlignGuide } from '@/lib/engine';
 import {
+  GHOST_PREFIX,
   normaliseBox,
   previewConnector,
   previewDrag,
+  previewDuplicate,
   previewResize,
   resolveDragSet,
   shapesInLasso,
 } from '@/lib/editor/preview';
+import type { SelectionMode } from '@/lib/editor/uiState';
 import { pan, toCanvas, type Viewport } from '@/lib/editor/viewport';
 import { labelAnchor, positionAlong } from '@/lib/editor/connectorPath';
 
@@ -29,6 +32,11 @@ export type Interaction =
       dx: number;
       dy: number;
       guides: AlignGuide[];
+      /**
+       * Set when the drag began with Alt held: what moves under the pointer is
+       * a copy of these shapes, and the originals stay where they are.
+       */
+      clone?: E.ClipboardPayload;
     }
   | {
       kind: 'resize';
@@ -38,6 +46,7 @@ export type Interaction =
       startH: number;
       w: number;
       h: number;
+      guides: AlignGuide[];
     }
   | {
       kind: 'bend';
@@ -59,7 +68,7 @@ export type Interaction =
       labelAt: number;
       moved: boolean;
     }
-  | { kind: 'lasso'; origin: Point; current: Point }
+  | { kind: 'lasso'; origin: Point; current: Point; mode: SelectionMode }
   | { kind: 'pan'; originScreen: Point; startViewport: Viewport }
   | null;
 
@@ -70,10 +79,12 @@ interface Options {
   gridSnap: boolean;
   selectedIds: Set<string>;
   onMoveShapes: (ids: string[], dx: number, dy: number) => void;
+  /** A copy of `clone`, put down `dx, dy` away from the originals. */
+  onDuplicateShapes: (clone: E.ClipboardPayload, dx: number, dy: number) => void;
   onResizeShape: (id: string, w: number, h: number) => void;
   onSetConnectorRoute: (id: string, waypoints: Point[]) => void;
   onSetConnectorLabel: (id: string, labelAt: number) => void;
-  onLassoSelect: (ids: string[]) => void;
+  onLassoSelect: (ids: string[], mode: SelectionMode) => void;
   onViewportChange: (viewport: Viewport) => void;
   /** Screen coordinates relative to the canvas element. */
   toLocal: (e: { clientX: number; clientY: number }) => Point;
@@ -96,6 +107,7 @@ export function usePointerTools({
   gridSnap,
   selectedIds,
   onMoveShapes,
+  onDuplicateShapes,
   onResizeShape,
   onSetConnectorRoute,
   onSetConnectorLabel,
@@ -189,9 +201,12 @@ export function usePointerTools({
           let nextX = anchor.x + (point.x - state.origin.x);
           let nextY = anchor.y + (point.y - state.origin.y);
 
+          // A copy being dragged off its original is aligned as the ghost,
+          // not as the shape it came from: the original stays put and is a
+          // neighbour to snap to like any other.
           const { guides, snapX, snapY } = E.computeAlignGuides(
             latest.current.model,
-            anchor.id,
+            state.clone ? GHOST_PREFIX + anchor.id : anchor.id,
             nextX,
             nextY,
             anchor.w,
@@ -206,9 +221,31 @@ export function usePointerTools({
           return { ...state, moved: true, dx: nextX - anchor.x, dy: nextY - anchor.y, guides };
         }
         case 'resize': {
-          const w = Math.max(MIN_SHAPE_W, state.startW + (point.x - state.origin.x));
-          const h = Math.max(MIN_SHAPE_H, state.startH + (point.y - state.origin.y));
-          return { ...state, w, h };
+          let w = Math.max(MIN_SHAPE_W, state.startW + (point.x - state.origin.x));
+          let h = Math.max(MIN_SHAPE_H, state.startH + (point.y - state.origin.y));
+          const shape = E.getShape(latest.current.model, state.id);
+          if (!shape) return { ...state, w, h };
+          // The moving edges line up with the neighbours the way a moving
+          // shape does; a snap that would take the shape under its minimum
+          // size is not taken, and its guide is not shown.
+          const found = E.computeResizeGuides(
+            latest.current.model,
+            state.id,
+            shape.x,
+            shape.y,
+            w,
+            h,
+          );
+          let guides = found.guides;
+          if (found.snapW !== null) {
+            if (found.snapW >= MIN_SHAPE_W) w = found.snapW;
+            else guides = guides.filter((g) => g.axis !== 'x');
+          }
+          if (found.snapH !== null) {
+            if (found.snapH >= MIN_SHAPE_H) h = found.snapH;
+            else guides = guides.filter((g) => g.axis !== 'y');
+          }
+          return { ...state, w, h, guides };
         }
         case 'bend':
         case 'label': {
@@ -272,7 +309,8 @@ export function usePointerTools({
         case 'drag':
           if (current.moved && (current.dx !== 0 || current.dy !== 0)) {
             // One action for the whole gesture, so one undo step.
-            onMoveShapes(current.ids, current.dx, current.dy);
+            if (current.clone) onDuplicateShapes(current.clone, current.dx, current.dy);
+            else onMoveShapes(current.ids, current.dx, current.dy);
           }
           break;
         case 'resize':
@@ -297,7 +335,7 @@ export function usePointerTools({
           // The box is in canvas units, the threshold in screen pixels.
           const minimum = DRAG_THRESHOLD / latest.current.viewport.zoom;
           if (box.w > minimum && box.h > minimum) {
-            onLassoSelect(shapesInLasso(latest.current.model, box));
+            onLassoSelect(shapesInLasso(latest.current.model, box), current.mode);
           }
           break;
         }
@@ -307,6 +345,7 @@ export function usePointerTools({
     },
     [
       onMoveShapes,
+      onDuplicateShapes,
       onResizeShape,
       onSetConnectorRoute,
       onSetConnectorLabel,
@@ -346,24 +385,36 @@ export function usePointerTools({
   }, [interaction, queueMove, finish, cancel]);
 
   const startDrag = useCallback(
-    (e: { clientX: number; clientY: number }, id: string) => {
+    (e: { clientX: number; clientY: number; altKey?: boolean }, id: string) => {
       // A viewer selects and pans; nothing on the canvas moves under their pointer.
       if (readOnly) return;
       const shape = E.getShape(model, id);
       if (!shape) return;
       // Dragging an unselected shape moves just that shape.
-      const ids = selectedIds.has(id) ? [id, ...[...selectedIds].filter((x) => x !== id)] : [id];
+      const selection = selectedIds.has(id)
+        ? [id, ...[...selectedIds].filter((x) => x !== id)]
+        : [id];
+      // With Alt held, what follows the pointer is a copy — of every shape in
+      // the selection, pinned or not: the copy is new and free to move.
+      const duplicating = e.altKey === true;
+      // Otherwise a pinned shape stays where it is. Grabbing one moves nothing
+      // (a drag that snaps back on release would only look like a bug), and
+      // pinned shapes in a wider selection sit the gesture out, so what the
+      // hand sees moving is exactly what the reducer will move.
+      const ids = duplicating ? selection : selection.filter((x) => !E.isLocked(model, x));
+      if (!ids.length || (!duplicating && E.isLocked(model, id))) return;
       const screen = toLocal(e);
       applyInteraction({
         kind: 'drag',
         ids,
-        affected: resolveDragSet(model, ids),
+        affected: duplicating ? new Set() : resolveDragSet(model, ids),
         origin: toCanvas(viewport, screen),
         originScreen: screen,
         moved: false,
         dx: 0,
         dy: 0,
         guides: [],
+        clone: duplicating ? E.cloneShapes(model, new Set(ids)) : undefined,
       });
     },
     [model, selectedIds, viewport, toLocal, applyInteraction, readOnly],
@@ -373,7 +424,7 @@ export function usePointerTools({
     (e: { clientX: number; clientY: number }, id: string) => {
       if (readOnly) return;
       const shape = E.getShape(model, id);
-      if (!shape) return;
+      if (!shape || E.isLocked(model, id)) return;
       applyInteraction({
         kind: 'resize',
         id,
@@ -382,6 +433,7 @@ export function usePointerTools({
         startH: shape.h,
         w: shape.w,
         h: shape.h,
+        guides: [],
       });
     },
     [model, viewport, toLocal, applyInteraction, readOnly],
@@ -424,9 +476,12 @@ export function usePointerTools({
   };
 
   const startLasso = useCallback(
-    (e: { clientX: number; clientY: number }) => {
+    (e: { clientX: number; clientY: number; shiftKey?: boolean; altKey?: boolean }) => {
       const point = toCanvas(viewport, toLocal(e));
-      applyInteraction({ kind: 'lasso', origin: point, current: point });
+      // The modifier at the start of the gesture decides what the box does to
+      // the selection, as it does for a press on a shape.
+      const mode: SelectionMode = e.altKey ? 'subtract' : e.shiftKey ? 'add' : 'replace';
+      applyInteraction({ kind: 'lasso', origin: point, current: point, mode });
     },
     [viewport, toLocal, applyInteraction],
   );
@@ -441,6 +496,8 @@ export function usePointerTools({
   /** The model to paint: the committed one, or a throw-away gesture preview. */
   const previewModel = useMemo(() => {
     if (interaction?.kind === 'drag') {
+      if (interaction.clone)
+        return previewDuplicate(model, interaction.clone, interaction.dx, interaction.dy);
       return previewDrag(model, interaction.affected, interaction.dx, interaction.dy, routingModel);
     }
     if (interaction?.kind === 'resize') {
@@ -465,7 +522,8 @@ export function usePointerTools({
     interaction,
     previewModel,
     lassoBox,
-    guides: interaction?.kind === 'drag' ? interaction.guides : [],
+    guides:
+      interaction?.kind === 'drag' || interaction?.kind === 'resize' ? interaction.guides : [],
     startDrag,
     startResize,
     startBend,

@@ -478,6 +478,24 @@ textarea:focus-visible {
   vector-effect: non-scaling-stroke;
 }
 
+/* A pinned shape's padlock: a quiet pad inside its top-right corner, in the
+   secondary ink so it reads as a note from the editor and never competes with
+   a selection or a comment pin. Drawn in screen pixels (the group undoes the
+   zoom), so the stroke is a plain 1.7 like the toolbar's icons. */
+.lock-mark {
+  pointer-events: none;
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lock-mark-pad {
+  fill: var(--surface-raised);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
 .connector-handle {
   cursor: move;
   outline: none;

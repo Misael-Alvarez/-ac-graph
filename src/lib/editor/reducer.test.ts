@@ -349,6 +349,144 @@ describe('shape properties', () => {
   });
 });
 
+describe('locked shapes', () => {
+  /** Two groups, the first of them locked, with an empty history. */
+  function withLockedGroup() {
+    let state = initialDocState(createEmptyModel());
+    state = run(state, { type: 'addGroup', x: 100, y: 100 }, { type: 'addGroup', x: 800, y: 500 });
+    const [locked, free] = state.model.shapes.filter((s) => s.type === 'group');
+    state = run(state, { type: 'setLocked', ids: [locked.id], locked: true });
+    const seeded = run(state, { type: 'load', model: state.model });
+    return { state: seeded, lockedId: locked.id, freeId: free.id };
+  }
+
+  it('locks and unlocks a selection in one undo step, writing the flag only when set', () => {
+    const { state, lockedId, freeId } = withLockedGroup();
+    expect(getShape(state.model, lockedId)!.locked).toBe(true);
+
+    const both = run(state, { type: 'setLocked', ids: [lockedId, freeId, 'ghost'], locked: true });
+    expect(getShape(both.model, freeId)!.locked).toBe(true);
+    expect(both.past).toHaveLength(1);
+
+    const none = run(both, { type: 'setLocked', ids: [lockedId, freeId], locked: false });
+    expect(getShape(none.model, lockedId)!.locked).toBeUndefined();
+    expect(getShape(none.model, freeId)!.locked).toBeUndefined();
+    expect('locked' in getShape(none.model, freeId)!).toBe(false);
+
+    const undone = run(none, { type: 'undo' });
+    expect(getShape(undone.model, freeId)!.locked).toBe(true);
+    expect(canUndo(undone)).toBe(true);
+  });
+
+  it('also reads a lock written as a property, and lets that path lift it', () => {
+    const { state, freeId } = withLockedGroup();
+    const locked = run(state, { type: 'setShapeProps', id: freeId, patch: { locked: true } });
+    expect(run(locked, { type: 'moveShapes', ids: [freeId], dx: 1, dy: 1, viewId: null })).toBe(
+      locked,
+    );
+    const unlocked = run(locked, { type: 'setShapeProps', id: freeId, patch: { locked: false } });
+    expect(getShape(unlocked.model, freeId)!.locked).toBe(false);
+  });
+
+  it('sits out a move, alone or in a selection with free shapes', () => {
+    const { state, lockedId, freeId } = withLockedGroup();
+    const alone = run(state, { type: 'moveShapes', ids: [lockedId], dx: 40, dy: 40, viewId: null });
+    expect(alone).toBe(state);
+
+    const mixed = run(state, {
+      type: 'moveShapes',
+      ids: [lockedId, freeId],
+      dx: 40,
+      dy: 40,
+      viewId: null,
+    });
+    expect(getShape(mixed.model, lockedId)).toMatchObject({ x: 100, y: 100 });
+    expect(getShape(mixed.model, freeId)).toMatchObject({ x: 840, y: 540 });
+  });
+
+  it('holds what it contains: an item of a locked group does not move either', () => {
+    const { state, lockedId } = withLockedGroup();
+    const item = children(state.model, children(state.model, lockedId)[0].id)[0];
+    const moved = run(state, { type: 'moveShapes', ids: [item.id], dx: 0, dy: 30, viewId: null });
+    expect(moved).toBe(state);
+  });
+
+  it('refuses a resize', () => {
+    const { state, lockedId } = withLockedGroup();
+    const shape = getShape(state.model, lockedId)!;
+    const resized = run(state, {
+      type: 'resizeShape',
+      id: lockedId,
+      w: shape.w + 100,
+      h: shape.h + 50,
+      viewId: null,
+    });
+    expect(resized).toBe(state);
+  });
+
+  it('keeps geometry out of a patch, but lets content through', () => {
+    const { state, lockedId } = withLockedGroup();
+    const patched = run(state, {
+      type: 'setShapeProps',
+      id: lockedId,
+      patch: { x: 0, y: 0, title: 'Pinned' },
+    });
+    expect(getShape(patched.model, lockedId)).toMatchObject({ x: 100, y: 100, title: 'Pinned' });
+  });
+
+  it('lets a patch unlock and move in one breath', () => {
+    const { state, lockedId } = withLockedGroup();
+    const patched = run(state, {
+      type: 'setShapeProps',
+      id: lockedId,
+      patch: { locked: false, x: 0, y: 0 },
+    });
+    expect(getShape(patched.model, lockedId)).toMatchObject({ x: 0, y: 0, locked: false });
+  });
+
+  it('is left out of an alignment and a distribution', () => {
+    const { state, lockedId, freeId } = withLockedGroup();
+    const aligned = run(state, {
+      type: 'alignShapes',
+      ids: [lockedId, freeId],
+      edge: 'left',
+      viewId: null,
+    });
+    // With one movable shape there is nothing to align to: no change at all.
+    expect(aligned).toBe(state);
+
+    const third = run(state, { type: 'addGroup', x: 1800, y: 100 });
+    const thirdId = third.lastCreated.find((id) => getShape(third.model, id)!.type === 'group')!;
+    const spaced = run(third, {
+      type: 'distributeShapes',
+      ids: [lockedId, freeId, thirdId],
+      axis: 'horizontal',
+      viewId: null,
+    });
+    expect(getShape(spaced.model, lockedId)).toMatchObject({ x: 100, y: 100 });
+  });
+
+  it('stays put through the auto-layout while the rest is arranged', () => {
+    const { state, lockedId, freeId } = withLockedGroup();
+    const laid = run(state, { type: 'autoLayout', viewId: null });
+    expect(getShape(laid.model, lockedId)).toMatchObject({ x: 100, y: 100 });
+    expect(getShape(laid.model, freeId)).not.toMatchObject({ x: 800, y: 500 });
+  });
+
+  it('is still deleted, and its duplicate arrives unlocked', () => {
+    const { state, lockedId } = withLockedGroup();
+    const duplicated = run(state, { type: 'duplicateShapes', ids: [lockedId] });
+    const copy = duplicated.lastCreated
+      .map((id) => getShape(duplicated.model, id)!)
+      .find((s) => s.type === 'group')!;
+    expect(copy.locked).toBeUndefined();
+    expect(getShape(duplicated.model, lockedId)!.locked).toBe(true);
+
+    const deleted = run(state, { type: 'deleteShapes', ids: [lockedId] });
+    expect(getShape(deleted.model, lockedId)).toBeUndefined();
+  });
+});
+
 describe('connectors', () => {
   it('creates, labels and deletes a connector', () => {
     let state = initialDocState(createEmptyModel());

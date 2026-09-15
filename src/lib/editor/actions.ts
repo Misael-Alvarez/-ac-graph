@@ -56,6 +56,8 @@ export type EditorAction =
     } & Coalescable)
   | ({ type: 'resizeShape'; id: string; w: number; h: number; viewId: string | null } & Coalescable)
   | ({ type: 'setShapeProps'; id: string; patch: Partial<Shape> } & Coalescable)
+  /** Pins a selection where it is, or lets it go, as one undo step. */
+  | { type: 'setLocked'; ids: string[]; locked: boolean }
   | { type: 'reorderItem'; id: string; dir: 1 | -1; viewId: string | null; drillPath?: string[] }
   | {
       type: 'alignShapes';

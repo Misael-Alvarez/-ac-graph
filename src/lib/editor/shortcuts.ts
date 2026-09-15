@@ -63,7 +63,31 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { id: 'delete', keys: 'Del', labelKey: 'action.delete', scope: 'canvas' },
       { id: 'nudge', keys: 'Arrows', labelKey: 'shortcuts.nudge', scope: 'canvas' },
       { id: 'nudgeStep', keys: 'Shift+Arrows', labelKey: 'shortcuts.nudgeStep', scope: 'canvas' },
+      { id: 'lock', keys: 'Mod+L', labelKey: 'action.toggleLock', scope: 'canvas' },
       { id: 'autoLayout', keys: 'Mod+Shift+L', labelKey: 'action.autoLayout', scope: 'canvas' },
+    ],
+  },
+  {
+    /* What a held modifier does to the pointer. Not chords — `chordOf` never
+       produces `Click`, `Lasso` or `Drag` — so nothing here can fire from the
+       keyboard; they are in the table so the sheet tells the whole truth about
+       what the hands can do, and so the uniqueness check covers them too. */
+    titleKey: 'shortcuts.pointer',
+    items: [
+      {
+        id: 'selectToggle',
+        keys: 'Shift+Click',
+        labelKey: 'shortcuts.selectToggle',
+        scope: 'canvas',
+      },
+      { id: 'lassoAdd', keys: 'Shift+Lasso', labelKey: 'shortcuts.lassoAdd', scope: 'canvas' },
+      {
+        id: 'lassoSubtract',
+        keys: 'Alt+Lasso',
+        labelKey: 'shortcuts.lassoSubtract',
+        scope: 'canvas',
+      },
+      { id: 'dragCopy', keys: 'Alt+Drag', labelKey: 'shortcuts.dragCopy', scope: 'canvas' },
     ],
   },
   {

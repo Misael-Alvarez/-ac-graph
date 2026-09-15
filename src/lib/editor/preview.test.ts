@@ -3,6 +3,7 @@ import {
   addConnector,
   addGroup,
   children,
+  cloneShapes,
   createEmptyModel,
   getShape,
   resolveView,
@@ -12,9 +13,11 @@ import {
 import { modelWith } from '@/lib/engine/testUtils';
 import { docReducer, initialDocState } from './reducer';
 import {
+  GHOST_PREFIX,
   normaliseBox,
   previewConnector,
   previewDrag,
+  previewDuplicate,
   previewResize,
   resolveDragSet,
   shapesInLasso,
@@ -110,6 +113,48 @@ describe('previewConnector', () => {
     expect(preview.connectors[0]).toEqual({ ...line, labelAt: 0.2549 });
     expect(line.labelAt).toBeUndefined();
     expect(previewConnector(model, 'missing', { labelAt: 0 })).toBe(model);
+  });
+});
+
+describe('previewDuplicate', () => {
+  it('appends a moved copy under ghost ids and leaves the originals in place', () => {
+    const { model, a, b, items } = twoGroups();
+    const clone = cloneShapes(model, new Set([a.id, b.id]));
+    const preview = previewDuplicate(model, clone, 100, 50);
+
+    expect(preview.shapes).toHaveLength(model.shapes.length * 2);
+    expect(getShape(preview, a.id)).toBe(getShape(model, a.id));
+    const ghost = getShape(preview, GHOST_PREFIX + a.id)!;
+    expect(ghost).toMatchObject({ x: a.x + 100, y: a.y + 50, type: 'group' });
+    // The copy's items hang off the copy's containers, not the originals'.
+    const ghostItem = getShape(preview, GHOST_PREFIX + items[0].id)!;
+    expect(ghostItem.parentId).toBe(GHOST_PREFIX + items[0].parentId!);
+    // The line between the two copies comes along, moved by the same amount.
+    expect(preview.connectors).toHaveLength(2);
+    expect(preview.connectors[1]).toMatchObject({
+      sourceId: GHOST_PREFIX + items[0].id,
+      targetId: GHOST_PREFIX + items[1].id,
+    });
+    expect(preview.connectors[1].waypoints[0]).toEqual({
+      x: model.connectors[0].waypoints[0].x + 100,
+      y: model.connectors[0].waypoints[0].y + 50,
+    });
+    expect(model.shapes).toHaveLength(6);
+  });
+
+  it('shows nothing until the copy has somewhere to go', () => {
+    const { model, a } = twoGroups();
+    const clone = cloneShapes(model, new Set([a.id]));
+    expect(previewDuplicate(model, clone, 0, 0)).toBe(model);
+    expect(previewDuplicate(model, { shapes: [], connectors: [] }, 10, 10)).toBe(model);
+  });
+
+  it('draws the ghost of a locked shape unlocked, as the copy will arrive', () => {
+    const { model, a } = twoGroups();
+    a.locked = true;
+    const preview = previewDuplicate(model, cloneShapes(model, new Set([a.id])), 20, 20);
+    expect(getShape(preview, GHOST_PREFIX + a.id)!.locked).toBeUndefined();
+    expect(getShape(preview, a.id)!.locked).toBe(true);
   });
 });
 

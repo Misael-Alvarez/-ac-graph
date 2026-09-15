@@ -96,7 +96,32 @@ describe('parseDiagramModel', () => {
     }
     expect(ConnectorSchema.parse(line).curve).toBeUndefined();
     expect(ConnectorSchema.safeParse({ ...line, curve: 'bezier' }).success).toBe(false);
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+  });
+
+  it('reads a locked shape, at schema 6, and re-stamps a 5 that never heard of it', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+    const shape = { id: 'b', type: 'boundary', parentId: null, x: 0, y: 0, w: 10, h: 10 };
+    const locked = parseDiagramModel({
+      schemaVersion: 6,
+      canvas: { w: 100, h: 100 },
+      shapes: [{ ...shape, locked: true }],
+      connectors: [],
+    });
+    expect(locked.schemaVersion).toBe(6);
+    expect(locked.shapes[0].locked).toBe(true);
+
+    // A document from the build before: no `locked` anywhere, read unchanged.
+    const older = parseDiagramModel({
+      schemaVersion: 5,
+      canvas: { w: 100, h: 100 },
+      shapes: [shape],
+      connectors: [],
+    });
+    expect(older.schemaVersion).toBe(6);
+    expect(older.shapes[0].locked).toBeUndefined();
+    expect(
+      safeParseDiagramModel({ ...locked, shapes: [{ ...shape, locked: 'yes' }] }).success,
+    ).toBe(false);
   });
 
   it('rejects a shape with a bad type', () => {

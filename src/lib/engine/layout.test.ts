@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { autoLayout, computeAlignGuides } from './layout';
-import { addGroup, children, createEmptyModel, getShape } from './model';
+import { autoLayout, computeAlignGuides, computeResizeGuides } from './layout';
+import { addBoundary, addGroup, children, createEmptyModel, getShape } from './model';
 import { addConnector } from './routing';
 import { modelWith } from './testUtils';
 
@@ -140,6 +140,66 @@ describe('autoLayout', () => {
   it('does nothing harmful on an empty diagram', () => {
     const m = createEmptyModel();
     expect(() => autoLayout(m)).not.toThrow();
+  });
+
+  it('leaves a locked group and a locked boundary exactly where they are', () => {
+    const m = createEmptyModel();
+    const pinned = groupWithItem(m, 1500, 1200, 'Pinned');
+    pinned.group.locked = true;
+    const free = groupWithItem(m, 1400, 900, 'Free');
+    const boundary = addBoundary(m, -500, -500, 'outer');
+    boundary.locked = true;
+    const itemBefore = { x: pinned.item.x, y: pinned.item.y };
+
+    autoLayout(m);
+
+    expect(pinned.group).toMatchObject({ x: 1500, y: 1200 });
+    expect(pinned.item).toMatchObject(itemBefore);
+    expect(boundary).toMatchObject({ x: -500, y: -500, w: 1000, h: 650 });
+    expect(free.group).toMatchObject({ x: 80, y: 80 });
+  });
+});
+
+describe('computeResizeGuides', () => {
+  const neighbour = { id: 'other', x: 400, y: 500, w: 200, h: 100 };
+
+  it('snaps the right edge to a neighbour’s left, centre and right lines', () => {
+    const m = modelWith([{ id: 'me', x: 100, y: 100, w: 50, h: 50 }, neighbour]);
+    // Right edge at 397 → the neighbour's left edge at 400.
+    expect(computeResizeGuides(m, 'me', 100, 100, 297, 50)).toMatchObject({
+      snapW: 300,
+      snapH: null,
+      guides: [{ axis: 'x', pos: 400 }],
+    });
+    // 503 → the centre at 500; 597 → the right edge at 600.
+    expect(computeResizeGuides(m, 'me', 100, 100, 403, 50).snapW).toBe(400);
+    expect(computeResizeGuides(m, 'me', 100, 100, 497, 50).snapW).toBe(500);
+  });
+
+  it('snaps the bottom edge to a neighbour’s top, centre and bottom lines', () => {
+    const m = modelWith([{ id: 'me', x: 100, y: 100, w: 50, h: 50 }, neighbour]);
+    expect(computeResizeGuides(m, 'me', 100, 100, 50, 397)).toMatchObject({
+      snapW: null,
+      snapH: 400,
+      guides: [{ axis: 'y', pos: 500 }],
+    });
+    expect(computeResizeGuides(m, 'me', 100, 100, 50, 453).snapH).toBe(450);
+    expect(computeResizeGuides(m, 'me', 100, 100, 50, 503).snapH).toBe(500);
+  });
+
+  it('stays null out of range and never aligns a shape with what it holds', () => {
+    const m = modelWith([
+      { id: 'me', type: 'group', x: 100, y: 100, w: 200, h: 100 },
+      { id: 'ct', type: 'container', parentId: 'me', x: 110, y: 110, w: 180, h: 80 },
+      { id: 'item', parentId: 'ct', x: 150, y: 125, w: 100, h: 50 },
+      neighbour,
+    ]);
+    // The right edge at 252 is two pixels off the item's right edge (250):
+    // the item travels with the group, so it must not attract it.
+    const r = computeResizeGuides(m, 'me', 100, 100, 152, 100);
+    expect(r.snapW).toBeNull();
+    expect(r.snapH).toBeNull();
+    expect(r.guides).toHaveLength(0);
   });
 });
 

@@ -113,6 +113,15 @@ describe('pasteShapes', () => {
     expect(copy.id).not.toBe(conn.id);
   });
 
+  it('pastes a copy of a locked shape free to move', () => {
+    const m = createEmptyModel();
+    const g = addGroup(m, 0, 0);
+    g.locked = true;
+    const newIds = pasteShapes(m, cloneShapes(m, new Set([g.id])), 40, 40);
+    for (const id of newIds) expect(getShape(m, id)!.locked).toBeUndefined();
+    expect(g.locked).toBe(true);
+  });
+
   it('survives repeated pastes without colliding', () => {
     const m = createEmptyModel();
     const g = addGroup(m, 0, 0);

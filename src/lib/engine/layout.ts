@@ -1,4 +1,4 @@
-import type { DiagramModel } from '@/lib/domain';
+import type { DiagramModel, Shape } from '@/lib/domain';
 import { isDecorative } from '@/lib/domain';
 import { ALIGN_SNAP_DIST } from './constants';
 import { contentBBox } from './geometry';
@@ -10,10 +10,12 @@ import { routeAllConnectors } from './routing';
  *
  * Groups are the layout unit; connectors between their items induce the edges.
  * A Kahn topological sort assigns layers, cycles fall through to a trailing row.
+ * A locked group or boundary stays exactly where it is: it takes no place in
+ * the layers and is not refitted around them.
  */
 export function autoLayout(model: DiagramModel): void {
-  const topGroups = model.shapes.filter((s) => s.type === 'group');
-  const boundaries = model.shapes.filter((s) => s.type === 'boundary');
+  const topGroups = model.shapes.filter((s) => s.type === 'group' && !s.locked);
+  const boundaries = model.shapes.filter((s) => s.type === 'boundary' && !s.locked);
 
   const adj = new Map<string, Set<string>>();
   const inDeg = new Map<string, number>();
@@ -116,6 +118,22 @@ export interface AlignResult {
   snapY: number | null;
 }
 
+/**
+ * The shapes a moving edge may line up with: everything but the containers
+ * and whatever travels with the shape itself.
+ *
+ * Skipping only the direct children was not enough: a group's items hang off
+ * its container, so a dragged group found its own item centred inside it,
+ * snapped to it, and could not be moved by less than the snap distance at
+ * all — while drawing a guide against a shape that was moving with it. An id
+ * the model does not have excludes nothing, which is what a copy being
+ * dragged off its original wants: the original is a neighbour like any other.
+ */
+function alignmentCandidates(model: DiagramModel, movingId: string): Shape[] {
+  const moving = collectDescendantIds(model, movingId);
+  return model.shapes.filter((s) => !moving.has(s.id) && s.type !== 'container');
+}
+
 /** Edge- and centre-alignment guides for a shape being dragged to (dragX, dragY). */
 export function computeAlignGuides(
   model: DiagramModel,
@@ -134,20 +152,7 @@ export function computeAlignGuides(
   const dragR = dragX + dragW;
   const dragB = dragY + dragH;
 
-  /**
-   * What travels with the shape cannot be something to align it against.
-   *
-   * Skipping only the direct children was not enough: a group's items hang off
-   * its container, so a dragged group found its own item centred inside it,
-   * snapped to it, and could not be moved by less than the snap distance at
-   * all — while drawing a guide against a shape that was moving with it.
-   */
-  const moving = collectDescendantIds(model, dragId);
-
-  for (const s of model.shapes) {
-    if (moving.has(s.id)) continue;
-    if (s.type === 'container') continue;
-
+  for (const s of alignmentCandidates(model, dragId)) {
     const sCX = s.x + s.w / 2;
     const sCY = s.y + s.h / 2;
     const sR = s.x + s.w;
@@ -180,4 +185,52 @@ export function computeAlignGuides(
   }
 
   return { guides, snapX, snapY };
+}
+
+export interface ResizeResult {
+  guides: AlignGuide[];
+  /** The width that puts the right edge on a neighbour's line, or null. */
+  snapW: number | null;
+  /** The height that puts the bottom edge on a neighbour's line, or null. */
+  snapH: number | null;
+}
+
+/**
+ * Alignment guides for a shape being resized from its bottom-right corner.
+ *
+ * Only two edges move, the right and the bottom, and each may land on a
+ * neighbour's edge or centre line — so a group can be stretched to end exactly
+ * where the one beside it ends, which by hand takes three tries. The same
+ * tolerance as a move; the caller keeps its own minimum size.
+ */
+export function computeResizeGuides(
+  model: DiagramModel,
+  id: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): ResizeResult {
+  const guides: AlignGuide[] = [];
+  let snapW: number | null = null;
+  let snapH: number | null = null;
+  const right = x + w;
+  const bottom = y + h;
+
+  for (const s of alignmentCandidates(model, id)) {
+    for (const line of [s.x, s.x + s.w / 2, s.x + s.w]) {
+      if (Math.abs(right - line) < ALIGN_SNAP_DIST) {
+        snapW = line - x;
+        guides.push({ axis: 'x', pos: line });
+      }
+    }
+    for (const line of [s.y, s.y + s.h / 2, s.y + s.h]) {
+      if (Math.abs(bottom - line) < ALIGN_SNAP_DIST) {
+        snapH = line - y;
+        guides.push({ axis: 'y', pos: line });
+      }
+    }
+  }
+
+  return { guides, snapW, snapH };
 }

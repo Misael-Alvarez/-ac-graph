@@ -171,6 +171,10 @@ export function ContextMenu() {
 
     if (comment) rows.push(comment);
 
+    // Released only when every shape under the menu is pinned by its own flag;
+    // otherwise the whole selection is pinned, the already-pinned ones included.
+    const allLocked = selection.every((id) => E.getShape(view, id)?.locked === true);
+
     rows.push(
       SEPARATOR,
       {
@@ -178,6 +182,12 @@ export function ContextMenu() {
         labelKey: 'action.duplicate',
         shortcut: shortcut('D'),
         run: () => dispatch({ type: 'duplicateShapes', ids: selection }),
+      },
+      {
+        id: 'lock',
+        labelKey: allLocked ? 'action.unlock' : 'action.lock',
+        shortcut: shortcut('L'),
+        run: () => dispatch({ type: 'setLocked', ids: selection, locked: !allLocked }),
       },
       {
         id: 'front',

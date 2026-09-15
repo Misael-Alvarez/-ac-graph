@@ -128,6 +128,10 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
     if (meta?.lifecycle) spec.lifecycle = meta.lifecycle;
     if (meta?.tags?.length) spec.tags = meta.tags;
 
+    // A lock is about where the node sits, so it travels with `layout` and,
+    // like it, is left out of a document written without geometry.
+    if (includeLayout && record.group.locked) spec.locked = true;
+
     // Collapse to the `key: service` shorthand when nothing else is set.
     nodes[record.key] = Object.keys(spec).length === 1 ? service : spec;
   }
@@ -187,6 +191,7 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
         {
           label: boundary.title ?? '',
           ...(boundary.variant === 'sub' ? { variant: 'sub' } : {}),
+          ...(includeLayout && boundary.locked ? { locked: true } : {}),
         },
       ]),
     );
@@ -212,6 +217,7 @@ export function serializeDsl(model: DiagramModel, options: SerializeOptions = {}
       spec.at = [Math.round(shape.x), Math.round(shape.y)];
       spec.size = [Math.round(shape.w), Math.round(shape.h)];
       if (shape.fill) spec.fill = shape.fill;
+      if (includeLayout && shape.locked) spec.locked = true;
       notes[key] = spec;
     }
     document.notes = notes;

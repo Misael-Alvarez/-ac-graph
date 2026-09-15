@@ -107,8 +107,11 @@ test('moving a node in a view leaves the main view alone', async ({ page }) => {
 
   await page.locator('.view-bar [role="tab"]').first().click();
   const back = (await page.locator('[data-shape-id^="grp_"]').first().boundingBox())!;
-  expect(Math.round(back.x)).toBe(Math.round(before.x));
-  expect(Math.round(back.y)).toBe(Math.round(before.y));
+  // Screen pixels, read twice under load: the painted box came back about one
+  // pixel off one run in three with two workers, on this commit and on the
+  // ones before it. Within two pixels is "did not move"; a real move is hundreds.
+  expect(Math.abs(back.x - before.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(back.y - before.y)).toBeLessThanOrEqual(2);
 });
 
 test('moving in the main reading of a split model leaves the other view alone', async ({

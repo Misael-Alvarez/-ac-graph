@@ -39,6 +39,9 @@ export function pasteShapes(
       y: s.y + offsetY,
     };
     if (ns.parentId && idMap.has(ns.parentId)) ns.parentId = idMap.get(ns.parentId)!;
+    // A copy is new and still has to be put somewhere: it arrives free to
+    // move, however firmly the original was pinned.
+    delete ns.locked;
     model.shapes.push(ns);
   }
 
