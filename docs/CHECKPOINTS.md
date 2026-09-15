@@ -459,7 +459,7 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 
 ## H2 #15 del plan de mejoras / iconos oficiales de Azure y OCI (cerrado, 2026-09-14)
 
-**Base:** `0ba7386` (`main`). «Vendorizar los packs oficiales (licencias permiten uso en diagramas), mapear claves en `scripts/refreshIcons.mjs`, regenerar `svgIconDefs.ts`. Sube la paridad de 313/572 a ~520/572».
+**Base:** `0ba7386` (`main`). Commit `6e932fa`. «Vendorizar los packs oficiales (licencias permiten uso en diagramas), mapear claves en `scripts/refreshIcons.mjs`, regenerar `svgIconDefs.ts`. Sube la paridad de 313/572 a ~520/572».
 
 ### Entregado
 
