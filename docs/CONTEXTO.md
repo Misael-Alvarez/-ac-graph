@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `b6cbbf9` (draw.io, diálogo «Nuevo diagrama», duplicados) sobre la portada (`506c8f0`, `be799e6`, `4993bc7`). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio en `5205a9d` (PPTX) sobre `b6cbbf9` (draw.io, diálogo «Nuevo diagrama», duplicados) sobre la portada (`506c8f0`, `be799e6`, `4993bc7`). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -45,6 +45,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `be799e6` — Shape the home page after the reference the user pointed at: a pill nav, a hero card with a two-tone title and value chips, and a preview window that shows the diagram last worked on
   - `4993bc7` — Let the mark spell the company's letters: the wordmark beside it says only Graph
   - `b6cbbf9` — Hand the drawing to diagrams.net: a .drawio with icons, routes and pages per view; and let the home's New dialog show your own templates
+  - `ab438d8` — Record the draw.io and New dialog commit in the context and the checkpoint log
+  - `5205a9d` — Take the diagram to the meeting: a PowerPoint deck, one slide per view, written without a dependency
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
