@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) #11 conectores editables (`7c72a21`) #16 importadores CloudFormation/Compose/Pulumi (`db431ad`) la portada rediseñada (`506c8f0`, `be799e6`, `4993bc7`) y #17 draw.io + dialogo «Nuevo diagrama» + duplicados (`b6cbbf9`)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `b6cbbf9`. Para retomar: `docs/CONTEXTO.md`. Siguiente: PPTX (#17), #15 iconos Azure/OCI, #18/#19 IA.
+> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) #11 conectores editables (`7c72a21`) #16 importadores CloudFormation/Compose/Pulumi (`db431ad`) la portada rediseñada (`506c8f0`, `be799e6`, `4993bc7`) y #17 draw.io + PPTX + dialogo «Nuevo diagrama» + duplicados (`b6cbbf9` y el commit de PPTX registrado en su entrada)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con el ultimo commit. Para retomar: `docs/CONTEXTO.md`. Siguiente: #15 iconos Azure/OCI, #18/#19 IA (H2 queda ahi); H3 despues.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -457,7 +457,7 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 - El menu contextual y `MenuItem` siguen siendo marcados distintos (`context-menu-item` sin icono ni texto secundario); unificarlos exigiria cambiar el DOM.
 - No hay `@testing-library/react`: las pruebas de render usan `react-dom/client` + `act` en happy-dom (patron de `usePresence.test.ts`).
 
-## H2 #17 (draw.io) y flecos de la portada (cerrado, 2026-09-14)
+## H2 #17 (draw.io y PPTX) y flecos de la portada (cerrado, 2026-09-14)
 
 **Base:** `4993bc7` (`main`). Commit `b6cbbf9`. Lo propuesto en «que falta» y aceptado por el usuario: la mitad draw.io de #17 (sin dependencias), el dialogo «Nuevo diagrama» con la anatomia de la portada y el titulo de los duplicados en el idioma de la interfaz.
 
@@ -465,7 +465,9 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 
 **draw.io** (`src/lib/editor/drawio.ts`, `toDrawio(pages, { dark, title })`): mxGraph XML sin comprimir (`<mxfile>` → un `<diagram>` por vista, nombrada como la vista y la principal como el documento; con una sola vista, la lectura en pantalla), celdas planas bajo la raiz en orden de pintura: fronteras y contenedores discontinuos sin relleno, grupos con su color de proveedor, regiones con tinte, notas como `shape=note` con el marcado ligero convertido a HTML, textos libres, y **tarjetas de servicio** como `shape=label` con el icono del sprite incrustado (`image=data:image/svg+xml,<base64>`, la convencion de draw.io; los propios en SVG igual, los raster como `data:image/png,<base64>`), titulo, subtitulo y chips de metadatos en una tercera linea. Flechas con `endArrow=block`, color, grosor y guiones de `strokeFor`, `edgeStyle=orthogonalEdgeStyle` para las del enrutador y **puntos** para las rutas manuales (sin edgeStyle), `rounded` salvo codos ortogonales, caras fijas — y las que el enrutador eligio — como `exitX/exitY/entryX/entryY`, etiqueta con su posicion (`x = labelAt·2 − 1`). Honra el tema de exportacion y el interruptor de metadatos. Comando `exportDrawio` en el menu Exportar («draw.io — Editable en diagrams.net, una pagina por vista»), la paleta y la auditoria; README. Verificado ademas abriendo el resultado en el visor de diagrams.net: 7/7 iconos, etiquetas y rutas iguales a las del lienzo. **De paso:** el menu Exportar ya medía 900 px y su ultima fila caía fuera de la ventana; `.topbar-menu` tiene ahora altura maxima y desplazamiento.
 
-**Dialogo «Nuevo diagrama»** con las tarjetas de la portada (vista previa dibujada sobre rejilla punteada, titulo, descripcion, «N formas · N conexiones»; caras compartidas con `TemplateGallery`): sin plantillas propias, la misma rejilla de seis; con ellas, «Tuyas» (lienzo en blanco + las propias) e «Incluidas». **Duplicados** titulados en el idioma de la interfaz («Copia de X» / «X (copy)»): `duplicate(id, { title? })` en el contrato, IndexedDB, HTTP, PostgreSQL y la ruta (`DuplicateBodySchema`, 1–200 caracteres, cuerpo opcional). **Tarjetas** con `scroll-margin-top` bajo la cabecera pegajosa: al enfocarlas o desplazarlas por script ya no quedan tapadas.
+**PowerPoint** (commit de esta segunda mitad: ver el registro), sin dependencia nueva, como el PDF propio: `src/lib/editor/zip.ts` (escritor ZIP en modo STORE con CRC-32 por tabla, cabeceras locales, directorio central y registro final, fecha DOS fija para que la salida sea determinista, nombres UTF-8; y un lector del directorio para las pruebas) y `src/lib/editor/pptx.ts` (`toPptx(slides, { title, dark })`: paquete PresentationML de 20 partes — tipos de contenido, `.rels`, propiedades `core`/`app`, `presentation.xml` 16:9, `presProps`/`viewProps`/`tableStyles`, patron con el color de hoja del tema (mapa de colores invertido en oscuro), diseño en blanco, tema con los doce colores de los tokens y Geist con familia de sustitucion sans, y por vista `slideN.xml` con un cuadro de titulo de 20 pt y la imagen PNG a 2× ajustada y centrada en la caja de contenido sin deformarla). Comando `exportPptx` (dos o mas vistas → una diapositiva por vista con el nombre de la vista, la principal con el titulo del documento; una sola → la lectura en pantalla), entrada «PowerPoint — Una diapositiva por vista, como imagen» tras draw.io, paleta, auditoria y README. Validado fuera: `zipfile.testzip()` sin errores, todas las partes XML analizan, y QuickLook de macOS renderiza ambos mazos (claro y oscuro) con el titulo arriba y la imagen centrada; `soffice` no esta instalado y no se abrio Keynote.
+
+**Dialogo «Nuevo diagrama»** con las tarjetas de la portada (vista previa dibujada sobre rejilla punteada, titulo, descripcion, «N formas · N conexiones»; caras compartidas con `TemplateGallery`): sin plantillas propias, la misma rejilla de seis; con ellas, «Tuyas» (lienzo en blanco + las propias) e «Incluidas». **Duplicados** titulados en el idioma de la interfaz («Copia de X» / «X (copy)»): `duplicate(id, { title? })` en el contrato, IndexedDB, HTTP, PostgreSQL y la ruta (`DuplicateBodySchema`, 1–200 caracteres, cuerpo opcional). **Tarjetas y sus controles** con `scroll-margin-top` bajo la cabecera pegajosa: al enfocar un boton de la tarjeta (el navegador desplaza hasta el control, no hasta la tarjeta) ya no queda tapado.
 
 ### Pruebas ejecutadas
 
@@ -480,7 +482,7 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 
 ### Limites conocidos
 
-- PPTX sigue pendiente (segunda mitad de #17).
+- PPTX: la diapositiva lleva el diagrama como imagen (no formas editables); sin notas del orador; no se ha abierto en PowerPoint ni Keynote reales, solo en QuickLook.
 - draw.io: las flechas del enrutador llevan sus codos como puntos y `orthogonalEdgeStyle`; si en draw.io se mueve una forma, draw.io reenruta a su manera. Los chips de metadatos van como texto, no como formas.
 - El buscador de la portada sigue filtrando por titulo, descripcion y carpeta.
 

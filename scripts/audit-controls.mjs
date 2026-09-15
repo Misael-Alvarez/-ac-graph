@@ -148,8 +148,17 @@ for (const [label, sel] of [
   await page.locator('.topbar .icon-button[aria-label="Deshacer"]').click();
   await settle();
 }
-// export menu items produce downloads
-for (const item of ['PNG', 'SVG', 'PDF', 'draw.io', 'Markdown', 'Mermaid', 'YAML']) {
+// export menu items produce downloads, each named after the diagram with its own extension
+for (const [item, extension] of [
+  ['PNG', 'png'],
+  ['SVG', 'svg'],
+  ['PDF', 'pdf'],
+  ['draw.io', 'drawio'],
+  ['PowerPoint', 'pptx'],
+  ['Markdown', 'md'],
+  ['Mermaid', 'mmd'],
+  ['YAML', 'yaml'],
+]) {
   await page.locator('.topbar button[aria-label="Exportar"]').click();
   await settle(200);
   const [dl] = await Promise.all([
@@ -161,7 +170,8 @@ for (const item of ['PNG', 'SVG', 'PDF', 'draw.io', 'Markdown', 'Mermaid', 'YAML
       .click(),
   ]);
   await settle(200);
-  check(`exportar: ${item} descarga`, !!dl, dl ? await dl.suggestedFilename() : 'sin descarga');
+  const name = dl ? await dl.suggestedFilename() : 'sin descarga';
+  check(`exportar: ${item} descarga`, name === `Microservicios.${extension}`, name);
 }
 // export options: the theme rows and the metadata toggle change what is exported
 {

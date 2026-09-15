@@ -2641,6 +2641,13 @@ body {
 
 /* ── Cards: one anatomy for a diagram and for a starting point ── */
 
+/* Brought into view by focus or a script, a card or any control on it stops
+   under the sticky header rather than behind it, where it cannot be pressed:
+   the browser scrolls to the focused control, not to the card around it. */
+.library-main :is(.library-card, .template-card, button, a, input, select) {
+  scroll-margin-top: calc(var(--header-h) + var(--space-4));
+}
+
 .library-card,
 .template-card.is-rich {
   position: relative;
@@ -2649,9 +2656,6 @@ body {
   align-items: stretch;
   gap: 0;
   padding: 0;
-  /* Brought into view by focus or a script, a card stops under the sticky
-     header rather than behind it, where its actions cannot be pressed. */
-  scroll-margin-top: calc(var(--header-h) + var(--space-4));
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   background: var(--surface-raised);

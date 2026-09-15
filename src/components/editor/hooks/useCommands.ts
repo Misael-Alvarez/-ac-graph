@@ -15,6 +15,7 @@ import {
   downloadPdf,
   downloadPdfPages,
   downloadPng,
+  downloadPptxSlides,
   downloadProject,
   downloadSvg,
   downloadYaml,
@@ -343,6 +344,35 @@ export function useCommands(): CommandSet {
           } catch {
             failed();
           }
+        },
+        doc.model.shapes.length > 0,
+      ),
+      command(
+        'exportPptx',
+        'export.pptx',
+        'export',
+        () => {
+          // A slide per view, each rasterised as the PDF pages are — from the
+          // whole model narrowed to that view — and headed with the view's
+          // name; a diagram with one reading is one slide of what is on screen.
+          const base = exportOptions();
+          const slides =
+            views.length > 1
+              ? views.map((v) => {
+                  const reading = projectView(resolveView(doc.model, v.id));
+                  return {
+                    ...base,
+                    model: ui.exportMeta ? reading : stripMetadata(reading),
+                    title: v.name ? `${title} — ${v.name}` : title,
+                    description: describeDiagram(reading, t),
+                    heading: v.name || title,
+                  };
+                })
+              : [{ ...base, heading: title }];
+          downloadPptxSlides(slides, { title, dark: base.dark }, `${stem}.pptx`).then(
+            () => exported('PowerPoint'),
+            failed,
+          );
         },
         doc.model.shapes.length > 0,
       ),

@@ -12,6 +12,7 @@ import {
   ListIcon,
   MeshIcon,
   MoonIcon,
+  PresentIcon,
   PrintIcon,
   SunIcon,
   VectorIcon,
@@ -89,6 +90,13 @@ export function ExportMenu({ menu, onToggle, onClose, pick, chord, off }: MenuPr
             hint={t('export.drawioHint')}
             disabled={off('exportDrawio')}
             onSelect={() => pick('exportDrawio')}
+          />
+          <MenuItem
+            icon={<PresentIcon size={15} />}
+            label={t('export.pptx')}
+            hint={t('export.pptxHint')}
+            disabled={off('exportPptx')}
+            onSelect={() => pick('exportPptx')}
           />
           <MenuSeparator />
           <MenuGroup label={t('export.document')} />

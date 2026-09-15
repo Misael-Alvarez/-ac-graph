@@ -342,6 +342,33 @@ test('the draw.io export writes one page per view with the icons embedded', asyn
   for (const s of narrowed) expect(pages[1]).toContain(`<mxCell id="${s.id}"`);
 });
 
+test('the PowerPoint export writes one slide per view, each with its own picture', async ({
+  page,
+}) => {
+  await narrowToGroups(page);
+  const pptx = await download(page, async () => {
+    await page.keyboard.press('ControlOrMeta+e');
+    await page.getByRole('menuitem', { name: /^PowerPoint/ }).click();
+  });
+
+  // A ZIP, stored: the local headers carry the part names in clear.
+  expect(pptx.subarray(0, 4)).toEqual(Buffer.from('PK\x03\x04', 'latin1'));
+  for (const part of [
+    '[Content_Types].xml',
+    'ppt/presentation.xml',
+    'ppt/slides/slide1.xml',
+    'ppt/slides/slide2.xml',
+    'ppt/media/image1.png',
+    'ppt/media/image2.png',
+  ]) {
+    expect(pptx.includes(part), part).toBe(true);
+  }
+  expect(pptx.includes('ppt/slides/slide3.xml')).toBe(false);
+  // The second slide is the view, headed with its name; both pictures are PNGs.
+  expect(pptx.includes('<a:t>Vista de prueba</a:t>')).toBe(true);
+  expect(pptx.includes(Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'))).toBe(true);
+});
+
 test('sharing defaults to the view, full model is explicit, and reopening resets scope', async ({
   page,
 }) => {

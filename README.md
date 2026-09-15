@@ -77,15 +77,16 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   positions included. Edit either side; whichever has focus wins.
 - **Generate with AI.** Describe a system and get a diagram, or ask what the one
   on screen is missing. A generated diagram is one undo step away from gone.
-- **Export** from the top bar to PNG, SVG, PDF, draw.io, Markdown, Mermaid,
-  YAML and JSON. Image and document exports show the current view, on the
-  editor's theme or one chosen for paper, with or without the metadata chips;
-  the JSON is the whole model. Files are self-contained — icons and the logo
-  are inlined — and the SVG carries a spoken description of the diagram, as the
-  canvas does for screen readers. A repository chip that names a host is a
-  link, in the editor and in the export. The `.drawio` file opens in
+- **Export** from the top bar to PNG, SVG, PDF, draw.io, PowerPoint, Markdown,
+  Mermaid, YAML and JSON. Image and document exports show the current view, on
+  the editor's theme or one chosen for paper, with or without the metadata
+  chips; the JSON is the whole model. Files are self-contained — icons and the
+  logo are inlined — and the SVG carries a spoken description of the diagram,
+  as the canvas does for screen readers. A repository chip that names a host is
+  a link, in the editor and in the export. The `.drawio` file opens in
   diagrams.net for editing, one page per view, every shape a real cell with the
-  service icons embedded.
+  service icons embedded; the `.pptx` is one slide per view, each a picture of
+  it under its name, ready to drop into a deck.
 - **Write on it.** A region tints the part of the picture you are talking
   about, a note is a square of yellow paper with `**bold**`, bullets and
   headings, a text is a caption with nothing behind it. None of them is a

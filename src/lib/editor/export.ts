@@ -5,6 +5,7 @@ import { canvasTheme } from '@/lib/design/tokens';
 import { diagramToSvgStringClient } from './renderSvgClient';
 import { type RasterPage, rasterToPdf, rastersToPdf, rgbaToRgb } from './pdf';
 import { type DrawioOptions, type DrawioPage, toDrawio } from './drawio';
+import { type PptxSlide, toPptx } from './pptx';
 import type { DiagramDocumentProps } from '@/components/editor/canvas/DiagramDocument';
 
 function triggerDownload(blob: Blob, filename: string): void {
@@ -68,11 +69,18 @@ async function rasterise({ pixelRatio = 2, ...options }: PngOptions): Promise<HT
   return canvas;
 }
 
-export async function downloadPng(options: PngOptions, filename = 'diagram.png'): Promise<void> {
+/** Encodes the rasterised diagram as PNG, with the pixel size the encoder was given. */
+async function rasterPng(
+  options: PngOptions,
+): Promise<{ blob: Blob; width: number; height: number }> {
   const canvas = await rasterise(options);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('Could not encode the PNG');
-  triggerDownload(blob, filename);
+  return { blob, width: canvas.width, height: canvas.height };
+}
+
+export async function downloadPng(options: PngOptions, filename = 'diagram.png'): Promise<void> {
+  triggerDownload((await rasterPng(options)).blob, filename);
 }
 
 /**
@@ -103,6 +111,37 @@ export async function downloadPdfPages(
   }
   const bytes = await rastersToPdf(rasters, { title });
   triggerDownload(new Blob([bytes as BlobPart], { type: 'application/pdf' }), filename);
+}
+
+export interface PptxSlideOptions extends PngOptions {
+  /** What the slide says above the picture: the view's name, or the document's. */
+  heading: string;
+}
+
+const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+/** A finished deck, as bytes, to the reader's downloads. */
+export function downloadPptx(bytes: Uint8Array, filename = 'diagram.pptx'): void {
+  triggerDownload(new Blob([bytes as BlobPart], { type: PPTX_TYPE }), filename);
+}
+
+/**
+ * One deck, one slide per reading — every view, in order — each a picture of
+ * its view under its name, so the diagram lands in a meeting's slides as it
+ * is. The pictures are the PNG export's own, at its 2× density, on the theme
+ * and with the metadata every other export was asked for.
+ */
+export async function downloadPptxSlides(
+  slides: readonly PptxSlideOptions[],
+  options: { title: string; dark: boolean },
+  filename = 'diagram.pptx',
+): Promise<void> {
+  const rendered: PptxSlide[] = [];
+  for (const { heading, ...page } of slides) {
+    const { blob, width, height } = await rasterPng(page);
+    rendered.push({ title: heading, png: new Uint8Array(await blob.arrayBuffer()), width, height });
+  }
+  downloadPptx(toPptx(rendered, options), filename);
 }
 
 async function rasterPage(options: PngOptions, title: string): Promise<RasterPage> {
