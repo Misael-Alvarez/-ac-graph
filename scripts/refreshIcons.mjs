@@ -10,18 +10,28 @@ import { renderMark } from './glyphs.mjs';
  * Run: node scripts/refreshIcons.mjs
  *
  * Sources, in order of preference for each service in the catalogue:
- *  1. `vendor/icons/aws/architecture-service` — the official AWS architecture
- *     set (via the `aws-icons` npm mirror; see vendor/icons/LEEME.md).
- *  2. `vendor/icons/gcp` — Google Cloud product icons (Iconify mirror).
- *  3. `vendor/icons/ibm` — IBM Cloud architecture icons (official repository).
- *  4. The symbol the app already ships, when a provider has no artwork in the
- *     packs (Azure, OCI, AION, generic).
- *  5. A generated mark in the vendors' idiom, as the last resort.
+ *  1. The vendored pack of the service's own cloud (see vendor/icons/LEEME.md):
+ *     `aws/architecture-service` (official AWS set via the `aws-icons` npm
+ *     mirror), `gcp` (Google Cloud product icons, Iconify mirror), `ibm` (IBM
+ *     Cloud architecture icons, official repository), `azure` (Microsoft's
+ *     Azure Public Service Icons V24 plus the Entra ID icon, official
+ *     downloads) and `oci` (Oracle's OCI Architecture Diagram Toolkit, official
+ *     download, converted from draw.io stencils by scripts/ociDrawioToSvg.mjs).
+ *  2. The symbol the app already ships, when the pack has nothing honest for
+ *     the service (AION, generic, and the few Azure/OCI products without an
+ *     official icon).
+ *  3. A generated mark in the vendors' idiom, as the last resort.
  *
  * Matching is by normalised product name, never by fuzzy substring on short
  * names: an icon that says the wrong thing is worse than a generated mark that
  * says the category. Every decision is written to `src/data/iconSources.json`
  * so the provenance of each symbol can be audited.
+ *
+ * Every drawing goes through `symbolBody`, which keeps only static artwork:
+ * scripts, event handlers, stylesheets, `<foreignObject>` and any reference
+ * that leaves the file are grounds for rejecting it, and every `id` inside is
+ * prefixed with the service key so that the hundreds of symbols sharing one
+ * document never collide (Azure alone reuses gradient ids across files).
  */
 
 const VENDOR = 'vendor/icons';
@@ -349,6 +359,163 @@ const IBM_ALIASES = {
   'ibm-massdatamigration': 'data-blob',
 };
 
+/**
+ * Azure filenames are `NNNNN-icon-service-<Product-Name>`; the number is dropped
+ * before matching, so aliases name the product part. Microsoft names most
+ * services by their portal resource ("Function Apps", "Key Vaults", "Virtual
+ * Networks"), which is why so many need spelling out.
+ */
+const AZURE_ALIASES = {
+  // AI: the portal keeps the pre-rebrand names for several of the AI services.
+  'az-search': 'Cognitive-Search',
+  'az-aicontentsafety': 'Content-Safety',
+  'az-aidocumentintelligence': 'Form-Recognizers',
+  'az-formrecognizer': 'Form-Recognizers',
+  'az-aifoundryagent': 'Foundry-Agent-Service',
+  'az-ailanguage': 'Language',
+  'az-aispeech': 'Speech-Services',
+  'az-speechservice': 'Speech-Services',
+  'az-aitranslator': 'Translator-Text',
+  'az-aivision': 'Computer-Vision',
+  'az-ml': 'Azure-Machine-Learning',
+  'az-openai2': 'Azure-OpenAI',
+  'az-botservice': 'Bot-Services',
+  // Analytics
+  'az-hdinsight': 'HD-Insight-Clusters',
+  'az-datafactory': 'Data-Factories',
+  'az-powerbi': 'Power-BI-Embedded',
+  'az-streamanalytics': 'Stream-Analytics-Jobs',
+  'az-synapse': 'Azure-Synapse-Analytics',
+  // Compute
+  'az-appservice': 'App-Services',
+  'az-batch': 'Batch-Accounts',
+  'az-dedicatedhost': 'Hosts',
+  'az-functions': 'Function-Apps',
+  'az-fabric': 'Service-Fabric-Clusters',
+  'az-spotvirtualmachines': 'Spot-VM',
+  'az-staticwebapps': 'Static-Apps',
+  'az-virtualmachinescalesets': 'VM-Scale-Sets',
+  'az-vm': 'Virtual-Machine',
+  // Containers
+  'az-aks': 'Kubernetes-Services',
+  'az-kubernetes': 'Kubernetes-Services',
+  'az-arcenabledkubernetes': 'Arc-Kubernetes',
+  'az-containerregistry': 'Container-Registries',
+  'az-containerapps': 'Container-Apps-Environments',
+  // Databases
+  'az-dataexplorer': 'Azure-Data-Explorer-Clusters',
+  'az-databasemysql': 'Azure-Database-MySQL-Server',
+  'az-mysql': 'Azure-Database-MySQL-Server',
+  'az-databasepostgresql': 'Azure-Database-PostgreSQL-Server',
+  'az-postgresql': 'Azure-Database-PostgreSQL-Server',
+  'az-redis': 'Cache-Redis',
+  'az-sqlserveronvms': 'Azure-SQL-VM',
+  'az-cosmosdb-mongo': 'Azure-Cosmos-DB',
+  'az-database': 'Oracle-Database',
+  // DevOps: Pipelines, Repos, Artifacts and Test Plans have no icon of their
+  // own in the architecture set; the Azure DevOps mark says what family they
+  // belong to, as the Vertex AI mark does for GCP above.
+  'az-armtemplates': 'Templates',
+  'az-artifacts': 'Azure-DevOps',
+  'az-pipelines': 'Azure-DevOps',
+  'az-repos': 'Azure-DevOps',
+  'az-testplans': 'Azure-DevOps',
+  // Integration
+  'az-eventgrid': 'Event-Grid-Topics',
+  'az-eventhub': 'Event-Hubs',
+  // Management
+  'az-automation': 'Automation-Accounts',
+  'az-loganalytics': 'Log-Analytics-Workspaces',
+  'az-resourcemanager': 'Resource-Groups',
+  // Networking
+  'az-apim': 'API-Management-Services',
+  'az-appgateway': 'Application-Gateways',
+  'az-applicationgateway': 'Application-Gateways',
+  'az-cdn': 'CDN-Profiles',
+  'az-ddosprotection': 'DDoS-Protection-Plans',
+  'az-dns': 'DNS-Zones',
+  'az-dnszone': 'DNS-Zones',
+  'az-natgateway': 'NAT',
+  'az-trafficmanager': 'Traffic-Manager-Profiles',
+  'az-virtualwan': 'Virtual-WANs',
+  'az-vpngateway': 'Virtual-Network-Gateways',
+  'az-expressroute': 'ExpressRoute-Circuits',
+  'az-frontdoor': 'Front-Door-and-CDN-Profiles',
+  'az-loadbalancer': 'Load-Balancers',
+  'az-vnet': 'Virtual-Networks',
+  // Security. Entra ID is not in the Azure set any more; it comes from the
+  // Microsoft Entra architecture icons (vendor/icons/azure/entra). Managed HSM
+  // and RBAC have no icon of their own: the HSM and the roles marks say the
+  // family, as the family marks do for GCP and IBM above.
+  'az-firewall': 'Firewalls',
+  'az-managedhsm': 'Dedicated-HSM',
+  'az-rbac': 'Entra-Identity-Roles-and-Administrators',
+  'az-webapplicationfirewall': 'Web-Application-Firewall-Policies(WAF)',
+  'az-bastion': 'Bastions',
+  'az-entraid': 'Microsoft Entra ID color icon',
+  'az-entraexternalid': 'external-id',
+  'az-keyvault': 'Key-Vaults',
+  // Storage. Blob Storage has no service icon of its own: Microsoft's diagrams
+  // draw it with the block-blob glyph, and the archive tier with the account.
+  // Data Lake Storage Gen2 lives inside a storage account; the set only draws
+  // the lake for Gen1, and that is the glyph Microsoft's own diagrams reuse.
+  'az-archivestorage': 'Storage-Accounts',
+  'az-backup': 'Azure-Backup-Center',
+  'az-datalakestoragegen2': 'Data-Lake-Storage-Gen1',
+  'az-files': 'Azure-Fileshares',
+  'az-blob': 'Blob-Block',
+  'az-blobindexer': 'Blob-Block',
+  'az-disks': 'Disks',
+};
+
+/**
+ * OCI filenames are the captions of Oracle's toolkit page ("OCI Functions",
+ * "Oracle Base Database"); the two connector glyphs come from the 2022 library
+ * under `oci/library-2022`. Family marks stand in for products the toolkit has
+ * no icon for, when the family is real: a network load balancer is a load
+ * balancer, the archive tier is Object Storage, steering policies live in DNS.
+ */
+const OCI_ALIASES = {
+  'oci-ai': 'Artificial Intelligence',
+  'oci-generativeaiagents': 'OCI Generative AI',
+  'oci-searchwithopensearch': 'OpenSearch',
+  'oci-analytics': 'Oracle Analytics Cloud',
+  // Compute. The toolkit captions the server glyph "OCI Compute"; the 2022
+  // library called the same drawing "Bare Metal Compute".
+  'oci-compute': 'OCI Compute',
+  'oci-baremetalinstances': 'OCI Compute',
+  'oci-dedicatedvmhosts': 'OCI Compute',
+  'oci-hpc': 'OCI Compute',
+  'oci-preemptibleinstances': 'Virtual Machine',
+  'oci-flexiblevms': 'Flex VM',
+  'oci-customer': 'Oracle Compute Cloud@Customer',
+  'oci-kubernetesengine': 'OCI Container Engine for Kubernetes',
+  // Databases
+  'oci-autonomoustransactionprocessing': 'Oracle Autonomous Transaction Processing ATP',
+  'oci-globallydistributeddatabase': 'Database',
+  'oci-database23ai': 'Database',
+  // Management
+  'oci-audit': 'Auditing',
+  // Networking
+  'oci-dynamicroutinggateway': 'DRG',
+  'oci-fastconnect': 'Physical - Special Connectors - FastConnect - Vertical',
+  'oci-sitetositevpn': 'Physical - Special Connectors - Site-to-site-VPN - Vertical',
+  'oci-networkfirewall': 'Firewall',
+  'oci-networkloadbalancer': 'Load Balancer',
+  'oci-privateendpoint': 'Private Endpoint IP',
+  'oci-trafficmanagement': 'DNS',
+  'oci-virtualnetwork': 'VCN (Region Identifier)',
+  'oci-webapplicationfirewall': 'WAF',
+  // Security. Identity Cloud Service became Identity Domains.
+  'oci-dedicatedkms': 'Key Management',
+  'oci-identitydomains': 'Oracle Identity Cloud Service',
+  'oci-securityzones': 'Maximum Security Zone',
+  // Storage
+  'oci-archivestorage': 'OCI Object Storage',
+  'oci-blockvolume': 'Block Storage',
+  'oci-datatransferappliance': 'Data Transfer',
+};
+
 function walk(dir) {
   const out = [];
   for (const entry of readdirSync(dir)) {
@@ -360,13 +527,15 @@ function walk(dir) {
 }
 
 /** Index of normalised filename → path for one pack. */
-function indexPack(dir) {
+function indexPack(dir, nameOf = (base) => base) {
   const byName = new Map();
   for (const path of walk(dir)) {
-    const base = path
-      .split('/')
-      .pop()
-      .replace(/\.svg$/, '');
+    const base = nameOf(
+      path
+        .split('/')
+        .pop()
+        .replace(/\.svg$/, ''),
+    );
     // Skip the structural helpers IBM ships alongside its icons.
     if (base.startsWith('_')) continue;
     const normal = matchable(base);
@@ -375,14 +544,77 @@ function indexPack(dir) {
   return byName;
 }
 
+/** Azure files are numbered: `10029-icon-service-Function-Apps` names "Function-Apps". */
+const azureName = (base) => base.replace(/^\d+ ?-icon-service-/, '');
+
+/** Root attributes that children inherit and would lose when the root is dropped. */
+const INHERITED = [
+  'fill',
+  'fill-rule',
+  'fill-opacity',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-miterlimit',
+  'stroke-opacity',
+  'clip-rule',
+  'color',
+  'opacity',
+];
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Prefixes every `id` in a drawing with the service key and points the
+ * drawing's own references (`url(#id)`, `href="#id"`) at the new names.
+ *
+ * All 572 symbols share one document (`ServiceSprite`), so an `id` only has to
+ * repeat across two files for the second gradient or clip path to resolve to
+ * the first. The key contains no underscore and no `i-` prefix, so a namespaced
+ * id can collide neither with another symbol's nor with a symbol id.
+ */
+function namespaceIds(body, key) {
+  const ids = [...new Set([...body.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))];
+  if (ids.length === 0) return body;
+  let out = body;
+  for (const id of ids.sort((a, b) => b.length - a.length)) {
+    const safe = escapeRegExp(id);
+    const renamed = `${key}_${id}`;
+    out = out
+      .replace(new RegExp(`(\\sid=")${safe}(")`, 'g'), `$1${renamed}$2`)
+      .replace(new RegExp(`url\\(#${safe}\\)`, 'g'), `url(#${renamed})`)
+      .replace(new RegExp(`url\\('#${safe}'\\)`, 'g'), `url('#${renamed}')`)
+      .replace(new RegExp(`(\\s(?:xlink:)?href=")#${safe}(")`, 'g'), `$1#${renamed}$2`);
+  }
+  // A file that repeats an id is broken already; renumbering the repeats keeps
+  // the sprite valid without changing which one the references resolve to.
+  const taken = new Set([...out.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const seen = new Set();
+  return out.replace(/(\sid=")([^"]+)(")/g, (whole, before, id, after) => {
+    if (!seen.has(id)) {
+      seen.add(id);
+      return whole;
+    }
+    let n = 2;
+    while (taken.has(`${id}-${n}`)) n++;
+    taken.add(`${id}-${n}`);
+    return `${before}${id}-${n}${after}`;
+  });
+}
+
 /**
  * The drawing inside an SVG file, with its viewBox, ready to become a symbol.
  *
- * Titles, XML prologues and editor metadata are dropped. Files without a viewBox
- * get one from width/height. Everything else is kept verbatim: these files are
- * static artwork and contain no scripts (scanned before vendoring).
+ * Only static artwork gets through: a file with a script, an event handler, a
+ * stylesheet (its classes would be global to the sprite), a `<foreignObject>`
+ * or a reference that leaves the file is rejected and the service keeps the
+ * symbol it had. Titles, descriptions, metadata, prologues and comments are
+ * dropped; so are the root's width and height, since a `<symbol>` scales to its
+ * `<use>`. Root attributes the children inherit move onto a wrapping `<g>`.
+ * Ids are namespaced per symbol and empty groups removed.
  */
-function symbolBody(path) {
+function symbolBody(path, key) {
   const source = readFileSync(path, 'utf8');
   const open = source.match(/<svg\b[^>]*>/);
   if (!open) return null;
@@ -394,17 +626,34 @@ function symbolBody(path) {
     if (!w || !h) return null;
     viewBox = `0 0 ${w} ${h}`;
   }
-  const body = source
+  let body = source
     .slice(source.indexOf(open[0]) + open[0].length)
     .replace(/<\/svg>\s*$/, '')
-    .replace(/<title>[\s\S]*?<\/title>/g, '')
-    .replace(/<desc>[\s\S]*?<\/desc>/g, '')
     .replace(/<\?xml[\s\S]*?\?>/g, '')
+    .replace(/<!DOCTYPE[^>]*>/g, '')
     .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/g, '')
+    .replace(/<desc\b[^>]*>[\s\S]*?<\/desc>/g, '')
+    .replace(/<metadata\b[^>]*>[\s\S]*?<\/metadata>/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (!body || /<script|javascript:|on[a-z]+=/i.test(body)) return null;
-  return { viewBox, body };
+  if (!body) return null;
+  if (/<script|<foreignObject|<style|javascript:|\son[a-z]+\s*=/i.test(body)) return null;
+  // Every href must stay inside the file: no URLs, no data: images.
+  if (/\s(?:xlink:)?href\s*=\s*"(?!#)/i.test(body)) return null;
+
+  const inherited = INHERITED.map((name) => attrs.match(new RegExp(` ${name}="([^"]*)"`)))
+    .filter(Boolean)
+    .map((m) => m[0].trim());
+  if (inherited.length) body = `<g ${inherited.join(' ')}>${body}</g>`;
+
+  body = namespaceIds(body, key);
+  // Empty groups and defs are dead weight; loop, since removing one may empty its parent.
+  for (let previous = ''; previous !== body;) {
+    previous = body;
+    body = body.replace(/<(g|defs)\b[^>]*>\s*<\/\1>/g, '').replace(/<(g|defs)\b[^>]*\/>/g, '');
+  }
+  return { viewBox, body: body.trim() };
 }
 
 /** Exact-name lookup, then alias, then a cautious prefix match on long names. */
@@ -448,9 +697,18 @@ const packs = {
   aws: indexPack(join(VENDOR, 'aws/architecture-service')),
   gcp: indexPack(join(VENDOR, 'gcp')),
   ibm: indexPack(join(VENDOR, 'ibm')),
+  azure: indexPack(join(VENDOR, 'azure'), azureName),
+  oci: indexPack(join(VENDOR, 'oci')),
 };
-const aliases = { aws: AWS_ALIASES, gcp: GCP_ALIASES, ibm: IBM_ALIASES };
+const aliases = {
+  aws: AWS_ALIASES,
+  gcp: GCP_ALIASES,
+  ibm: IBM_ALIASES,
+  azure: AZURE_ALIASES,
+  oci: OCI_ALIASES,
+};
 const existing = existingSymbols();
+const unmapped = [];
 
 const symbols = new Map();
 const provenance = {};
@@ -462,7 +720,9 @@ for (const service of services) {
   perCloud[cloud] ??= { pack: 0, existing: 0, generated: 0 };
   const pack = packs[cloud];
   const path = pack ? find(pack, service.key, service.label, aliases[cloud]) : null;
-  const drawn = path ? symbolBody(path) : null;
+  const drawn = path ? symbolBody(path, service.key) : null;
+  if (path && !drawn) console.warn(`rejected ${path} for ${service.key}: not static artwork`);
+  if (pack && !drawn) unmapped.push(service.key);
 
   if (drawn) {
     symbols.set(
@@ -501,9 +761,11 @@ const output = [
   '// Run: node scripts/refreshIcons.mjs',
   '//',
   '// Sources, in order of preference: the vendored provider packs under',
-  '// vendor/icons (AWS architecture set, Google Cloud product icons, IBM Cloud',
-  '// architecture icons), the symbols the app already shipped, and a generated',
-  "// mark carrying the vendor's colour and the service's category for the rest.",
+  '// vendor/icons (AWS architecture set, Azure Public Service Icons, Google Cloud',
+  '// product icons, OCI Architecture Diagram Toolkit, IBM Cloud architecture',
+  '// icons), the symbols the app already shipped, and a generated mark carrying',
+  "// the vendor's colour and the service's category for the rest. Every id inside",
+  '// a symbol is prefixed with its service key so the sprite has no collisions.',
   '// Per-symbol provenance is recorded in src/data/iconSources.json.',
   '//',
   '// The arrowhead marker is not here: it is theme-dependent and lives in',
@@ -542,4 +804,5 @@ writeFileSync(SPRITE, output);
 writeFileSync(PROVENANCE, `${JSON.stringify(provenance, null, 2)}\n`);
 console.log('symbols:', services.length, JSON.stringify(stats));
 for (const [cloud, s] of Object.entries(perCloud)) console.log(`  ${cloud}:`, JSON.stringify(s));
+if (unmapped.length) console.log('without official artwork:', unmapped.join(' '));
 console.log('sprite size:', Math.round(output.length / 1024), 'KB');

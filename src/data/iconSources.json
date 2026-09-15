@@ -507,208 +507,269 @@
     "file": "aws/architecture-service/AmazonSimpleStorageServiceGlacier.svg"
   },
   "az-search": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10044-icon-service-Cognitive-Search.svg"
   },
   "az-aicontentsafety": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03390-icon-service-Content-Safety.svg"
   },
   "az-aidocumentintelligence": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00819-icon-service-Form-Recognizers.svg"
   },
   "az-aifoundry": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/035746832-icon-service-AI-Foundry.svg"
   },
   "az-aifoundryagent": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/038470523-icon-service-Foundry-Agent-Service.svg"
   },
   "az-ailanguage": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02876-icon-service-Language.svg"
   },
   "az-aispeech": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00797-icon-service-Speech-Services.svg"
   },
   "az-aitranslator": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00800-icon-service-Translator-Text.svg"
   },
   "az-aivision": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00792-icon-service-Computer-Vision.svg"
   },
   "az-machinelearning": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/038470510-icon-service-Azure-Machine-Learning.svg"
   },
   "az-ml": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/038470510-icon-service-Azure-Machine-Learning.svg"
   },
   "az-openai": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03438-icon-service-Azure-OpenAI.svg"
   },
   "az-openai2": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03438-icon-service-Azure-OpenAI.svg"
   },
   "az-botservice": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10165-icon-service-Bot-Services.svg"
   },
   "az-cognitiveservices": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10162-icon-service-Cognitive-Services.svg"
   },
   "az-copilotstudio": {
     "source": "existing"
   },
   "az-formrecognizer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00819-icon-service-Form-Recognizers.svg"
   },
   "az-semantickernel": {
     "source": "existing"
   },
   "az-speechservice": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00797-icon-service-Speech-Services.svg"
   },
   "az-hdinsight": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10142-icon-service-HD-Insight-Clusters.svg"
   },
   "az-synapseanalytics": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00606-icon-service-Azure-Synapse-Analytics.svg"
   },
   "az-datafactory": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10126-icon-service-Data-Factories.svg"
   },
   "az-databricks": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10787-icon-service-Azure-Databricks.svg"
   },
   "az-fabric2": {
     "source": "existing"
   },
   "az-powerbi": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03332-icon-service-Power-BI-Embedded.svg"
   },
   "az-purview": {
     "source": "existing"
   },
   "az-streamanalytics": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00042-icon-service-Stream-Analytics-Jobs.svg"
   },
   "az-synapse": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00606-icon-service-Azure-Synapse-Analytics.svg"
   },
   "az-appservice": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10035-icon-service-App-Services.svg"
   },
   "az-batch": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10031-icon-service-Batch-Accounts.svg"
   },
   "az-cyclecloud": {
     "source": "existing"
   },
   "az-dedicatedhost": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10347-icon-service-Hosts.svg"
   },
   "az-functions": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10029-icon-service-Function-Apps.svg"
   },
   "az-fabric": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10036-icon-service-Service-Fabric-Clusters.svg"
   },
   "az-spotvirtualmachines": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02695-icon-service-Spot-VM.svg"
   },
   "az-virtualdesktop": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00327-icon-service-Azure-Virtual-Desktop.svg"
   },
   "az-vmwaresolution": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/01219-icon-service-Azure-VMware-Solution.svg"
   },
   "az-staticwebapps": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/01007-icon-service-Static-Apps.svg"
   },
   "az-virtualmachinescalesets": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10034-icon-service-VM-Scale-Sets.svg"
   },
   "az-vm": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10021-icon-service-Virtual-Machine.svg"
   },
   "az-aks": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10023-icon-service-Kubernetes-Services.svg"
   },
   "az-arcenabledkubernetes": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/01088-icon-service-Arc-Kubernetes.svg"
   },
   "az-containerregistry": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10105-icon-service-Container-Registries.svg"
   },
   "az-kubernetes": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10023-icon-service-Kubernetes-Services.svg"
   },
   "az-redhatopenshift": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03331-icon-service-Azure-Red-Hat-OpenShift.svg"
   },
   "az-containerapps": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02989-icon-service-Container-Apps-Environments.svg"
   },
   "az-dataexplorer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10145-icon-service-Azure-Data-Explorer-Clusters.svg"
   },
   "az-databasemysql": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10122-icon-service-Azure-Database-MySQL-Server.svg"
   },
   "az-databasepostgresql": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10131-icon-service-Azure-Database-PostgreSQL-Server.svg"
   },
   "az-managedredis": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03675-icon-service-Azure-Managed-Redis.svg"
   },
   "az-sqlmanagedinstance": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10136-icon-service-SQL-Managed-Instance.svg"
   },
   "az-cosmosdb": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10121-icon-service-Azure-Cosmos-DB.svg"
   },
   "az-cosmosdb-mongo": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10121-icon-service-Azure-Cosmos-DB.svg"
   },
   "az-mysql": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10122-icon-service-Azure-Database-MySQL-Server.svg"
   },
   "az-database": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03490-icon-service-Oracle-Database.svg"
   },
   "az-postgresql": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10131-icon-service-Azure-Database-PostgreSQL-Server.svg"
   },
   "az-redis": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10137-icon-service-Cache-Redis.svg"
   },
   "az-sqldb": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10130-icon-service-SQL-Database.svg"
   },
   "az-sqlserveronvms": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10124-icon-service-Azure-SQL-VM.svg"
   },
   "az-armtemplates": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10009-icon-service-Templates.svg"
   },
   "az-artifacts": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10261-icon-service-Azure-DevOps.svg"
   },
   "az-cli": {
     "source": "existing"
   },
   "az-shell": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00559-icon-service-Azure-Cloud-Shell.svg"
   },
   "az-pipelines": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10261-icon-service-Azure-DevOps.svg"
   },
   "az-repos": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10261-icon-service-Azure-DevOps.svg"
   },
   "az-testplans": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10261-icon-service-Azure-DevOps.svg"
   },
   "az-bicep": {
     "source": "existing"
   },
   "az-devops": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10261-icon-service-Azure-DevOps.svg"
   },
   "az-github": {
     "source": "existing"
@@ -720,175 +781,231 @@
     "source": "existing"
   },
   "az-communication": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00968-icon-service-Azure-Communication-Services.svg"
   },
   "az-eventgrid": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10206-icon-service-Event-Grid-Topics.svg"
   },
   "az-eventhub": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00039-icon-service-Event-Hubs.svg"
   },
   "az-logicapps": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02631-icon-service-Logic-Apps.svg"
   },
   "az-notificationhubs": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10045-icon-service-Notification-Hubs.svg"
   },
   "az-servicebus": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10836-icon-service-Azure-Service-Bus.svg"
   },
   "az-signalr": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10052-icon-service-SignalR.svg"
   },
   "az-iothub": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10182-icon-service-IoT-Hub.svg"
   },
   "az-applicationinsights": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00012-icon-service-Application-Insights.svg"
   },
   "az-advisor": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00003-icon-service-Advisor.svg"
   },
   "az-arc": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00756-icon-service-Azure-Arc.svg"
   },
   "az-automation": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00022-icon-service-Automation-Accounts.svg"
   },
   "az-costmanagement": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10019-icon-service-Cost-Management.svg"
   },
   "az-lighthouse": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00471-icon-service-Azure-Lighthouse.svg"
   },
   "az-policy": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10316-icon-service-Policy.svg"
   },
   "az-resourcemanager": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10007-icon-service-Resource-Groups.svg"
   },
   "az-loganalytics": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00009-icon-service-Log-Analytics-Workspaces.svg"
   },
   "az-managementgroups": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10011-icon-service-Management-Groups.svg"
   },
   "az-monitor": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00001-icon-service-Monitor.svg"
   },
   "az-apim": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10042-icon-service-API-Management-Services.svg"
   },
   "az-appgateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10076-icon-service-Application-Gateways.svg"
   },
   "az-applicationgateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10076-icon-service-Application-Gateways.svg"
   },
   "az-cdn": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00056-icon-service-CDN-Profiles.svg"
   },
   "az-ddosprotection": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10072-icon-service-DDoS-Protection-Plans.svg"
   },
   "az-dns": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10064-icon-service-DNS-Zones.svg"
   },
   "az-natgateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10310-icon-service-NAT.svg"
   },
   "az-networkwatcher": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10066-icon-service-Network-Watcher.svg"
   },
   "az-privatelink": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/00427-icon-service-Private-Link.svg"
   },
   "az-trafficmanager": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10065-icon-service-Traffic-Manager-Profiles.svg"
   },
   "az-virtualwan": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10353-icon-service-Virtual-WANs.svg"
   },
   "az-vpngateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10063-icon-service-Virtual-Network-Gateways.svg"
   },
   "az-dnszone": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10064-icon-service-DNS-Zones.svg"
   },
   "az-expressroute": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10079-icon-service-ExpressRoute-Circuits.svg"
   },
   "az-frontdoor": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10073-icon-service-Front-Door-and-CDN-Profiles.svg"
   },
   "az-loadbalancer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10062-icon-service-Load-Balancers.svg"
   },
   "az-vnet": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10061-icon-service-Virtual-Networks.svg"
   },
   "az-firewall": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10084-icon-service-Firewalls.svg"
   },
   "az-managedhsm": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02322-icon-service-Dedicated-HSM.svg"
   },
   "az-rbac": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10340-icon-service-Entra-Identity-Roles-and-Administrators.svg"
   },
   "az-webapplicationfirewall": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10362-icon-service-Web-Application-Firewall-Policies(WAF).svg"
   },
   "az-bastion": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02422-icon-service-Bastions.svg"
   },
   "az-defender": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10241-icon-service-Microsoft-Defender-for-Cloud.svg"
   },
   "az-entraid": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/entra/Microsoft Entra ID color icon.svg"
   },
   "az-keyvault": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10245-icon-service-Key-Vaults.svg"
   },
   "az-entraexternalid": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03425-icon-service-external-id.svg"
   },
   "az-sentinel": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10248-icon-service-Azure-Sentinel.svg"
   },
   "az-archivestorage": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10086-icon-service-Storage-Accounts.svg"
   },
   "az-backup": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/02360-icon-service-Azure-Backup-Center.svg"
   },
   "az-databox": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10094-icon-service-Data-Box.svg"
   },
   "az-datalakestoragegen2": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10090-icon-service-Data-Lake-Storage-Gen1.svg"
   },
   "az-files": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10400-icon-service-Azure-Fileshares.svg"
   },
   "az-managedlustre": {
     "source": "existing"
   },
   "az-netappfiles": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10096-icon-service-Azure-NetApp-Files.svg"
   },
   "az-storagemover": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/03091-icon-service-Azure-Storage-Mover.svg"
   },
   "az-blobindexer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10780-icon-service-Blob-Block.svg"
   },
   "az-blob": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10780-icon-service-Blob-Block.svg"
   },
   "az-disks": {
-    "source": "existing"
+    "source": "pack",
+    "file": "azure/10032-icon-service-Disks.svg"
   },
   "gcp-automl": {
     "source": "pack",
@@ -1343,274 +1460,361 @@
     "file": "gcp/transfer-appliance.svg"
   },
   "oci-ai": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Artificial Intelligence.svg"
   },
   "oci-datascience": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Data Science.svg"
   },
   "oci-documentunderstanding": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Document Understanding.svg"
   },
   "oci-generativeai": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Generative AI.svg"
   },
   "oci-generativeaiagents": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Generative AI.svg"
   },
   "oci-language": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Language.svg"
   },
   "oci-speech": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Speech.svg"
   },
   "oci-vision": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Vision.svg"
   },
   "oci-digitalassistant": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Digital Assistant.svg"
   },
   "oci-bigdata": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Big Data.svg"
   },
   "oci-datacatalog": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Data Catalog.svg"
   },
   "oci-dataflow": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Data Flow.svg"
   },
   "oci-dataintegration": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Data Integration.svg"
   },
   "oci-goldengate": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/GoldenGate.svg"
   },
   "oci-searchwithopensearch": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OpenSearch.svg"
   },
   "oci-streaming": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Streaming.svg"
   },
   "oci-analytics": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Analytics Cloud.svg"
   },
   "oci-autoscaling": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Autoscaling.svg"
   },
   "oci-baremetalinstances": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Compute.svg"
   },
   "oci-containerinstances": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Container Instances.svg"
   },
   "oci-dedicatedregion": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Dedicated Region.svg"
   },
   "oci-dedicatedvmhosts": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Compute.svg"
   },
   "oci-flexiblevms": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Flex VM.svg"
   },
   "oci-instancepools": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Instance Pools.svg"
   },
   "oci-compute": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Compute.svg"
   },
   "oci-functions": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Functions.svg"
   },
   "oci-hpc": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Compute.svg"
   },
   "oci-vmwaresolution": {
     "source": "existing"
   },
   "oci-customer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Compute Cloud@Customer.svg"
   },
   "oci-preemptibleinstances": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Virtual Machine.svg"
   },
   "oci-rovingedgeinfrastructure": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Roving Edge Infrastructure.svg"
   },
   "oci-containerregistry": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Container Registry.svg"
   },
   "oci-mesh": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Service Mesh.svg"
   },
   "oci-kubernetesengine": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Container Engine for Kubernetes.svg"
   },
   "oci-autonomousdatawarehouse": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Autonomous Data Warehouse.svg"
   },
   "oci-autonomousdatabase": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Autonomous Database.svg"
   },
   "oci-autonomoustransactionprocessing": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Autonomous Transaction Processing ATP.svg"
   },
   "oci-basedatabase": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Base Database.svg"
   },
   "oci-exadatacustomer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Exadata Cloud@Customer.svg"
   },
   "oci-exadatadatabase": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Exadata Database Service.svg"
   },
   "oci-globallydistributeddatabase": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Database.svg"
   },
   "oci-mysqlheatwave": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/MySQL HeatWave.svg"
   },
   "oci-nosqldatabase": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/NoSQL Database.svg"
   },
   "oci-database23ai": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Database.svg"
   },
   "oci-apigateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/API Gateway.svg"
   },
   "oci-events": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Events.svg"
   },
   "oci-notifications": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Notifications.svg"
   },
   "oci-queue": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Queue.svg"
   },
   "oci-integration": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Integration.svg"
   },
   "oci-processautomation": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Process Automation.svg"
   },
   "oci-applicationperformancemonitoring": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Application Performance Monitoring.svg"
   },
   "oci-audit": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Auditing.svg"
   },
   "oci-budgets": {
     "source": "existing"
   },
   "oci-advisor": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Cloud Advisor.svg"
   },
   "oci-costanalysis": {
     "source": "existing"
   },
   "oci-logging": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Logging.svg"
   },
   "oci-logginganalytics": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Logging Analytics.svg"
   },
   "oci-monitoring": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Monitoring.svg"
   },
   "oci-operationsinsights": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Operations Insights.svg"
   },
   "oci-resourcemanager": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Resource Manager.svg"
   },
   "oci-dns": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/DNS.svg"
   },
   "oci-dynamicroutinggateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/DRG.svg"
   },
   "oci-fastconnect": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/library-2022/Physical - Special Connectors - FastConnect - Vertical.svg"
   },
   "oci-internetgateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Internet Gateway.svg"
   },
   "oci-loadbalancer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Load Balancer.svg"
   },
   "oci-natgateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/NAT Gateway.svg"
   },
   "oci-networkfirewall": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Firewall.svg"
   },
   "oci-networkloadbalancer": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Load Balancer.svg"
   },
   "oci-privateendpoint": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Private Endpoint IP.svg"
   },
   "oci-gateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Service Gateway.svg"
   },
   "oci-sitetositevpn": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/library-2022/Physical - Special Connectors - Site-to-site-VPN - Vertical.svg"
   },
   "oci-trafficmanagement": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/DNS.svg"
   },
   "oci-virtualnetwork": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/VCN (Region Identifier).svg"
   },
   "oci-webapplicationfirewall": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/WAF.svg"
   },
   "oci-bastion": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Bastion.svg"
   },
   "oci-certificates": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Certificates.svg"
   },
   "oci-guard": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Cloud Guard.svg"
   },
   "oci-datasafe": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Data Safe.svg"
   },
   "oci-dedicatedkms": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Key Management.svg"
   },
   "oci-identitydomains": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Oracle Identity Cloud Service.svg"
   },
   "oci-iam": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/IAM.svg"
   },
   "oci-vault": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Vault.svg"
   },
   "oci-securityzones": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Maximum Security Zone.svg"
   },
   "oci-vulnerabilityscanning": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Vulnerability Scanning.svg"
   },
   "oci-archivestorage": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Object Storage.svg"
   },
   "oci-blockvolume": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Block Storage.svg"
   },
   "oci-datatransferappliance": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Data Transfer.svg"
   },
   "oci-filestorage": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/File Storage.svg"
   },
   "oci-objectstorage": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/OCI Object Storage.svg"
   },
   "oci-storagegateway": {
-    "source": "existing"
+    "source": "pack",
+    "file": "oci/Storage Gateway.svg"
   },
   "ibm-granitemodels": {
     "source": "pack",

@@ -20,7 +20,7 @@ export function Defs({
 }: {
   theme: CanvasTheme;
   idPrefix?: string;
-  /** Only these service symbols are emitted. The full set is ~300KB, and it is
+  /** Only these service symbols are emitted. The full set is ~1 MB, and it is
    *  inlined into every exported file and every embed image. */
   iconKeys: Iterable<string>;
   /** The document's own icons; those in use are emitted as symbols too. */

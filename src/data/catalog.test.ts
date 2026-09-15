@@ -13,6 +13,7 @@ import {
   getEquivalents,
 } from './cloudEquivalents';
 import { SVG_SYMBOLS, spriteFor } from '@/components/icons/svgIconDefs';
+import iconSources from './iconSources.json';
 
 const KEYS = new Set(SERVICE_ICONS.map((s) => s.key));
 const CATEGORY_IDS = new Set(SERVICE_CATEGORIES.map((c) => c.id));
@@ -101,9 +102,112 @@ describe('icons', () => {
 
   it('gives each symbol the right id and a viewBox', () => {
     for (const [key, symbol] of Object.entries(SVG_SYMBOLS)) {
-      expect(symbol, key).toContain(`id="i-${key}"`);
-      expect(symbol, key).toContain('viewBox=');
+      expect(symbol, key).toMatch(new RegExp(`^<symbol id="i-${key}"[^>]*\\bviewBox="[^"]+"`));
+      expect(symbol.endsWith('</symbol>'), key).toBe(true);
     }
+  });
+
+  it('holds exactly one symbol per service', () => {
+    expect(Object.keys(SVG_SYMBOLS)).toHaveLength(SERVICE_ICONS.length);
+    expect(SERVICE_ICONS).toHaveLength(572);
+  });
+
+  it('is static artwork: no scripts, handlers, stylesheets, foreign objects or outside references', () => {
+    for (const [key, symbol] of Object.entries(SVG_SYMBOLS)) {
+      expect(symbol, key).not.toMatch(/<script|<foreignObject|<style|javascript:/i);
+      expect(symbol, key).not.toMatch(/\son[a-z]+\s*=/i);
+      // Every href stays in the document: fragments only, never a URL or data:.
+      for (const [, target] of symbol.matchAll(/\s(?:xlink:)?href\s*=\s*"([^"]*)"/gi)) {
+        expect(target, `${key} → ${target}`).toMatch(/^#/);
+      }
+      // A symbol scales to its `<use>`: the root's width/height never survive.
+      expect(symbol, key).not.toMatch(/^<symbol[^>]*\s(?:width|height)=/);
+    }
+  });
+
+  it('has no duplicate ids anywhere in the sprite', () => {
+    const seen = new Map<string, string>();
+    for (const [key, symbol] of Object.entries(SVG_SYMBOLS)) {
+      for (const [, id] of symbol.matchAll(/\sid="([^"]+)"/g)) {
+        expect(seen.has(id), `id "${id}" in ${key} already used by ${seen.get(id)}`).toBe(false);
+        seen.set(id, key);
+      }
+    }
+  });
+
+  it('namespaces every inner id with its service key and resolves references inside the symbol', () => {
+    for (const [key, symbol] of Object.entries(SVG_SYMBOLS)) {
+      const ids = [...symbol.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+      const inner = ids.filter((id) => id !== `i-${key}`);
+      for (const id of inner) expect(id, `${key}: ${id}`).toMatch(new RegExp(`^${key}_`));
+      const defined = new Set(ids);
+      const references = [
+        ...[...symbol.matchAll(/url\(['"]?#([^)'"]+)['"]?\)/g)].map((m) => m[1]),
+        ...[...symbol.matchAll(/\s(?:xlink:)?href="#([^"]+)"/g)].map((m) => m[1]),
+      ];
+      for (const ref of references) {
+        expect(defined.has(ref), `${key} references #${ref} which it does not define`).toBe(true);
+      }
+    }
+  });
+
+  it('records the provenance of every symbol', () => {
+    const provenance = iconSources as Record<string, { source: string; file?: string }>;
+    expect(Object.keys(provenance).sort()).toEqual([...KEYS].sort());
+    for (const [key, entry] of Object.entries(provenance)) {
+      expect(['pack', 'existing', 'generated'], key).toContain(entry.source);
+      if (entry.source === 'pack') expect(entry.file, key).toMatch(/\.svg$/);
+    }
+  });
+
+  it('draws at least 517 services with official artwork, Azure and OCI included', () => {
+    const provenance = iconSources as Record<string, { source: string; file?: string }>;
+    const official = Object.entries(provenance).filter(([, e]) => e.source === 'pack');
+    expect(official.length).toBeGreaterThanOrEqual(517);
+    const fromPack = (prefix: string, folder: string) => {
+      const keys = SERVICE_ICONS.filter((s) => s.key.startsWith(prefix));
+      const drawn = keys.filter(({ key }) => provenance[key].source === 'pack');
+      for (const { key } of drawn) {
+        expect(provenance[key].file, key).toMatch(new RegExp(`^${folder}/`));
+      }
+      return { total: keys.length, drawn: drawn.length };
+    };
+    expect(fromPack('aws-', 'aws')).toEqual({ total: 127, drawn: 126 });
+    expect(fromPack('gcp-', 'gcp')).toEqual({ total: 113, drawn: 113 });
+    expect(fromPack('ibm-', 'ibm')).toEqual({ total: 74, drawn: 74 });
+    const azure = fromPack('az-', 'azure');
+    expect(azure.total).toBe(128);
+    expect(azure.drawn).toBeGreaterThanOrEqual(117);
+    const oci = fromPack('oci-', 'oci');
+    expect(oci.total).toBe(90);
+    expect(oci.drawn).toBeGreaterThanOrEqual(87);
+  });
+
+  it('keeps every hand-made Azure and OCI symbol for the services without an official icon', () => {
+    // These have no artwork in the official sets (third-party brands, or products
+    // Microsoft and Oracle have not drawn yet); they keep their existing marks.
+    const provenance = iconSources as Record<string, { source: string }>;
+    const kept = Object.entries(provenance)
+      .filter(([key, e]) => /^(az|oci)-/.test(key) && e.source === 'existing')
+      .map(([key]) => key)
+      .sort();
+    expect(kept).toEqual([
+      'az-bicep',
+      'az-cli',
+      'az-copilotstudio',
+      'az-cyclecloud',
+      'az-fabric2',
+      'az-github',
+      'az-githubactions',
+      'az-githubcodespaces',
+      'az-managedlustre',
+      'az-purview',
+      'az-semantickernel',
+      'oci-budgets',
+      'oci-costanalysis',
+      'oci-vmwaresolution',
+    ]);
+    for (const key of kept) expect(SVG_SYMBOLS[key], key).toMatch(/<(path|rect|circle|polygon)/);
   });
 
   it('builds a sprite holding only what was asked for', () => {

@@ -7,7 +7,7 @@ import { ALL_SYMBOLS } from './svgIconDefs';
  * The whole icon sprite, in the document exactly once.
  *
  * Three surfaces offer every service — the command palette, the service browser
- * and the icon picker — and each used to inline its own copy of ~300KB of
+ * and the icon picker — and each used to inline its own copy of ~1 MB of
  * `<symbol>` markup. Open the palette over the browser and the document held
  * two copies of every id; open the picker as well and it held three. Duplicate
  * ids are invalid, and the second copy was never the one being drawn from:
