@@ -23,6 +23,10 @@ ENV NODE_ENV=production \
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# Amazon's RDS certificate bundle, so DATABASE_URL can say
+# `sslmode=verify-full&sslrootcert=/app/certs/rds-global-bundle.pem` and the
+# database connection is verified, not merely encrypted. Harmless elsewhere.
+COPY --chown=node:node deploy/aws/rds-global-bundle.pem ./certs/rds-global-bundle.pem
 
 USER node
 EXPOSE 3000

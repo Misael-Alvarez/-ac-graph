@@ -10,6 +10,8 @@
 !src/**
 !public/
 !public/**
+!deploy/
+!deploy/aws/
 
 # Keep secrets and agent files out even if nested under a build input.
 **/.env*
@@ -33,3 +35,8 @@
 **/AGENTS.md
 **/CLAUDE.md
 **/skills-lock.json
+
+# The one .pem that is not a secret: Amazon's public RDS CA bundle, copied into
+# the image so the database connection can be verified. Re-allowed after the
+# `**/*.pem` rule above, since the last matching rule wins.
+!deploy/aws/rds-global-bundle.pem

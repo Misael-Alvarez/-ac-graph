@@ -41,11 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Build artifacts
-build_sources.py
-gen_icons.py
-generate-icons.js
-
 # playwright
 /test-results
 /playwright-report
@@ -61,3 +56,10 @@ __pycache__/
 /.agents/
 /.claude/skills/*
 !/.claude/skills/ui-ux-pro-max/
+
+# Terraform: state and private variables stay on the operator's machine
+deploy/aws/terraform/.terraform/
+deploy/aws/terraform/*.tfstate
+deploy/aws/terraform/*.tfstate.*
+deploy/aws/terraform/terraform.tfvars
+deploy/aws/terraform/.terraform.lock.hcl

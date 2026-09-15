@@ -1,0 +1,106 @@
+# Ships main to AWS: builds the image, pushes it to ECR, registers a task
+# definition with it and rolls the ECS service, then checks the health URL.
+#
+# It does nothing until the repository has three settings (Settings → Secrets
+# and variables → Actions → Variables), all of them outputs of the Terraform
+# stack in deploy/aws/terraform:
+#
+#   AWS_DEPLOY_ROLE_ARN   github_actions_role_arn
+#   AWS_REGION            the aws_region you applied with
+#   APP_URL               app_url (for the smoke test)
+#
+# No access keys anywhere: the job presents GitHub's OIDC token and assumes the
+# role, which may push one repository and roll one service.
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+env:
+  PROJECT: ac-graph
+
+jobs:
+  deploy:
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push the image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Take the task definition the service runs today
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$PROJECT" \
+            --query 'taskDefinition' \
+            --output json > task-definition.json
+
+      - name: Point it at the new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: app
+          image: ${{ steps.ecr.outputs.registry }}/${{ env.PROJECT }}:${{ github.sha }}
+
+      - name: Roll the service and wait for it to settle
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.PROJECT }}
+          service: ${{ env.PROJECT }}
+          wait-for-service-stability: true
+          wait-for-minutes: 15
+
+      - name: Smoke test
+        if: vars.APP_URL != ''
+        run: |
+          for i in $(seq 1 30); do
+            if curl --silent --fail --show-error "${{ vars.APP_URL }}/api/health"; then
+              echo; echo "healthy"; exit 0
+            fi
+            sleep 5
+          done
+          echo "the health check never answered 200" >&2
+          exit 1

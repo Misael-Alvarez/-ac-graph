@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is ignored by Git.
+
+aws_region   = "us-east-1"
+project_name = "ac-graph"
+
+# The address people will type. HTTPS is mandatory (the session cookie is Secure).
+domain_name = "graph.example.com"
+
+# Either: Route 53 owns the zone → the stack issues the certificate and the record.
+hosted_zone_id = "Z0123456789ABCDEFGHIJ"
+# Or: DNS lives elsewhere → bring a certificate for domain_name (ACM, this region)
+# and create a CNAME from domain_name to the alb_dns_name output.
+# certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/…"
+
+# Who may create an account from the sign-in page. Start open, then close it.
+auth_signup = "open"
+
+# Deployments from GitHub Actions: owner/name of the repository.
+github_repository = "Misael-Alvarez/-ac-graph"
+github_branch     = "main"
+
+# Optional
+# anthropic_api_key = "sk-ant-…"   # enables the AI features
+# metrics_token     = "…"          # protects /api/metrics
+# desired_count     = 2
+# db_instance_class = "db.t4g.small"
+
+tags = {
+  Owner = "platform"
+}
