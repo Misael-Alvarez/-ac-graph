@@ -105,15 +105,16 @@ try {
       await carol.getByRole('button', { name: /Créala/ }).click();
       await carol.getByLabel('Tu nombre').fill('Carol Audit');
       await carol.getByLabel('Correo').fill(carolEmail);
-      await carol.getByLabel('Contraseña').fill('short');
+      await carol.getByLabel('Contraseña', { exact: true }).fill('short');
       await carol.getByRole('button', { name: 'Crear cuenta' }).click();
       await carol.waitForTimeout(400);
       check(
-        'Sign-in page: a short password is refused with a message, not a request',
-        (await carol.locator('.signin-form .ai-error').count()) === 1 &&
-          (await carol.locator('.signin-form').count()) === 1,
+        'Sign-in page: a short password is refused beside the field, not by a request',
+        (await carol.locator('.signin-form [role="alert"]').count()) >= 1 &&
+          (await carol.locator('.signin-form').count()) === 1 &&
+          (await carol.locator('.signin-field[data-invalid]').count()) >= 1,
       );
-      await carol.getByLabel('Contraseña').fill(password);
+      await carol.getByLabel('Contraseña', { exact: true }).fill(password);
       await carol.getByRole('button', { name: 'Crear cuenta' }).click();
       await carol.waitForSelector('.library', { timeout: 15000 });
       check('Sign-in page: creating an account lands in the library, signed in', true);
@@ -123,7 +124,7 @@ try {
       const { createLocalUser } = await import('../src/server/auth/password.ts');
       await createLocalUser({ name: 'Carol Audit', email: carolEmail, password }, pool);
       await carol.getByLabel('Correo').fill(carolEmail);
-      await carol.getByLabel('Contraseña').fill(password);
+      await carol.getByLabel('Contraseña', { exact: true }).fill(password);
       await carol.getByRole('button', { name: 'Entrar' }).click();
       await carol.waitForSelector('.library', { timeout: 15000 });
       check('Sign-in page: an account made from the terminal signs in', true);
@@ -142,17 +143,23 @@ try {
     check('Sign-in page: the session is gone on the server too', after === 401, String(after));
     // Wrong password, then the right one.
     await carol.getByLabel('Correo').fill(carolEmail);
-    await carol.getByLabel('Contraseña').fill('not the passphrase');
+    await carol.getByLabel('Contraseña', { exact: true }).fill('not the passphrase');
     await carol.getByRole('button', { name: 'Entrar' }).click();
-    await carol.waitForSelector('.signin-form .ai-error', { timeout: 10000 });
+    await carol.waitForSelector('.signin-error', { timeout: 10000 });
     check(
       'Sign-in page: a wrong password says so and stays on the form',
-      /correo o la contraseña/.test(await carol.locator('.signin-form .ai-error').innerText()),
+      /correo o la contraseña/.test(await carol.locator('.signin-error').innerText()),
     );
-    await carol.getByLabel('Contraseña').fill(password);
+    // The right password signs back in; the card leaves over the app and is gone after.
+    await carol.getByLabel('Contraseña', { exact: true }).fill(password);
     await carol.getByRole('button', { name: 'Entrar' }).click();
     await carol.waitForSelector('.library', { timeout: 15000 });
     check('Sign-in page: the right password signs back in', true);
+    await carol.waitForTimeout(400);
+    check(
+      'Sign-in page: the card is gone once the app is in',
+      (await carol.locator('.signin').count()) === 0,
+    );
     await shot(carol, '00-signed-in-again');
     await fresh.close();
   } else {

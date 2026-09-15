@@ -6128,29 +6128,46 @@ select.input.is-choice {
   min-width: 0;
 }
 
+/* The sign-in page.
+
+   One card, centred, on the sheet's own aurora. The card arrives once —
+   opacity and six pixels of travel, 320 ms, the strong ease-out — and leaves
+   once, faster, over the app it has just let in; both are the only motion on
+   the page. Nothing moves while somebody types: the primary button's resting
+   sheen is switched off here, the fields answer only to focus and to being
+   wrong. A layer over the viewport rather than a page in the flow, so the
+   exit can play on top of the library without a layout jump underneath. */
 .signin {
-  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display: grid;
   place-items: center;
-  padding: var(--space-8);
+  padding: var(--space-8) var(--space-4);
+  overflow: auto;
   background:
     radial-gradient(60% 80% at 10% 0%, var(--aurora-a), transparent 60%),
     radial-gradient(50% 70% at 100% 100%, var(--aurora-b), transparent 60%), var(--surface);
 }
+.signin[data-closing] {
+  pointer-events: none;
+  animation: signin-out 140ms var(--ease-out) both;
+}
 
 .signin-card {
-  width: min(420px, 100%);
-  padding: var(--space-8);
+  width: min(400px, 100%);
+  padding: var(--space-8) var(--space-8) var(--space-6);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-subtle);
   background: var(--surface-raised);
   box-shadow: var(--elevation-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   position: relative;
+  animation: signin-in 320ms var(--ease-out) both;
 }
-
+/* A thread of light along the top edge: the same material as every raised panel. */
 .signin-card::before {
   content: '';
   position: absolute;
@@ -6160,72 +6177,348 @@ select.input.is-choice {
   height: 1px;
   background: var(--edge-gradient);
 }
-
-.signin-title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.03em;
+/* The card that says "loading": the mark and a line, nothing to arrive. */
+.signin-card.is-quiet {
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  animation: none;
 }
 
+.signin-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+.signin-brand-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The title is the action — sign in, create your account — not the product. */
+.signin-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.signin-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
 .signin-subtitle {
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--text-base);
   line-height: 1.5;
+  text-wrap: pretty;
 }
 
-.signin .button.is-primary {
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* The name field, folded until the card turns to creating an account: a grid
+   row that grows from nothing, so the fields under it slide into place
+   instead of jumping. The inner box clips what has no height yet. */
+.signin-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  /* Folded, it also swallows the form's gap below it, so the first visible
+     field sits where the first field should; open, it hands the gap back. */
+  margin-bottom: calc(-1 * var(--space-4));
+  transition:
+    grid-template-rows var(--duration-slow) var(--ease-out),
+    margin-bottom var(--duration-slow) var(--ease-out);
+}
+.signin-reveal[data-open] {
+  grid-template-rows: 1fr;
+  margin-bottom: 0;
+}
+.signin-reveal-inner {
+  overflow: hidden;
+  min-height: 0;
+  /* Room for the field's focus ring and its one-pixel lift, which the clip
+     would otherwise cut; the negative margin gives the room back. */
+  padding: 4px;
+  margin: -4px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+.signin-reveal[data-open] .signin-reveal-inner {
+  opacity: 1;
+  transform: none;
+}
+
+.signin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.signin-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.signin-field:focus-within .signin-label {
+  color: var(--text-primary);
+}
+.signin-field[data-invalid] .signin-label {
+  color: var(--danger);
+}
+.signin-input {
   height: 40px;
+  padding: 0 var(--space-3);
   font-size: var(--text-base);
+  border-radius: var(--radius-lg);
+}
+.signin-input.has-trailing {
+  padding-right: 42px;
+}
+.signin-field[data-invalid] .signin-input,
+.signin-field[data-invalid] .signin-input:hover:not(:focus) {
+  border-color: var(--danger);
+}
+.signin-field[data-invalid] .signin-input:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+/* The browser's autofill yellow, in the sheet's own colours. */
+.signin-input:-webkit-autofill,
+.signin-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 40px var(--surface) inset;
+  caret-color: var(--text-primary);
+}
+
+/* Show or hide the password: a quiet control inside the field's right edge,
+   sized to be hit, never changing the field's size. */
+.signin-input-wrap {
+  position: relative;
+}
+.signin-trailing {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+.signin-trailing:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+.signin-trailing:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  color: var(--text-primary);
+}
+.signin-trailing:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+/* Under a field: what is wrong with it, or a hint while it is being made.
+   Both arrive with a short fade so a line appearing never feels like a jolt. */
+.signin-field-error,
+.signin-hint {
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  animation: signin-line-in var(--duration-base) var(--ease-out) both;
+}
+.signin-field-error {
+  color: var(--danger);
+}
+.signin-hint {
+  color: var(--text-tertiary);
+  transition: color var(--duration-base) var(--ease-out);
+}
+.signin-hint[data-met] {
+  color: var(--success);
+}
+.signin-hint.is-caps {
+  color: var(--warning);
+}
+
+/* One line for what only the server could know. */
+.signin-error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  background: var(--danger-subtle);
+  color: var(--danger);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-wrap: pretty;
+  animation: signin-line-in var(--duration-base) var(--ease-out) both;
+}
+
+/* The one action. Full width, taller than the toolbar's buttons, no sheen
+   sweeping while somebody reads a form; presses down like every button here.
+   While it waits, the label fades and a spinner takes its place — the width
+   never changes, so nothing around it shifts. */
+.signin-submit {
+  position: relative;
+  width: 100%;
+  height: 42px;
+  margin-top: var(--space-1);
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border-radius: var(--radius-lg);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+.signin-submit.button.is-primary::after {
+  content: none;
+}
+.signin-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.signin-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.signin-submit:disabled {
+  cursor: progress;
+  opacity: 1;
+}
+.signin-submit-label {
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.signin-submit[aria-busy='true'] .signin-submit-label {
+  opacity: 0;
+}
+.signin-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-top-color: currentColor;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.signin-submit[aria-busy='true'] .signin-spinner {
+  opacity: 1;
+  animation: signin-spin 640ms linear infinite;
+}
+
+/* The other face, offered under the button as a sentence with one live word. */
+.signin-switch {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.signin-switch-action {
+  border: 0;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition:
+    text-decoration-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+.signin-switch-action:hover {
+  text-decoration-color: currentColor;
+}
+.signin-switch-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .signin-note {
   margin: 0;
   font-size: var(--text-xs);
+  line-height: 1.5;
   color: var(--text-tertiary);
+  text-wrap: pretty;
 }
 
-/* The password form: the card's own column, one field per row, the label
-   above its input in the secondary ink. The switch between "sign in" and
-   "create an account" is a link-like button, not a second primary. */
-.signin-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+@keyframes signin-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-.signin-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+@keyframes signin-out {
+  to {
+    opacity: 0;
+  }
 }
-.signin-field .input {
-  height: 40px;
-  font-size: var(--text-base);
+@keyframes signin-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-.signin-hint {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
+@keyframes signin-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
-.signin-switch {
-  align-self: center;
-  border: 0;
-  background: none;
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  font-size: var(--text-sm);
-  color: var(--accent);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-}
-.signin-switch:hover {
-  text-decoration: underline;
-}
-.signin-switch:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+@media (prefers-reduced-motion: reduce) {
+  .signin-card {
+    animation-name: signin-out;
+    animation-direction: reverse;
+  }
+  .signin-reveal,
+  .signin-reveal-inner,
+  .signin-field-error,
+  .signin-hint,
+  .signin-error,
+  .signin-submit {
+    transition-duration: 0ms;
+    animation-duration: 0ms;
+  }
+  .signin-reveal-inner {
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
