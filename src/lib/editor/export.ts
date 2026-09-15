@@ -4,6 +4,7 @@ import { exportToMarkdown } from '@/lib/engine';
 import { canvasTheme } from '@/lib/design/tokens';
 import { diagramToSvgStringClient } from './renderSvgClient';
 import { type RasterPage, rasterToPdf, rastersToPdf, rgbaToRgb } from './pdf';
+import { type DrawioOptions, type DrawioPage, toDrawio } from './drawio';
 import type { DiagramDocumentProps } from '@/components/editor/canvas/DiagramDocument';
 
 function triggerDownload(blob: Blob, filename: string): void {
@@ -144,6 +145,19 @@ export function downloadYaml(
 /** A Mermaid flowchart, which GitHub and GitLab render natively. */
 export function downloadMermaid(model: DiagramModel, filename = 'architecture.mmd'): void {
   triggerDownload(new Blob([toMermaid(model)], { type: 'text/plain' }), filename);
+}
+
+/**
+ * A draw.io file, one page per reading, which diagrams.net opens for editing
+ * with the service icons embedded. Plain XML rather than deflated: draw.io
+ * reads both, and only one of them can be diffed.
+ */
+export function downloadDrawio(
+  pages: readonly DrawioPage[],
+  options: DrawioOptions,
+  filename = 'diagram.drawio',
+): void {
+  triggerDownload(new Blob([toDrawio(pages, options)], { type: 'application/xml' }), filename);
 }
 
 export function downloadProject(model: DiagramModel, filename = 'diagram.json'): void {

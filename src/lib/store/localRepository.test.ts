@@ -360,6 +360,17 @@ describe('duplicate / delete / updateMeta', () => {
     expect((await repo.get(created.id))!.model.shapes).toHaveLength(3);
   });
 
+  it('names the copy as the caller says, in whatever language that is', async () => {
+    const created = await repo.create({ title: 'Pagos', model: modelWithGroups(1), folder: 'f' });
+    const copy = await repo.duplicate(created.id, { title: 'Copia de Pagos' });
+    expect(copy.title).toBe('Copia de Pagos');
+    expect(copy.folder).toBe('f');
+    expect(copy.model).toEqual(created.model);
+    // A name that is only spaces is no name: the store's own suffix stands in.
+    expect((await repo.duplicate(created.id, { title: '   ' })).title).toBe('Pagos copy');
+    expect((await repo.duplicate(created.id, {})).title).toBe('Pagos copy');
+  });
+
   it('deletes the diagram together with its versions', async () => {
     const created = await repo.create({ title: 'A', model: createEmptyModel() });
     await repo.save(created.id, modelWithGroups(1), { snapshot: true });

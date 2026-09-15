@@ -17,11 +17,16 @@ import {
   type User,
 } from '@/lib/domain';
 import { uid } from '@/lib/engine';
-import { DiagramConflictError, MAX_VERSIONS_PER_DIAGRAM } from '@/lib/store/localRepository';
+import {
+  DiagramConflictError,
+  MAX_VERSIONS_PER_DIAGRAM,
+  copyTitle,
+} from '@/lib/store/localRepository';
 import { renderThumbnail } from '@/lib/store/thumbnail';
 import type {
   CreateDiagramInput,
   DiagramRepository,
+  DuplicateOptions,
   SaveOptions,
   WorkspaceExport,
 } from '@/lib/store/types';
@@ -258,12 +263,12 @@ export class PgDiagramRepository implements DiagramRepository {
     }));
   }
 
-  /** Anyone who can read a diagram can take a copy of their own. */
-  async duplicate(id: string): Promise<DiagramRecord> {
+  /** Anyone who can read a diagram can take a copy of their own, named as they say. */
+  async duplicate(id: string, options: DuplicateOptions = {}): Promise<DiagramRecord> {
     const source = await this.get(id);
     if (!source) throw new DiagramNotFoundError(id);
     return this.create({
-      title: `${source.title} copy`,
+      title: copyTitle(source.title, options),
       description: source.description,
       folder: source.folder,
       model: structuredClone(source.model),

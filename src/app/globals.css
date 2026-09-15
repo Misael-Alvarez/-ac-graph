@@ -2649,6 +2649,9 @@ body {
   align-items: stretch;
   gap: 0;
   padding: 0;
+  /* Brought into view by focus or a script, a card stops under the sticky
+     header rather than behind it, where its actions cannot be pressed. */
+  scroll-margin-top: calc(var(--header-h) + var(--space-4));
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   background: var(--surface-raised);
@@ -2924,6 +2927,42 @@ body {
    dialog's stagger. */
 .library-templates.is-rich .template-card {
   animation: none;
+}
+
+/* ── The picker: the same cards, in the «New diagram» dialog ── */
+
+/* Three to a row in the wide dialog — the grid is the dialog's width, not the
+   page's, so it is counted rather than filled — and each card rises in a beat
+   after the one before, as the dialog's rows always have. */
+.dialog .library-templates.is-rich {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dialog .library-templates.is-rich .template-card {
+  animation: row-in var(--duration-slow) var(--ease-liquid) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 12ms);
+}
+
+/* The two headings, when the reader has templates of their own: flush with
+   the cards under them rather than indented like a panel's rows; the first
+   sits on the body's own padding, the second a grid's gap below the cards
+   above it. */
+.dialog .template-group-title:has(+ .library-templates.is-rich) {
+  padding-inline: 0;
+}
+
+.dialog .template-group-title:has(+ .library-templates.is-rich):first-child {
+  margin-top: 0;
+}
+
+.dialog .library-templates.is-rich + .template-group-title {
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 720px) {
+  .dialog .library-templates.is-rich {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ── Entrance: once, on the first paint ── */
@@ -8353,6 +8392,10 @@ body,
   animation: menu-in var(--duration-base) var(--ease-out);
   transform-origin: top right;
   min-width: 340px;
+  /* The export menu grew past a 900px window; a menu that runs off the
+     screen has rows nobody can reach, so it scrolls within the viewport. */
+  max-height: calc(100vh - var(--header-h) - var(--space-4));
+  overflow-y: auto;
   background: var(--surface-raised);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;

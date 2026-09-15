@@ -381,7 +381,12 @@ export function Library() {
                     }
                     toggleFavourite(item.id);
                   }}
-                  onDuplicate={() => void repository.duplicate(item.id).then(refresh)}
+                  onDuplicate={() =>
+                    // Named here, not in the store: the store knows no language.
+                    void repository
+                      .duplicate(item.id, { title: t('library.copyTitle', { title: item.title }) })
+                      .then(refresh)
+                  }
                   onRemove={() => setDeleting(item)}
                 />
               ))}
@@ -439,6 +444,8 @@ export function Library() {
       {pick.shown && (
         <NewDiagramDialog
           t={t}
+          previews={previews}
+          yours={yours}
           closing={pick.closing}
           onExited={pick.onExited}
           onClose={() => setPicking(false)}

@@ -13,7 +13,13 @@ import {
 } from '@/lib/domain';
 import { uid } from '@/lib/engine';
 import { LOCAL_USER, readUser } from '@/lib/auth/user';
-import type { CreateDiagramInput, DiagramRepository, SaveOptions, WorkspaceExport } from './types';
+import type {
+  CreateDiagramInput,
+  DiagramRepository,
+  DuplicateOptions,
+  SaveOptions,
+  WorkspaceExport,
+} from './types';
 import { renderThumbnail } from './thumbnail';
 
 const DB_NAME = 'aion-architecture-studio';
@@ -28,6 +34,17 @@ export const LOCAL_OWNER_ID = 'local-user';
 
 /** How many snapshots to keep per diagram before the oldest are dropped. */
 export const MAX_VERSIONS_PER_DIAGRAM = 50;
+
+/**
+ * What a duplicate is called: the title the caller chose, in whatever language
+ * the interface speaks, or — when nobody said — the source's title and "copy".
+ * Both stores name their copies this way, so a title that is only spaces
+ * falls back here too rather than leaving a diagram with no name.
+ */
+export function copyTitle(source: string, options: DuplicateOptions = {}): string {
+  const chosen = options.title?.trim();
+  return chosen ? chosen : `${source} copy`;
+}
 
 interface StudioDB extends DBSchema {
   diagrams: { key: string; value: DiagramRecord };
@@ -211,11 +228,11 @@ export class LocalDiagramRepository implements DiagramRepository {
     }));
   }
 
-  async duplicate(id: string): Promise<DiagramRecord> {
+  async duplicate(id: string, options: DuplicateOptions = {}): Promise<DiagramRecord> {
     const source = await this.get(id);
     if (!source) throw new Error(`Diagram not found: ${id}`);
     return this.create({
-      title: `${source.title} copy`,
+      title: copyTitle(source.title, options),
       description: source.description,
       folder: source.folder,
       model: structuredClone(source.model),

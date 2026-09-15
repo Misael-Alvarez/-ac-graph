@@ -28,6 +28,14 @@ export interface SaveOptions {
   expectedUpdatedAt?: string;
 }
 
+export interface DuplicateOptions {
+  /**
+   * The copy's title, said in the interface's language by the caller — the
+   * store knows no language. Without one the copy is titled "… copy".
+   */
+  title?: string;
+}
+
 export interface WorkspaceExport {
   exportedAt: string;
   diagrams: DiagramRecord[];
@@ -51,7 +59,7 @@ export interface DiagramRepository {
     id: string,
     patch: Partial<Pick<DiagramMeta, 'title' | 'description' | 'folder' | 'thumbnail'>>,
   ): Promise<DiagramRecord>;
-  duplicate(id: string): Promise<DiagramRecord>;
+  duplicate(id: string, options?: DuplicateOptions): Promise<DiagramRecord>;
   delete(id: string): Promise<void>;
 
   listVersions(diagramId: string): Promise<DiagramVersion[]>;

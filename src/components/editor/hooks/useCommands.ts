@@ -9,6 +9,7 @@ import { stripMetadata } from '@/lib/editor/meta';
 import { spellChord } from '@/lib/editor/platform';
 import { shortcutFor } from '@/lib/editor/shortcuts';
 import {
+  downloadDrawio,
   downloadMarkdown,
   downloadMermaid,
   downloadPdf,
@@ -316,6 +317,34 @@ export function useCommands(): CommandSet {
           downloadPdfPages(pages, `${stem}.pdf`).then(() => exported('PDF'), failed);
         },
         views.length > 1,
+      ),
+      command(
+        'exportDrawio',
+        'export.drawio',
+        'export',
+        () => {
+          // Every view as a page when there are views to page through; the
+          // reading on screen otherwise, as the image exports draw it.
+          const base = exportOptions();
+          const pages =
+            views.length > 1
+              ? views.map((v) => {
+                  const reading = projectView(resolveView(doc.model, v.id));
+                  return {
+                    id: v.id,
+                    name: v.name || title,
+                    model: ui.exportMeta ? reading : stripMetadata(reading),
+                  };
+                })
+              : [{ name: title, model: base.model }];
+          try {
+            downloadDrawio(pages, { dark: base.dark, title }, `${stem}.drawio`);
+            exported('draw.io');
+          } catch {
+            failed();
+          }
+        },
+        doc.model.shapes.length > 0,
       ),
       command('present', 'action.present', 'present', () =>
         dispatchUi({ type: 'setPresenting', on: !ui.presenting }),

@@ -10,6 +10,7 @@ import {
   GridIcon,
   ImageIcon,
   ListIcon,
+  MeshIcon,
   MoonIcon,
   PrintIcon,
   SunIcon,
@@ -81,6 +82,13 @@ export function ExportMenu({ menu, onToggle, onClose, pick, chord, off }: MenuPr
             hint={t('export.pdfViewsHint')}
             disabled={off('exportPdfViews')}
             onSelect={() => pick('exportPdfViews')}
+          />
+          <MenuItem
+            icon={<MeshIcon size={15} />}
+            label={t('export.drawio')}
+            hint={t('export.drawioHint')}
+            disabled={off('exportDrawio')}
+            onSelect={() => pick('exportDrawio')}
           />
           <MenuSeparator />
           <MenuGroup label={t('export.document')} />

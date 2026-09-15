@@ -35,7 +35,67 @@ function TemplateMeta({ t, model }: { t: Translate; model: DiagramModel }) {
   );
 }
 
-const stagger = (index: number) => ({ '--i': index }) as CSSProperties;
+/**
+ * The face of a starting point: its drawing on the dotted sheet, its name, a
+ * line about it and how much is in it. The gallery on the home and the picker
+ * in the «New diagram» dialog show the same face, so a template looks the same
+ * wherever it is offered.
+ */
+export function TemplateFace({
+  t,
+  src,
+  title,
+  hint,
+  model,
+}: {
+  t: Translate;
+  /** The drawing as an SVG data URL. */
+  src: string;
+  title: string;
+  /** What it is — or, for one of the reader's own, whose it is and when it was saved. */
+  hint: string;
+  model: DiagramModel;
+}) {
+  return (
+    <>
+      <span className="template-thumb">
+        {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL */}
+        <img src={src} alt="" />
+      </span>
+      <span className="template-text">
+        <b>{title}</b>
+        <small>{hint}</small>
+        <TemplateMeta t={t} model={model} />
+      </span>
+    </>
+  );
+}
+
+/** The face of the blank sheet: an outline where a drawing would be. */
+export function BlankFace({ t }: { t: Translate }) {
+  return (
+    <>
+      <span className="template-thumb is-blank">
+        <PlusIcon size={20} />
+      </span>
+      <span className="template-text">
+        <b>{t('library.blank')}</b>
+        <small>{t('library.blankHint')}</small>
+      </span>
+    </>
+  );
+}
+
+/** What one of the reader's own templates says under its name. */
+export function ownTemplateHint(t: Translate, meta: DiagramMeta): string {
+  const shared = meta.role !== undefined && meta.role !== 'owner';
+  return t(shared ? 'library.templateShared' : 'library.templateYours', {
+    when: relativeDay(meta.updatedAt, t),
+  });
+}
+
+/** The stagger of an entrance: `--i` is the card's place in the grid. */
+export const stagger = (index: number) => ({ '--i': index }) as CSSProperties;
 
 /**
  * Starting points, always: a real drawing of each, not an icon. A blank sheet
@@ -76,13 +136,7 @@ export function TemplateGallery({
           style={stagger(0)}
           onClick={() => onPick(t('app.untitled'))}
         >
-          <span className="template-thumb is-blank">
-            <PlusIcon size={20} />
-          </span>
-          <span className="template-text">
-            <b>{t('library.blank')}</b>
-            <small>{t('library.blankHint')}</small>
-          </span>
+          <BlankFace t={t} />
         </button>
         {yours.map(({ meta, model, src }, index) => {
           const shared = meta.role !== undefined && meta.role !== 'owner';
@@ -99,19 +153,13 @@ export function TemplateGallery({
                 className="template-open"
                 onClick={() => onPick(meta.title, structuredClone(model))}
               >
-                <span className="template-thumb">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL */}
-                  <img src={src} alt="" />
-                </span>
-                <span className="template-text">
-                  <b>{meta.title}</b>
-                  <small>
-                    {t(shared ? 'library.templateShared' : 'library.templateYours', {
-                      when: relativeDay(meta.updatedAt, t),
-                    })}
-                  </small>
-                  <TemplateMeta t={t} model={model} />
-                </span>
+                <TemplateFace
+                  t={t}
+                  src={src}
+                  title={meta.title}
+                  hint={ownTemplateHint(t, meta)}
+                  model={model}
+                />
               </button>
               <div className="template-actions">
                 {onEdit && !(shared && meta.role === 'viewer') && (
@@ -148,15 +196,13 @@ export function TemplateGallery({
             style={stagger(yours.length + 1 + index)}
             onClick={() => onPick(t(template.nameKey), model)}
           >
-            <span className="template-thumb">
-              {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URL */}
-              <img src={src} alt="" />
-            </span>
-            <span className="template-text">
-              <b>{t(template.nameKey)}</b>
-              <small>{t(template.descriptionKey)}</small>
-              <TemplateMeta t={t} model={model} />
-            </span>
+            <TemplateFace
+              t={t}
+              src={src}
+              title={t(template.nameKey)}
+              hint={t(template.descriptionKey)}
+              model={model}
+            />
           </button>
         ))}
       </div>

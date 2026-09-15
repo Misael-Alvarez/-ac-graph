@@ -411,6 +411,22 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       await expect(repo.duplicate('ghost')).rejects.toBeInstanceOf(DiagramNotFoundError);
     });
 
+    it('names the copy as the caller says, and "… copy" when nobody does', async () => {
+      const created = await repo.create({ title: 'Pagos', model: modelWithGroups(1) });
+      await repo.setMember(created.id, 'bob@example.com', 'viewer');
+      const named = await asBob.duplicate(created.id, { title: 'Copia de Pagos' });
+      expect(named).toMatchObject({ title: 'Copia de Pagos', ownerId: bob.id });
+      expect(named.model).toEqual(created.model);
+      expect((await asBob.duplicate(created.id, {})).title).toBe('Pagos copy');
+      expect((await asBob.duplicate(created.id, { title: '  ' })).title).toBe('Pagos copy');
+      expect((await asBob.list()).map((d) => d.title).sort()).toEqual([
+        'Copia de Pagos',
+        'Pagos',
+        'Pagos copy',
+        'Pagos copy',
+      ]);
+    });
+
     it('deletes the diagram and its history, and is idempotent', async () => {
       const created = await repo.create({ title: 'A', model: modelWithGroups(1) });
       await repo.save(created.id, modelWithGroups(2), { snapshot: true });

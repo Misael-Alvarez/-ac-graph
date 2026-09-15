@@ -17,7 +17,13 @@ import {
   type Role,
 } from '@/lib/domain';
 import { DiagramConflictError } from './localRepository';
-import type { CreateDiagramInput, DiagramRepository, SaveOptions, WorkspaceExport } from './types';
+import type {
+  CreateDiagramInput,
+  DiagramRepository,
+  DuplicateOptions,
+  SaveOptions,
+  WorkspaceExport,
+} from './types';
 
 /**
  * The repository the editor uses in server mode.
@@ -171,9 +177,15 @@ export class HttpDiagramRepository implements DiagramRepository, MembersApi, Ico
     );
   }
 
-  async duplicate(id: string): Promise<DiagramRecord> {
+  // The title travels only when there is one: without it the request has no
+  // body, as it always had, and the server names the copy.
+  async duplicate(id: string, options: DuplicateOptions = {}): Promise<DiagramRecord> {
     return DiagramRecordSchema.parse(
-      await this.request<unknown>('POST', `/api/diagrams/${encodeURIComponent(id)}/duplicate`),
+      await this.request<unknown>(
+        'POST',
+        `/api/diagrams/${encodeURIComponent(id)}/duplicate`,
+        options.title === undefined ? {} : { body: { title: options.title } },
+      ),
     );
   }
 

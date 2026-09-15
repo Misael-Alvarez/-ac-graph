@@ -363,12 +363,45 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       expect(rejected.status).toBe(400);
 
       await share(created.id, 'viewer');
+      // A bare POST, as older clients send it: the server names the copy.
       const copy = await duplicateDiagram(
         request(`/api/diagrams/${created.id}/duplicate`, { method: 'POST', cookie: bobCookie }),
         ctx({ id: created.id }),
       );
       expect(copy.status).toBe(201);
       expect(await copy.json()).toMatchObject({ title: 'Arch copy', ownerId: bob.id });
+
+      // The interface's own name for it, trimmed and bounded like any title.
+      const named = await duplicateDiagram(
+        request(`/api/diagrams/${created.id}/duplicate`, {
+          method: 'POST',
+          cookie: bobCookie,
+          body: { title: '  Copia de Arch  ' },
+        }),
+        ctx({ id: created.id }),
+      );
+      expect(named.status).toBe(201);
+      expect(await named.json()).toMatchObject({ title: 'Copia de Arch', ownerId: bob.id });
+
+      for (const body of [{ title: 'x'.repeat(201) }, { title: '' }, { name: 'Copia' }]) {
+        const refused = await duplicateDiagram(
+          request(`/api/diagrams/${created.id}/duplicate`, {
+            method: 'POST',
+            cookie: bobCookie,
+            body,
+          }),
+          ctx({ id: created.id }),
+        );
+        expect(refused.status).toBe(400);
+        expect((await refused.json()).code).toBe('bad_request');
+      }
+      // Two copies of his own beside the diagram shared with him; nothing from a refusal.
+      const bobsTitles = (
+        (await (await listDiagrams(request('/api/diagrams', { cookie: bobCookie }))).json()) as {
+          title: string;
+        }[]
+      ).map((d) => d.title);
+      expect(bobsTitles.sort()).toEqual(['Arch', 'Arch copy', 'Copia de Arch']);
 
       const received: unknown[] = [];
       const off = events().subscribe(created.id, (event) => received.push(event));
@@ -379,13 +412,13 @@ describe.skipIf(!pgAvailable())('server API over HTTP (PostgreSQL)', () => {
       off();
       expect(gone.status).toBe(204);
       expect(received).toEqual([{ type: 'deleted' }]);
-      // Ada's diagram is gone; Bob's copy is Bob's and stays.
+      // Ada's diagram is gone; Bob's copies are Bob's and stay.
       expect(
         await (await listDiagrams(request('/api/diagrams', { cookie: adaCookie }))).json(),
       ).toHaveLength(0);
       expect(
         await (await listDiagrams(request('/api/diagrams', { cookie: bobCookie }))).json(),
-      ).toHaveLength(1);
+      ).toHaveLength(2);
     });
 
     it('refuses oversized bodies with 413', async () => {

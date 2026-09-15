@@ -69,6 +69,11 @@ test('duplicates and deletes from the card', async ({ page }) => {
   await page.locator('.library-card').first().hover();
   await page.getByRole('button', { name: /Duplicar:/ }).click();
   await expect(page.locator('.library-card')).toHaveCount(2);
+  // The copy is named in the interface's language, not with the store's suffix.
+  await expect(
+    page.locator('.library-card-title', { hasText: 'Copia de Diagrama sin título' }),
+  ).toHaveCount(1);
+  await expect(page.locator('.library-card-title', { hasText: /copy$/ })).toHaveCount(0);
 
   await page.locator('.library-card').first().hover();
   await page

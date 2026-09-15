@@ -45,6 +45,15 @@ export const SaveBodySchema = z.object({
   options: SaveOptionsSchema.optional(),
 });
 
+/**
+ * What to call the copy, in the interface's language. The body is optional
+ * altogether — a bare POST still duplicates, titled "… copy" — but a title
+ * sent is a title: not blank, and no longer than a name should be.
+ */
+export const DuplicateBodySchema = z
+  .object({ title: z.string().trim().min(1).max(200).optional() })
+  .strict();
+
 export const PresenceBodySchema = z
   .object({
     cursor: z.object({ x: z.number().finite(), y: z.number().finite() }).nullable().optional(),

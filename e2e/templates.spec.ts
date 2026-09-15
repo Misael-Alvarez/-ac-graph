@@ -56,6 +56,54 @@ test('a diagram saved as a template joins the starting points, drawn, and stays 
   await expect(yours(page)).toHaveCount(1);
 });
 
+test('the home\u2019s «Nuevo diagrama» dialog offers a template of one\u2019s own, drawn, under «Tuyas»', async ({
+  page,
+}) => {
+  await openNamed(page, 'Mi plantilla');
+  await saveAsTemplate(page);
+
+  await page.goto('/');
+  await page.waitForSelector('.library-start');
+  await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nuevo diagrama' });
+  await expect(dialog).toBeVisible();
+
+  // The blank sheet first, in the grid under «Tuyas» beside theirs; the
+  // house's under «Incluidas» — the same cards as the gallery below, a real
+  // drawing on each.
+  const headings = dialog.locator('.template-group-title');
+  await expect(headings).toHaveCount(2);
+  await expect(headings.nth(0)).toContainText('Tuyas');
+  await expect(headings.nth(1)).toContainText('Incluidas');
+  await expect(dialog.locator('.template-card')).toHaveCount(7);
+  await expect(dialog.locator('.template-card').first()).toHaveClass(/is-blank/);
+  const grids = dialog.locator('.library-templates');
+  await expect(grids).toHaveCount(2);
+  await expect(grids.nth(0).locator('.template-card')).toHaveCount(2);
+  await expect(grids.nth(0).locator('.template-card').first()).toHaveClass(/is-blank/);
+  await expect(grids.nth(1).locator('.template-card')).toHaveCount(5);
+  const own = dialog.locator('.template-card.is-yours');
+  await expect(own).toHaveCount(1);
+  await expect(own).toContainText('Mi plantilla');
+  await expect(own).toContainText('Tuya');
+  await expect(own).toContainText('7 formas');
+  await expect(own.locator('.template-thumb img')).toHaveAttribute('src', /^data:image\/svg/);
+  await expect(
+    dialog.locator('.template-card:not(.is-blank) .template-thumb img[src^="data:image/svg"]'),
+  ).toHaveCount(6);
+
+  // Starting from it makes a new diagram with the template's content and name.
+  await own.click();
+  await page.waitForSelector('.canvas-surface');
+  await expect(page).toHaveURL(/\/d\//);
+  await expect(page.locator('.topbar-name')).toHaveValue('Mi plantilla');
+  await expect(page.locator('.canvas-surface [data-shape-id^="grp_"]')).toHaveCount(7);
+  await page.goto('/');
+  await page.waitForSelector('.library-start');
+  await expect(page.locator('.library-grid .library-card')).toHaveCount(2);
+  await expect(yours(page)).toHaveCount(1);
+});
+
 test('a template of one\u2019s own can be edited in place, is offered in the editor, and deleted', async ({
   page,
 }) => {

@@ -149,7 +149,7 @@ for (const [label, sel] of [
   await settle();
 }
 // export menu items produce downloads
-for (const item of ['PNG', 'SVG', 'PDF', 'Markdown', 'Mermaid', 'YAML']) {
+for (const item of ['PNG', 'SVG', 'PDF', 'draw.io', 'Markdown', 'Mermaid', 'YAML']) {
   await page.locator('.topbar button[aria-label="Exportar"]').click();
   await settle(200);
   const [dl] = await Promise.all([

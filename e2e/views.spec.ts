@@ -312,6 +312,36 @@ test('SVG, PNG and Markdown export the view while native JSON keeps the full mod
   expect(png.readUInt32BE(20)).toBe(Number(svgSize[2]) * 2);
 });
 
+test('the draw.io export writes one page per view with the icons embedded', async ({ page }) => {
+  const [id] = await narrowToGroups(page);
+  const full = await nativeModel(page);
+  const drawio = (
+    await download(page, async () => {
+      await page.keyboard.press('ControlOrMeta+e');
+      await page.getByRole('menuitem', { name: /^draw\.io/ }).click();
+    })
+  ).toString();
+
+  expect(drawio.startsWith('<mxfile ')).toBe(true);
+  expect(drawio.match(/<diagram /g)).toHaveLength(2);
+  expect(drawio).toContain('name="Vista de prueba"');
+  // Every service card carries its icon as an SVG data URL, not a reference.
+  expect(drawio).toContain('image=data:image/svg+xml,');
+  // The pages are the model's own cells: the whole architecture, then the view
+  // narrowed to one group — whose services are the only ones on its page.
+  const pages = drawio.split('<diagram ').slice(1);
+  for (const s of full.shapes) expect(pages[0]).toContain(`<mxCell id="${s.id}"`);
+  const narrowed = full.shapes.filter(
+    (s) =>
+      s.id === id ||
+      s.parentId === id ||
+      full.shapes.some((p) => p.id === s.parentId && p.parentId === id),
+  );
+  expect(narrowed.length).toBeGreaterThan(0);
+  expect(pages[1].match(/vertex="1"/g)).toHaveLength(narrowed.length);
+  for (const s of narrowed) expect(pages[1]).toContain(`<mxCell id="${s.id}"`);
+});
+
 test('sharing defaults to the view, full model is explicit, and reopening resets scope', async ({
   page,
 }) => {

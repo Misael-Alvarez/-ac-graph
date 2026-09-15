@@ -7,9 +7,17 @@ import { HttpError, error, readJsonBody } from '../http';
  * Small helpers the diagram route handlers share.
  */
 
-/** Reads and validates a JSON body; a bad payload is a 400 with the issues listed. */
-export async function parseBody<T>(request: Request, schema: ZodType<T>): Promise<T> {
-  const raw = await readJsonBody(request);
+/**
+ * Reads and validates a JSON body; a bad payload is a 400 with the issues
+ * listed. With `optional`, a request that carries no body at all is read as
+ * `{}` — for the routes whose body only adds to what the URL already says.
+ */
+export async function parseBody<T>(
+  request: Request,
+  schema: ZodType<T>,
+  { optional = false }: { optional?: boolean } = {},
+): Promise<T> {
+  const raw = optional && !hasBody(request) ? {} : await readJsonBody(request);
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     throw new HttpError(400, 'bad_request', 'The request body is not valid.', {
@@ -17,6 +25,11 @@ export async function parseBody<T>(request: Request, schema: ZodType<T>): Promis
     });
   }
   return parsed.data;
+}
+
+/** A body was sent: the stream exists and is not declared empty. */
+function hasBody(request: Request): boolean {
+  return request.body !== null && request.headers.get('content-length') !== '0';
 }
 
 /** `If-Match` carries the revision the editor last saw; it wins over the body. */

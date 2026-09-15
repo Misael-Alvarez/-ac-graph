@@ -161,7 +161,16 @@ describe('HttpDiagramRepository', () => {
     expect((await repo.updateMeta('dgm_1', { title: 'X' })).id).toBe('dgm_1');
     expect(calls.at(-1)?.init.method).toBe('PATCH');
 
+    // Without a title the request has no body, as it always had; the server names the copy.
     expect((await repo.duplicate('dgm_1')).id).toBe('dgm_2');
+    expect(calls.at(-1)?.url).toBe('/api/diagrams/dgm_1/duplicate');
+    expect(calls.at(-1)?.init.method).toBe('POST');
+    expect(calls.at(-1)?.init.body).toBeUndefined();
+    expect(headerOf(calls.at(-1)!, 'content-type')).toBeNull();
+    // With one, the title is the body.
+    expect((await repo.duplicate('dgm_1', { title: 'Copia de Arch' })).id).toBe('dgm_2');
+    expect(headerOf(calls.at(-1)!, 'content-type')).toBe('application/json');
+    expect(JSON.parse(calls.at(-1)?.init.body as string)).toEqual({ title: 'Copia de Arch' });
     await expect(repo.delete('dgm_1')).resolves.toBeUndefined();
     expect(await repo.listVersions('dgm_1')).toEqual([version]);
     expect(await repo.exportWorkspace()).toEqual({ exportedAt: 'T', diagrams: [], versions: [] });
