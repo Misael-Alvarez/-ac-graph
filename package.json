@@ -22,6 +22,7 @@
     "test:visual:update": "playwright test --project=visual --update-snapshots",
     "audit:controls": "node scripts/audit-controls.mjs",
     "audit:roles": "node scripts/audit-roles.mjs",
+    "users": "node scripts/users.mjs",
     "styles:snapshot": "node scripts/style-snapshot.mjs capture",
     "styles:compare": "node scripts/style-snapshot.mjs compare",
     "styles:match-map": "node scripts/css-match-map.mjs src/app/globals.css",

@@ -1,16 +1,45 @@
-# Server mode with Authentik
+# Server mode, and single sign-on with Authentik (optional)
 
 AC Graph runs in one of two modes, decided at start-up from environment
 variables alone:
 
-| Mode       | Storage                  | Identity                     | When                                                                          |
-| ---------- | ------------------------ | ---------------------------- | ----------------------------------------------------------------------------- |
-| **local**  | IndexedDB in the browser | none                         | default                                                                       |
-| **server** | PostgreSQL               | OpenID Connect via Authentik | `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID` **and** `APP_URL` are all set |
+| Mode       | Storage                  | Identity                                                 | When                                                    |
+| ---------- | ------------------------ | -------------------------------------------------------- | ------------------------------------------------------- |
+| **local**  | IndexedDB in the browser | none                                                     | default                                                 |
+| **server** | PostgreSQL               | **e-mail + password** kept in the database (default)     | `DATABASE_URL` **and** `APP_URL` are set                |
+| **server** | PostgreSQL               | OpenID Connect via Authentik (or any compliant provider) | …and `OIDC_ISSUER` **and** `OIDC_CLIENT_ID` are set too |
 
-`GET /api/config` tells the browser which mode it is in. In local mode every
-other server route answers `404 {"code":"server_mode_off"}` and never touches a
+`GET /api/config` tells the browser which mode it is in — and, in server mode,
+which of the two sign-ins (`auth.provider`: `local` or `oidc`) and whether the
+sign-in page may create accounts (`auth.signup`). In local mode every other
+server route answers `404 {"code":"server_mode_off"}` and never touches a
 database or an identity provider.
+
+## 0. The default: accounts kept on the server
+
+With only `DATABASE_URL` and `APP_URL`, the sign-in page asks for an e-mail
+and a password. Passwords are stored as **scrypt** hashes (N = 2¹⁵, r = 8,
+p = 3, a 16-byte salt each; the parameters travel inside the stored string so
+they can be raised later). A wrong e-mail and a wrong password are the same
+`401 invalid_credentials`, and a miss costs the same time as a hit. Attempts
+are throttled per address (10, refilling 5 a minute) and per e-mail; sign-ups
+per address (5, refilling 2 a minute). Every write is same-origin only, like
+the rest of the API: `APP_URL` must be exactly what the browser shows.
+
+- `AUTH_SIGNUP=open` (default): the page offers **Create account**. Anyone
+  who can reach the URL can make one — fine behind a VPN or for a first
+  deployment; set it to `closed` once the team is in.
+- `AUTH_SIGNUP=closed`: accounts are made from a terminal with the database
+  URL: `npm run users -- create <email> "<name>"` (asks the password, or
+  reads `PASSWORD` from the environment), `passwd <email>`, `list`,
+  `delete <email>`. On AWS, see [AWS.md](AWS.md) for where to run it.
+- A local account is a `users` row with `issuer = 'local'` and its
+  lower-cased e-mail as `subject`; `password_hash` holds the hash. Accounts
+  that came through a provider have no hash and cannot sign in with a
+  password. Run one provider per deployment.
+
+Everything below is for the **optional** provider set-up. Skip it if
+passwords are what you want.
 
 Server mode gives one workspace where each diagram belongs to whoever created
 it: only its **members** — the owner, and the editors and viewers the owner let
@@ -53,8 +82,9 @@ workspace.
 | Variable             | Required | Meaning                                                                                                                                                      |
 | -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `DATABASE_URL`       | yes      | PostgreSQL connection string. `compose.server.yaml` builds it from `POSTGRES_PASSWORD`; set it yourself for `next dev`                                       |
-| `OIDC_ISSUER`        | yes      | The provider's issuer URL, trailing slash included                                                                                                           |
-| `OIDC_CLIENT_ID`     | yes      | Client ID from the provider                                                                                                                                  |
+| `OIDC_ISSUER`        | for SSO  | The provider's issuer URL, trailing slash included. Set **together** with `OIDC_CLIENT_ID`; one without the other turns server mode off                      |
+| `OIDC_CLIENT_ID`     | for SSO  | Client ID from the provider                                                                                                                                  |
+| `AUTH_SIGNUP`        | no       | Local accounts only: `open` (default) lets the sign-in page create accounts; `closed` leaves that to `npm run users`. Ignored with a provider                |
 | `OIDC_CLIENT_SECRET` | no       | Only for a confidential client. Empty = public client, PKCE alone                                                                                            |
 | `APP_URL`            | yes      | The origin the **browser** uses, e.g. `https://graph.example.com` or `http://localhost:3080`. Decides the `Secure` flag on cookies and the CSRF origin check |
 | `SESSION_TTL_HOURS`  | no       | Session lifetime, default `12`. Sessions are not refreshed; Authentik's own SSO session makes re-login a redirect                                            |

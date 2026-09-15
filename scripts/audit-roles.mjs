@@ -77,9 +77,87 @@ const bobPage = await signedIn(bob.cookie);
 
 let diagramId = null;
 let bobDiagramId = null;
+/** The account the sign-in page itself creates below; removed at the end. */
+const carolEmail = `carol.${randomBytes(3).toString('hex')}@audit.invalid`;
 try {
   const model = createEmptyModel();
   addGroup(model, 0, 0);
+
+  /* 0. The front door, when the server keeps the passwords itself: a third
+     person with no cookie at all creates an account from the sign-in page,
+     lands in the library, signs out from the account menu, and signs back in.
+     Skipped — and said so — when the server signs people in through a provider. */
+  const config = await (await fetch(`${base}/api/config`)).json();
+  if (config.auth?.provider === 'local') {
+    const fresh = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      locale: 'es',
+    });
+    const carol = await fresh.newPage();
+    await carol.goto(`${base}/`);
+    await carol.waitForSelector('.signin-form', { timeout: 15000 });
+    check(
+      'Sign-in page: a stranger sees the password form, not the app',
+      (await carol.locator('.library').count()) === 0,
+    );
+    const password = 'audit passphrase 2026';
+    if (config.auth.signup) {
+      await carol.getByRole('button', { name: /Créala/ }).click();
+      await carol.getByLabel('Tu nombre').fill('Carol Audit');
+      await carol.getByLabel('Correo').fill(carolEmail);
+      await carol.getByLabel('Contraseña').fill('short');
+      await carol.getByRole('button', { name: 'Crear cuenta' }).click();
+      await carol.waitForTimeout(400);
+      check(
+        'Sign-in page: a short password is refused with a message, not a request',
+        (await carol.locator('.signin-form .ai-error').count()) === 1 &&
+          (await carol.locator('.signin-form').count()) === 1,
+      );
+      await carol.getByLabel('Contraseña').fill(password);
+      await carol.getByRole('button', { name: 'Crear cuenta' }).click();
+      await carol.waitForSelector('.library', { timeout: 15000 });
+      check('Sign-in page: creating an account lands in the library, signed in', true);
+      await shot(carol, '00-signed-up');
+    } else {
+      // Sign-up closed: the account is made the way the operator would.
+      const { createLocalUser } = await import('../src/server/auth/password.ts');
+      await createLocalUser({ name: 'Carol Audit', email: carolEmail, password }, pool);
+      await carol.getByLabel('Correo').fill(carolEmail);
+      await carol.getByLabel('Contraseña').fill(password);
+      await carol.getByRole('button', { name: 'Entrar' }).click();
+      await carol.waitForSelector('.library', { timeout: 15000 });
+      check('Sign-in page: an account made from the terminal signs in', true);
+    }
+    const whoami = await carol.evaluate(async () => (await fetch('/api/auth/me')).json());
+    check(
+      'Sign-in page: /api/auth/me knows the new person',
+      whoami.user?.email === carolEmail,
+      JSON.stringify(whoami),
+    );
+    // Out through the header's sign-out button, back to the form.
+    await carol.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await carol.waitForSelector('.signin-form', { timeout: 15000 });
+    check('Sign-in page: signing out returns to the form', true);
+    const after = await carol.evaluate(async () => (await fetch('/api/auth/me')).status);
+    check('Sign-in page: the session is gone on the server too', after === 401, String(after));
+    // Wrong password, then the right one.
+    await carol.getByLabel('Correo').fill(carolEmail);
+    await carol.getByLabel('Contraseña').fill('not the passphrase');
+    await carol.getByRole('button', { name: 'Entrar' }).click();
+    await carol.waitForSelector('.signin-form .ai-error', { timeout: 10000 });
+    check(
+      'Sign-in page: a wrong password says so and stays on the form',
+      /correo o la contraseña/.test(await carol.locator('.signin-form .ai-error').innerText()),
+    );
+    await carol.getByLabel('Contraseña').fill(password);
+    await carol.getByRole('button', { name: 'Entrar' }).click();
+    await carol.waitForSelector('.library', { timeout: 15000 });
+    check('Sign-in page: the right password signs back in', true);
+    await shot(carol, '00-signed-in-again');
+    await fresh.close();
+  } else {
+    console.log(`(sign-in page: skipped — provider is ${config.auth?.provider ?? 'unknown'})`);
+  }
 
   await adaPage.goto(`${base}/`);
   await adaPage.waitForSelector('.library', { timeout: 15000 });
@@ -367,6 +445,9 @@ try {
   await shot(bobPage, '06-library');
   if (shots) await card.screenshot({ path: `${shots}/06-library-card.png` });
   const cards = await bobPage.locator('.library-card').filter({ hasText: 'Roles audit' }).count();
+  // The card's actions take the pointer only while the card is hovered, as a
+  // person's hand would have it; the hit test runs before the move otherwise.
+  await card.hover();
   await card.getByRole('button', { name: /^Salir/ }).click();
   await bobPage.getByRole('button', { name: 'Salir' }).last().click();
   await bobPage
@@ -472,6 +553,8 @@ try {
       ])
       .catch(() => {});
   }
+  // The account the sign-in page made is the one seeded thing that goes.
+  await pool.query('delete from users where lower(email) = $1', [carolEmail]).catch(() => {});
   await pool.end();
   await browser.close();
 }

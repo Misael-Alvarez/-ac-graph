@@ -22,6 +22,14 @@ import { log } from './observability/log';
  */
 export type ErrorCode =
   | 'unauthenticated'
+  /** The e-mail or the password is wrong; which one is never said. */
+  | 'invalid_credentials'
+  /** The sign-in page does not create accounts on this server. */
+  | 'signup_closed'
+  /** There is an account with this e-mail already. */
+  | 'email_taken'
+  /** Too many attempts from one place in a short while. */
+  | 'rate_limited'
   /** The request itself is not allowed: a failed same-origin check. */
   | 'forbidden'
   /** This person is signed in and may not do that with this diagram. */
@@ -43,6 +51,8 @@ export class HttpError extends Error {
     readonly code: ErrorCode,
     message: string,
     readonly details: Record<string, unknown> = {},
+    /** Response headers the error travels with — `Retry-After` on a 429. */
+    readonly headers: Record<string, string> = {},
   ) {
     super(message);
     this.name = 'HttpError';
@@ -90,7 +100,9 @@ export function serverModeOff(): Response {
 /** Maps any thrown value to a response, hiding everything that is not ours. */
 export function errorResponse(thrown: unknown): Response {
   if (thrown instanceof HttpError) {
-    return error(thrown.status, thrown.code, thrown.message, thrown.details);
+    return error(thrown.status, thrown.code, thrown.message, thrown.details, {
+      headers: thrown.headers,
+    });
   }
   if (thrown instanceof DiagramConflictError) {
     return error(412, 'conflict', thrown.message);

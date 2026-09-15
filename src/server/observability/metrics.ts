@@ -400,7 +400,7 @@ function declareAppMetrics(registry: Registry): AppMetrics {
       'acgraph_sessions_ended_total',
       'Sessions ended explicitly by signing out.',
     ),
-    logins: registry.counter('acgraph_logins_total', 'OIDC round trips, by outcome.', ['result']),
+    logins: registry.counter('acgraph_logins_total', 'Sign-in attempts, by outcome.', ['result']),
     sseConnections: registry.gauge(
       'acgraph_sse_connections',
       'Open event streams (one per viewer per diagram) in this process.',

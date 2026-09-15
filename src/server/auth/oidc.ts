@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import type { User } from '@/lib/domain';
 import { uid } from '@/lib/engine';
 import { getPool } from '../db';
-import { serverEnv, type ServerEnv } from '../env';
+import { oidcEnv, type ServerEnv } from '../env';
 import { resetSingleton, singleton } from '../globals';
 import { HttpError } from '../http';
 import { toUser, type UserRow } from './session';
@@ -20,6 +20,9 @@ export const AUTH_STATE_TTL_MINUTES = 10;
 export const OIDC_SCOPES = 'openid profile email';
 export const CALLBACK_PATH = '/api/auth/callback';
 
+/** The server settings with the provider present: what every function here needs. */
+export type OidcEnv = ReturnType<typeof oidcEnv>;
+
 const CONFIG_KEY = 'oidcConfig';
 
 export function callbackUrl(env: Pick<ServerEnv, 'appUrl'>): string {
@@ -32,7 +35,7 @@ export function callbackUrl(env: Pick<ServerEnv, 'appUrl'>): string {
  * Discovery happens on the first login, never at import. A failed discovery is
  * forgotten so a provider that was briefly down is retried on the next attempt.
  */
-export function getOidcConfig(env = serverEnv()): Promise<oidc.Configuration> {
+export function getOidcConfig(env: OidcEnv = oidcEnv()): Promise<oidc.Configuration> {
   return singleton(CONFIG_KEY, () =>
     discover(env).catch((error: unknown) => {
       resetSingleton(CONFIG_KEY);
@@ -41,7 +44,7 @@ export function getOidcConfig(env = serverEnv()): Promise<oidc.Configuration> {
   );
 }
 
-function discover(env: ServerEnv): Promise<oidc.Configuration> {
+function discover(env: OidcEnv): Promise<oidc.Configuration> {
   const issuer = new URL(env.oidcIssuer);
   const metadata = env.oidcClientSecret ? { client_secret: env.oidcClientSecret } : undefined;
   const clientAuth = env.oidcClientSecret
@@ -86,7 +89,7 @@ export interface LoginStart {
 export async function beginLogin(
   nextPath: string,
   pool: Pool = getPool(),
-  env = serverEnv(),
+  env: OidcEnv = oidcEnv(),
 ): Promise<LoginStart> {
   const config = await getOidcConfig(env);
   const codeVerifier = oidc.randomPKCECodeVerifier();
@@ -132,7 +135,7 @@ export async function completeLogin(
   callbackParams: URLSearchParams,
   boundState: string | null,
   pool: Pool = getPool(),
-  env = serverEnv(),
+  env: OidcEnv = oidcEnv(),
 ): Promise<LoginResult> {
   const state = callbackParams.get('state');
   if (!state || !boundState || state !== boundState) {
@@ -233,7 +236,7 @@ export function displayName(claims: {
 }
 
 /** Where Authentik can end its own session too, if it says so. */
-export async function endSessionUrl(env = serverEnv()): Promise<string | null> {
+export async function endSessionUrl(env: OidcEnv = oidcEnv()): Promise<string | null> {
   try {
     const config = await getOidcConfig(env);
     if (!config.serverMetadata().end_session_endpoint) return null;

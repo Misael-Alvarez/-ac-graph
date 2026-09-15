@@ -28,14 +28,20 @@ export function schemaUrl(schema: string): string {
   return url.href;
 }
 
-/** Environment that turns server mode on for the modules that read `process.env`. */
-export function testEnv(schema: string) {
+/**
+ * Environment that turns server mode on for the modules that read `process.env`:
+ * signing in through a provider by default, as most of the suite predates local
+ * accounts and only ever seeds sessions straight into the table; `'local'` for
+ * the tests of the password routes.
+ */
+export function testEnv(schema: string, provider: 'oidc' | 'local' = 'oidc') {
   return {
     DATABASE_URL: schemaUrl(schema),
-    OIDC_ISSUER: 'https://auth.invalid/application/o/ac-graph/',
-    OIDC_CLIENT_ID: 'ac-graph',
+    OIDC_ISSUER: provider === 'oidc' ? 'https://auth.invalid/application/o/ac-graph/' : '',
+    OIDC_CLIENT_ID: provider === 'oidc' ? 'ac-graph' : '',
     APP_URL: 'https://graph.example.com',
     SESSION_TTL_HOURS: '12',
+    AUTH_SIGNUP: 'open',
   } as const;
 }
 
@@ -88,6 +94,9 @@ export function resetServerSingletons(): void {
     'appMetrics',
     'logger',
     'collaboration',
+    'loginLimiter',
+    'signupLimiter',
+    'passwordDecoy',
   ]) {
     resetSingleton(key);
   }

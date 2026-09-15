@@ -20,14 +20,38 @@ describe('GET /api/config', () => {
     expect(await response.json()).toEqual({ mode: 'local' });
   });
 
-  it('reports server mode with the auth endpoints when all four are set', async () => {
+  it('reports server mode with local accounts when only the database and URL are set', async () => {
+    vi.stubEnv('DATABASE_URL', 'postgres://x:y@db/acgraph');
+    vi.stubEnv('OIDC_ISSUER', '');
+    vi.stubEnv('OIDC_CLIENT_ID', '');
+    vi.stubEnv('APP_URL', 'https://graph.example.com');
+    expect(await (await GET(request())).json()).toEqual({
+      mode: 'server',
+      auth: {
+        provider: 'local',
+        signup: true,
+        loginUrl: '/api/auth/login',
+        logoutUrl: '/api/auth/logout',
+      },
+    });
+    vi.stubEnv('AUTH_SIGNUP', 'closed');
+    const closed = (await (await GET(request())).json()) as { auth: { signup: boolean } };
+    expect(closed.auth.signup).toBe(false);
+  });
+
+  it('reports the provider, with no self-service sign-up, when OIDC is configured', async () => {
     vi.stubEnv('DATABASE_URL', 'postgres://x:y@db/acgraph');
     vi.stubEnv('OIDC_ISSUER', 'https://auth.example.com/application/o/ac-graph/');
     vi.stubEnv('OIDC_CLIENT_ID', 'client');
     vi.stubEnv('APP_URL', 'https://graph.example.com');
     expect(await (await GET(request())).json()).toEqual({
       mode: 'server',
-      auth: { loginUrl: '/api/auth/login', logoutUrl: '/api/auth/logout' },
+      auth: {
+        provider: 'oidc',
+        signup: false,
+        loginUrl: '/api/auth/login',
+        logoutUrl: '/api/auth/logout',
+      },
     });
   });
 });

@@ -3,7 +3,8 @@ import type { NextRequest } from 'next/server';
 import { appMetrics } from '@/server/observability/metrics';
 import { captureLogs } from '@/server/testing/logs';
 import { GET as callback } from './auth/callback/route';
-import { GET as login } from './auth/login/route';
+import { GET as login, POST as passwordLogin } from './auth/login/route';
+import { POST as register } from './auth/register/route';
 import { POST as logout } from './auth/logout/route';
 import { GET as me } from './auth/me/route';
 import { GET as listDiagrams, POST as createDiagram } from './diagrams/route';
@@ -36,11 +37,14 @@ function localMode() {
   vi.stubEnv('APP_URL', '');
 }
 
-function serverMode() {
+function serverMode(provider: 'oidc' | 'local' = 'oidc') {
   // A database nobody listens on: these tests must never get that far.
   vi.stubEnv('DATABASE_URL', 'postgres://nobody:nothing@127.0.0.1:1/none');
-  vi.stubEnv('OIDC_ISSUER', 'https://auth.example.com/application/o/ac-graph/');
-  vi.stubEnv('OIDC_CLIENT_ID', 'client');
+  vi.stubEnv(
+    'OIDC_ISSUER',
+    provider === 'oidc' ? 'https://auth.example.com/application/o/ac-graph/' : '',
+  );
+  vi.stubEnv('OIDC_CLIENT_ID', provider === 'oidc' ? 'client' : '');
   vi.stubEnv('APP_URL', ORIGIN);
 }
 
@@ -53,6 +57,8 @@ describe('in local mode', () => {
     localMode();
     const responses = await Promise.all([
       login(request('/api/auth/login')),
+      passwordLogin(request('/api/auth/login', { method: 'POST' })),
+      register(request('/api/auth/register', { method: 'POST' })),
       callback(request('/api/auth/callback?code=x&state=y')),
       logout(request('/api/auth/logout', { method: 'POST' })),
       me(request('/api/auth/me')),
@@ -118,6 +124,48 @@ describe('in server mode, before the database', () => {
     serverMode();
     const response = await logout(request('/api/auth/logout', { method: 'POST' }));
     expect(response.status).toBe(403);
+  });
+
+  it('the password login and the sign-up are guarded the same way', async () => {
+    serverMode('local');
+    const body = JSON.stringify({ email: 'ada@example.com', password: 'a long password' });
+    const noMarker = await passwordLogin(request('/api/auth/login', { method: 'POST', body }));
+    expect(noMarker.status).toBe(403);
+    const elsewhere = await register(
+      request('/api/auth/register', {
+        method: 'POST',
+        body,
+        headers: { origin: 'https://evil.example', 'x-requested-with': 'ac-graph' },
+      }),
+    );
+    expect(elsewhere.status).toBe(403);
+  });
+});
+
+describe('the two faces of the login are exclusive', () => {
+  const marker = { origin: ORIGIN, 'x-requested-with': 'ac-graph' };
+
+  it('with a provider, the password routes are 404 before any body is read', async () => {
+    serverMode('oidc');
+    const body = JSON.stringify({ email: 'ada@example.com', password: 'a long password' });
+    for (const response of await Promise.all([
+      passwordLogin(request('/api/auth/login', { method: 'POST', body, headers: marker })),
+      register(request('/api/auth/register', { method: 'POST', body, headers: marker })),
+    ])) {
+      expect(response.status).toBe(404);
+      expect((await response.json()).code).toBe('not_found');
+    }
+  });
+
+  it('with local accounts, the provider routes are 404', async () => {
+    serverMode('local');
+    for (const response of await Promise.all([
+      login(request('/api/auth/login?next=/d/x')),
+      callback(request('/api/auth/callback?code=x&state=y')),
+    ])) {
+      expect(response.status).toBe(404);
+      expect((await response.json()).code).toBe('not_found');
+    }
   });
 });
 

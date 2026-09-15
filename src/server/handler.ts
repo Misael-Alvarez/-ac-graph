@@ -3,7 +3,7 @@ import type { User } from '@/lib/domain';
 import { SESSION_COOKIE, assertSameOrigin, readCookie, requireUser } from './auth/session';
 import { PgDiagramRepository } from './diagrams/repository';
 import { PgIconLibrary } from './icons/repository';
-import { serverMode } from './env';
+import { serverEnv, serverMode, type AuthProvider } from './env';
 import { HttpError, errorResponse, serverModeOff } from './http';
 import { annotateRequest } from './observability/context';
 import { observe } from './observability/request';
@@ -32,6 +32,29 @@ export interface GuardOptions {
   route: string;
   /** Require the same-origin marker and Origin/Referer check. */
   mutating?: boolean;
+}
+
+/**
+ * For the auth routes: the face of the login this route belongs to. A route
+ * for the other face is 404 before the database is touched, so a deployment
+ * with passwords has no provider redirect and one with a provider takes no
+ * password — and neither can be told apart from a missing route.
+ */
+export interface AuthGuardOptions extends GuardOptions {
+  provider?: AuthProvider;
+}
+
+/** Whether the request body is read at all: only under the right face. */
+function assertProvider(provider: AuthProvider | undefined): void {
+  if (provider && serverEnv().authProvider !== provider) {
+    throw new HttpError(
+      404,
+      'not_found',
+      provider === 'oidc'
+        ? 'This server signs people in with a password, not through a provider.'
+        : 'This server signs people in through its identity provider.',
+    );
+  }
 }
 
 export async function withUser(
@@ -66,13 +89,14 @@ export async function withUser(
 /** For the auth routes, which run before there is a user. */
 export async function withServerMode(
   request: Request,
-  options: GuardOptions,
+  options: AuthGuardOptions,
   handler: () => Promise<Response>,
 ): Promise<Response> {
   return observe(request, { route: options.route }, async () => {
     if (!serverMode()) return serverModeOff();
     try {
       if (options.mutating) assertSameOrigin(request);
+      assertProvider(options.provider);
       await ensureSchema();
       return await handler();
     } catch (thrown) {

@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
  * the server log.
  */
 export function GET(request: NextRequest) {
-  return withServerMode(request, { route: '/api/auth/callback' }, async () => {
+  return withServerMode(request, { route: '/api/auth/callback', provider: 'oidc' }, async () => {
     const boundState = readCookie(request, AUTH_STATE_COOKIE);
     try {
       const { user, nextPath } = await completeLogin(request.nextUrl.searchParams, boundState);

@@ -4,14 +4,18 @@ import { z } from 'zod';
  * How this deployment is configured, as the server reports it.
  *
  * `local` is the browser-only editor: diagrams in IndexedDB, no accounts.
- * `server` means PostgreSQL behind the API and sign-in through the company's
- * identity provider; a diagram is seen by its owner and the people they let in.
- * The browser asks once at start-up and everything else follows from the answer.
+ * `server` means PostgreSQL behind the API and a sign-in: with an e-mail and
+ * a password the server keeps (`local`; `signup` says whether the page may
+ * create an account) or through the company's identity provider (`oidc`). A
+ * diagram is seen by its owner and the people they let in. The browser asks
+ * once at start-up and everything else follows from the answer.
  */
 export const AppConfigSchema = z.object({
   mode: z.enum(['local', 'server']),
   auth: z
     .object({
+      provider: z.enum(['local', 'oidc']).default('oidc'),
+      signup: z.boolean().default(false),
       loginUrl: z.string(),
       logoutUrl: z.string(),
     })

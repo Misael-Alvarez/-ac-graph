@@ -114,7 +114,7 @@ the request through the proxy and the app; a 500 quotes it in its JSON body.
 **Metrics.** `GET /api/metrics` serves the Prometheus text format: request count
 and latency histogram per route template and method, in-flight requests, 412
 conflicts, diagram saves and restores by outcome, sessions created and ended,
-OIDC logins by outcome, open event streams and events published, database
+sign-in attempts by outcome, open event streams and events published, database
 transactions and pool clients, unhandled errors, plus the usual process, heap,
 event-loop and version gauges and `acgraph_build_info`. Labels are always drawn
 from a closed set — no user, diagram or session id ever becomes a label. The

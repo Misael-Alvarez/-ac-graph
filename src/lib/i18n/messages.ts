@@ -604,6 +604,28 @@ const en = {
   'signin.note':
     'Your identity is verified by Authentik. Nothing is stored in this browser until you sign in.',
   'signin.error': 'Sign-in did not complete. Try again or contact the platform team.',
+  'signin.subtitlePassword':
+    'Architecture diagrams for AION Cloud. Sign in to open the shared workspace.',
+  'signin.subtitleCreate':
+    'Create your account for the shared workspace. You will be signed in right away.',
+  'signin.name': 'Your name',
+  'signin.email': 'E-mail',
+  'signin.password': 'Password',
+  'signin.passwordHint': 'At least 10 characters. A sentence you will remember works best.',
+  'signin.enter': 'Sign in',
+  'signin.create': 'Create account',
+  'signin.noAccount': 'No account yet? Create one',
+  'signin.haveAccount': 'Already have an account? Sign in',
+  'signin.notePassword':
+    'Your password is kept hashed on this server and nowhere else. Nothing is stored in this browser until you sign in.',
+  'signin.invalid': 'The e-mail or the password is not right.',
+  'signin.emailTaken': 'There is an account with this e-mail already. Sign in instead.',
+  'signin.signupClosed': 'This server does not create accounts from here. Ask whoever runs it.',
+  'signin.rateLimited': 'Too many attempts. Wait a moment and try again.',
+  'signin.badRequest': 'Check the e-mail address and use at least 10 characters for the password.',
+  'signin.forbidden':
+    'The server refused the request. Its APP_URL must match the address in your browser.',
+  'signin.unavailable': 'The server could not be reached. Try again in a moment.',
 
   'live.connected': 'Live',
   'live.connecting': 'Connecting…',
@@ -1288,6 +1310,29 @@ const es: Record<MessageKey, string> = {
     'Tu identidad la verifica Authentik. No se guarda nada en este navegador hasta que inicies sesión.',
   'signin.error':
     'No se completó el inicio de sesión. Inténtalo de nuevo o avisa al equipo de plataforma.',
+  'signin.subtitlePassword':
+    'Diagramas de arquitectura de AION Cloud. Inicia sesión para entrar al espacio compartido.',
+  'signin.subtitleCreate':
+    'Crea tu cuenta para el espacio compartido. Entrarás directamente al terminar.',
+  'signin.name': 'Tu nombre',
+  'signin.email': 'Correo',
+  'signin.password': 'Contraseña',
+  'signin.passwordHint': 'Al menos 10 caracteres. Una frase que recuerdes funciona mejor.',
+  'signin.enter': 'Entrar',
+  'signin.create': 'Crear cuenta',
+  'signin.noAccount': '¿Aún no tienes cuenta? Créala',
+  'signin.haveAccount': '¿Ya tienes cuenta? Entra',
+  'signin.notePassword':
+    'Tu contraseña se guarda cifrada (hash) solo en este servidor. No se guarda nada en este navegador hasta que inicies sesión.',
+  'signin.invalid': 'El correo o la contraseña no son correctos.',
+  'signin.emailTaken': 'Ya hay una cuenta con este correo. Entra con ella.',
+  'signin.signupClosed':
+    'Este servidor no crea cuentas desde aquí. Pídesela a quien lo administra.',
+  'signin.rateLimited': 'Demasiados intentos. Espera un momento y vuelve a probar.',
+  'signin.badRequest': 'Revisa el correo y usa al menos 10 caracteres en la contraseña.',
+  'signin.forbidden':
+    'El servidor rechazó la petición. Su APP_URL debe coincidir con la dirección que ves en el navegador.',
+  'signin.unavailable': 'No se pudo contactar con el servidor. Inténtalo en un momento.',
 
   'live.connected': 'En vivo',
   'live.connecting': 'Conectando…',

@@ -174,6 +174,17 @@ export const MIGRATIONS: readonly Migration[] = [
         on comment_threads (diagram_id, created_at);
     `,
   },
+  {
+    id: 10,
+    name: 'local_accounts',
+    // Accounts this server checks itself: the hash of a password beside the
+    // user. Null for everyone who came through a provider. A local account
+    // has `issuer = 'local'` and its lower-cased e-mail as `subject`, so the
+    // (issuer, subject) key already there keeps e-mails unique among them.
+    sql: `
+      alter table users add column if not exists password_hash text;
+    `,
+  },
 ];
 
 /** Arbitrary but fixed: every replica must ask for the same advisory lock. */

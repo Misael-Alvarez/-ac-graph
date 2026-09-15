@@ -63,6 +63,24 @@ describe.skipIf(!pgAvailable())('schema migrations (PostgreSQL)', () => {
     expect(types['comment_threads.created_at']).toBe('text');
   });
 
+  it('keeps a nullable password hash beside each user, for the accounts kept here', async () => {
+    const column = await pool.query<{ data_type: string; is_nullable: string }>(
+      `select data_type, is_nullable from information_schema.columns
+        where table_schema = current_schema() and table_name = 'users' and column_name = 'password_hash'`,
+    );
+    expect(column.rows).toEqual([{ data_type: 'text', is_nullable: 'YES' }]);
+    // And the (issuer, subject) key is what keeps local e-mails unique.
+    await pool.query(
+      `insert into users (id, issuer, subject, name, email, password_hash) values ('usr_a', 'local', 'a@x.io', 'A', 'a@x.io', 'scrypt$1$1$1$a$b')`,
+    );
+    await expect(
+      pool.query(
+        `insert into users (id, issuer, subject, name, email) values ('usr_b', 'local', 'a@x.io', 'B', 'a@x.io')`,
+      ),
+    ).rejects.toThrow(/users_issuer_subject_key/);
+    await pool.query(`delete from users where id = 'usr_a'`);
+  });
+
   it('survives concurrent runners thanks to the advisory lock', async () => {
     await dropSchema(pool);
     const results = await Promise.all([

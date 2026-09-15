@@ -2,8 +2,8 @@
 
 AION Cloud's architecture diagram platform. Draw on a canvas, or write the
 architecture as YAML and watch it draw itself — the two stay in sync. Run it
-alone in a browser, or as a shared workspace behind the company's Authentik
-sign-in where everyone sees the same diagrams and each other's cursors.
+alone in a browser, or as a shared workspace behind a sign-in where everyone
+sees the same diagrams and each other's cursors.
 
 ## Getting started
 
@@ -43,20 +43,25 @@ That is **local mode**: diagrams live in the browser's IndexedDB, a different
 host or port is a different workspace, and there are no accounts.
 
 **Server mode** — the shared, signed-in workspace — layers a second Compose
-file on top and needs four settings (the database password, the Authentik
-issuer and client id, and the public URL):
+file on top and needs two settings: the database password and the public URL
+the browser uses.
 
 ```bash
-POSTGRES_PASSWORD=… OIDC_ISSUER=https://auth.example.com/application/o/ac-graph/ \
-OIDC_CLIENT_ID=… APP_URL=http://127.0.0.1:3080 \
+POSTGRES_PASSWORD=… APP_URL=http://127.0.0.1:3080 \
 docker compose -f compose.yaml -f compose.server.yaml -p acgraph-foundation up -d --build --wait
 ```
 
-Diagrams then live in PostgreSQL, every route demands an Authentik session, and
-editors of the same diagram see each other live. Set-up of the Authentik
-provider and what server mode does not do yet are in
-[docs/AUTHENTIK.md](docs/AUTHENTIK.md); ports, private runtime configuration
-and safe shutdown are in [docs/DOCKER.md](docs/DOCKER.md).
+Diagrams then live in PostgreSQL, every route demands a session, and editors of
+the same diagram see each other live. People sign in with an **e-mail and a
+password** kept — hashed with scrypt — in that database; the sign-in page
+creates accounts until you set `AUTH_SIGNUP=closed`, after which
+`npm run users -- create <email> "<name>"` (or `passwd`, `list`, `delete`) does
+it from a terminal. Add `OIDC_ISSUER` and `OIDC_CLIENT_ID` and the same
+deployment signs people in through the company's identity provider instead
+([docs/AUTHENTIK.md](docs/AUTHENTIK.md)). Ports, private runtime configuration
+and safe shutdown are in [docs/DOCKER.md](docs/DOCKER.md); running it on AWS
+is in [docs/AWS.md](docs/AWS.md) (and, step by step in Spanish,
+[docs/GUIA_RAPIDA_AWS.md](docs/GUIA_RAPIDA_AWS.md)).
 
 In both modes the server logs one JSON record per request (with a request id
 that is also returned as `x-request-id`), serves Prometheus metrics at
@@ -125,8 +130,10 @@ that is also returned as `x-request-id`), serves Prometheus metrics at
   remove them, and the change reaches the other person's screen at once. A
   viewer gets the whole editor read-only — every property, every export, live
   presence — and nothing that writes.
-- **Sign in with the company account.** Authentik (OpenID Connect) is the only
-  identity; there are no local passwords. See [docs/AUTHENTIK.md](docs/AUTHENTIK.md).
+- **Sign in.** An e-mail and a password kept on the server (scrypt, salted,
+  rate-limited, same-origin only), created from the sign-in page or from the
+  `users` CLI — or, when configured, the company's OpenID Connect provider
+  (Authentik) instead. See [docs/AUTHENTIK.md](docs/AUTHENTIK.md) for the latter.
 - **Official icons.** AWS, Google Cloud and IBM Cloud services draw with the
   vendors' own architecture artwork, vendored under `vendor/icons` with
   per-symbol provenance in `src/data/iconSources.json`.
@@ -316,7 +323,7 @@ src/components/   The editor: canvas, floating chrome, code panel
 src/app/api/      Route handlers: AI (the only place the API key exists), the
                   server-rendered embed, and in server mode the diagram API,
                   sessions and live events; /api/health and /api/metrics
-src/server/       Server mode: PostgreSQL repository, OIDC sessions, presence
+src/server/       Server mode: PostgreSQL repository, sessions (password or OIDC), presence
                   and live events shared between replicas over LISTEN/NOTIFY,
                   and observability (JSON logs, Prometheus metrics, optional
                   OpenTelemetry traces) behind one request wrapper
@@ -347,6 +354,8 @@ npm run lint
 npm run format
 npm run cli -- check arch.yaml   # the CLI, without installing it
 npm run mcp                      # the MCP server, on stdio
+DATABASE_URL=… npm run users -- list             # server mode: the accounts
+DATABASE_URL=… npm run users -- create a@b.io "Ada"  # a local account (asks the password)
 ```
 
 Install Chromium once with `npx playwright install chromium`. Playwright does not
