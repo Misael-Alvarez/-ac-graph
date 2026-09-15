@@ -51,7 +51,8 @@ Fargate ≈ 15, the rest cents). A second task adds ≈ 15.
   answers). The user or role applying needs to create VPC, ECS, RDS, ALB, IAM,
   ECR, Secrets Manager, CloudWatch, ACM and Route 53 resources —
   `AdministratorAccess` for the first apply is the honest answer.
-- Terraform ≥ 1.6 (`brew install terraform` or from hashicorp.com).
+- Terraform ≥ 1.10 (`brew install terraform` or from hashicorp.com).
+- If you rename `project_name`, rename `PROJECT` in `.github/workflows/deploy-aws.yml` too: the workflow addresses the cluster, service and task family by that name.
 - Docker, to build and push the first image.
 - A domain name. HTTPS is not optional: the session cookie is marked `Secure`
   and browsers refuse it over plain HTTP. Either the domain's zone is in
@@ -201,15 +202,17 @@ way out; delete it by hand if you really mean it.
 
 ## Troubleshooting
 
-| Symptom                                                                    | Cause and fix                                                                                                                                                              |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Service stays at 0 running tasks after the first apply                     | The registry is empty. Push the first image (`first_deploy_commands` output).                                                                                              |
-| Tasks start and stop every minute                                          | `aws ecs describe-services` → events; then `aws logs tail`. Usually the image cannot reach the database (security group) or `DATABASE_URL` is unreadable (execution role). |
-| Health check red, logs say `server started`                                | The target group probes `/api/health` on 3000; check the container port and that the task has a public IP (no NAT).                                                        |
-| Sign-in form says "The server refused the request"                         | `APP_URL` must be exactly what the browser shows (`https://<domain_name>`): the CSRF check compares origins. Change `domain_name`, apply, roll.                            |
-| `self signed certificate in certificate chain` in the logs                 | The connection string's `sslrootcert` path is wrong or the bundle is missing from the image. It is copied by the Dockerfile from `deploy/aws/rds-global-bundle.pem`.       |
-| GitHub workflow: `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The repository variable `AWS_DEPLOY_ROLE_ARN` or `github_repository`/`github_branch` do not match the branch that pushed.                                                  |
-| Certificate stuck in `PENDING_VALIDATION`                                  | With `hosted_zone_id`: the zone must be the one that serves `domain_name` publicly. Without it: validate the certificate in ACM yourself before applying.                  |
+| Symptom                                                                    | Cause and fix                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service stays at 0 running tasks after the first apply                     | The registry is empty. Push the first image (`first_deploy_commands` output).                                                                                                                                                                                                 |
+| Tasks start and stop every minute                                          | `aws ecs describe-services` → events; then `aws logs tail`. Usually the image cannot reach the database (security group) or `DATABASE_URL` is unreadable (execution role).                                                                                                    |
+| Health check red, logs say `server started`                                | The target group probes `/api/health` on 3000; check the container port and that the task has a public IP (no NAT).                                                                                                                                                           |
+| Sign-in form says "The server refused the request"                         | `APP_URL` must be exactly what the browser shows (`https://<domain_name>`): the CSRF check compares origins. Change `domain_name`, apply, roll.                                                                                                                               |
+| `self signed certificate in certificate chain` in the logs                 | The connection string's `sslrootcert` path is wrong or the bundle is missing from the image. It is copied by the Dockerfile from `deploy/aws/rds-global-bundle.pem`.                                                                                                          |
+| GitHub workflow: `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The repository variable `AWS_DEPLOY_ROLE_ARN` or `github_repository`/`github_branch` do not match the branch that pushed.                                                                                                                                                     |
+| Certificate stuck in `PENDING_VALIDATION`                                  | With `hosted_zone_id`: the zone must be the one that serves `domain_name` publicly. Without it: validate the certificate in ACM yourself before applying.                                                                                                                     |
+| `terraform apply` after a `destroy`: secret "scheduled for deletion"       | Secrets Manager keeps a deleted secret for 7 days under its name. `aws secretsmanager delete-secret --secret-id ac-graph/database-url --force-delete-without-recovery`, then apply again.                                                                                     |
+| Everything healthy, every page a 500                                       | `/api/health` is liveness only — it never touches the database, so a task with no route to RDS still passes the ALB. Read the logs (`connect ECONNREFUSED`/`timeout`) and check the db security group; the metric to alarm on is `acgraph_http_requests_total{status="500"}`. |
 
 ## What this stack does not do (yet)
 

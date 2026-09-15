@@ -1,6 +1,6 @@
 # Contexto de trabajo — cómo retomar AC Graph
 
-Última actualización: 2026-09-15 (cierre: login con contraseña, base AWS, limpieza; §3.1 del backlog entregado; ver commits en §1).
+Última actualización: 2026-09-15 (cierre final: login con contraseña rediseñado, tema que sigue al sistema, base AWS revisada; ver commits en §1).
 
 Este documento existe para que una sesión nueva — una persona o un agente — pueda continuar exactamente donde se dejó sin redescubrir el entorno. Lo que aquí se dice se verificó en la máquina de desarrollo; lo que no se pudo verificar se marca como tal.
 
@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · login con contraseña (scrypt) en modo servidor · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-14). El remoto apunta ya a la ubicación nueva, `https://github.com/Misael-Alvarez/-ac-graph.git` (`git remote set-url origin` hecho a petición del usuario).
-- **Estado del árbol:** limpio en `d133470` y **empujado** (`origin/main` = `d133470`, 2026-09-15; CI verde: `verify` + `docker-smoke`; «Deploy to AWS» omitido hasta que existan sus variables en GitHub). Commits de esta etapa, por tema:
+- **Estado del árbol:** limpio y **empujado** a `origin/main` (2026-09-15, cierre final; CI verde: `verify` + `docker-smoke`; «Deploy to AWS» omitido hasta que existan sus variables en GitHub). **Listo para desplegar en AWS** siguiendo `docs/GUIA_RAPIDA_AWS.md`; nada se ha aplicado aún contra una cuenta. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -54,6 +54,12 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `a1b7df6` — Sign in with an e-mail and a password kept on the server; the identity provider becomes the option
   - `34ab664` — Lay the ground on AWS: Terraform for the whole stack, a deploy workflow, the guides; and sweep the repository
   - `d133470` — Let the RDS CA bundle into the repository: the Dockerfile copies it, and *.pem kept it out of the first push
+  - `1a9691b` — Give the sign-in page the craft the rest of the app has: the title is the action, mistakes are said beside the field, and nothing moves while you type
+  - `ca27100` — Let the browser check back for the HTML on every visit, and keep a primary button's ink on hover
+  - `8ea33d3` — Finish the sign-in page against the UX checklist: validate on leaving a field, give every error its way out, and fit a thumb
+  - `582f435` — Say on the sign-in card when the build was made, as the home page's footer does
+  - `a3945a4` — Follow the system's theme until one is chosen by name, and offer the choice in the account menu
+  - (cierre) — Final review for AWS: Terraform ≥ 1.10, the deploy workflow's name coupling and two more failure modes written down
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel

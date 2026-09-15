@@ -9,7 +9,7 @@ variable "aws_region" {
 }
 
 variable "project_name" {
-  description = "Prefix for every resource name. Lower-case letters, digits and hyphens."
+  description = "Prefix for every resource name — and the ECS cluster, service and task family the deploy workflow addresses: change PROJECT in .github/workflows/deploy-aws.yml to match. Lower-case letters, digits and hyphens."
   type        = string
   default     = "ac-graph"
 
