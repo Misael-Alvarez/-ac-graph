@@ -624,6 +624,11 @@ const en = {
   'signin.nameRequired': 'Tell us your name',
   'signin.emailInvalid': 'That does not look like an e-mail address',
   'signin.passwordShort': 'At least 10 characters',
+  'signin.rateLimitedIn': 'Too many attempts. Try again in {seconds} s.',
+  'signin.waitLabel': 'Wait {seconds} s',
+  'signin.invalidHelp': 'Forgot it? Whoever runs this server can set a new one for you.',
+  'signin.language': 'Change language',
+  'signin.otherLanguage': 'Español',
   'signin.noAccount': 'No account yet?',
   'signin.haveAccount': 'Already have an account?',
   'signin.notePassword':
@@ -1340,6 +1345,11 @@ const es: Record<MessageKey, string> = {
   'signin.nameRequired': 'Escribe tu nombre',
   'signin.emailInvalid': 'Eso no parece un correo',
   'signin.passwordShort': 'Al menos 10 caracteres',
+  'signin.rateLimitedIn': 'Demasiados intentos. Vuelve a probar en {seconds} s.',
+  'signin.waitLabel': 'Espera {seconds} s',
+  'signin.invalidHelp': '¿La olvidaste? Quien administra este servidor puede ponerte una nueva.',
+  'signin.language': 'Cambiar idioma',
+  'signin.otherLanguage': 'English',
   'signin.noAccount': '¿Aún no tienes cuenta?',
   'signin.haveAccount': '¿Ya tienes cuenta?',
   'signin.notePassword':

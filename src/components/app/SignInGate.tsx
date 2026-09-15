@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -10,10 +11,12 @@ import {
   type ReactNode,
 } from 'react';
 import { AcMark } from '@/components/brand/AcGraphLogo';
-import { EyeIcon, EyeOffIcon } from '@/components/icons/ToolIcons';
-import type { MessageKey } from '@/lib/i18n/messages';
-import { useLocale } from '@/lib/i18n/useLocale';
+import { CheckIcon, EyeIcon, EyeOffIcon } from '@/components/icons/ToolIcons';
+import { notifyStoreChanged } from '@/lib/browserStore';
+import { PREFERENCES_KEY, readPreferences } from '@/lib/editor/uiState';
 import { exitProps, usePresence } from '@/lib/editor/usePresence';
+import type { Locale, MessageKey } from '@/lib/i18n/messages';
+import { useLocale } from '@/lib/i18n/useLocale';
 import { useAppConfig } from './AppConfigProvider';
 import { useUser, type SignInFailure } from './AuthProvider';
 
@@ -64,6 +67,7 @@ export function SignInGate({ children }: { children: ReactNode }) {
             ) : (
               <ProviderPrompt />
             )}
+            <LanguageSwitch />
           </div>
         </main>
       )}
@@ -96,6 +100,36 @@ function ProviderPrompt() {
   );
 }
 
+/**
+ * The other language, offered by its own name at the foot of the card. The
+ * app keeps the choice with the rest of the preferences, so the page that
+ * follows the sign-in speaks the same language the sign-in did.
+ */
+function LanguageSwitch() {
+  const { locale, t } = useLocale();
+  const other: Locale = locale === 'es' ? 'en' : 'es';
+  const choose = () => {
+    try {
+      const current = readPreferences(window.localStorage);
+      window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...current, locale: other }));
+      notifyStoreChanged();
+    } catch {
+      // Storage refused: the page stays in the language it had.
+    }
+  };
+  return (
+    <button
+      type="button"
+      className="signin-language"
+      lang={other}
+      aria-label={t('signin.language')}
+      onClick={choose}
+    >
+      {t('signin.otherLanguage')}
+    </button>
+  );
+}
+
 const FAILURE_KEYS: Record<SignInFailure, MessageKey> = {
   invalid_credentials: 'signin.invalid',
   email_taken: 'signin.emailTaken',
@@ -111,6 +145,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN = 10;
 
 type FieldName = 'name' | 'email' | 'password';
+type FieldErrors = Partial<Record<FieldName, MessageKey>>;
 
 /**
  * E-mail and password, with "create an account" as a second face of the same
@@ -118,10 +153,13 @@ type FieldName = 'name' | 'email' | 'password';
  * unfolds above it, the title and the button say what will happen.
  *
  * Mistakes are caught where they are made — an e-mail without an `@`, a
- * password too short — and said beside the field, before anything is sent.
- * What only the server can know (a wrong password, a taken e-mail) comes back
- * as one line above the button. The button never changes width while it
- * waits: the label fades and a spinner takes its place.
+ * password too short — when the field is left and again on submit, and said
+ * beside the field before anything is sent. What only the server can know (a
+ * wrong password, a taken e-mail, too many tries) comes back as one line that
+ * unfolds above the button, each with the way out: the password field
+ * selected for another go, the e-mail marked, a count-down to the next try.
+ * The button never changes size while it waits: the label fades and a
+ * spinner takes its place.
  */
 function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
   const { signIn, register } = useUser();
@@ -129,8 +167,9 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
   const ids = { name: useId(), email: useId(), password: useId(), error: useId() };
   const [face, setFace] = useState<'signin' | 'signup'>('signin');
   const [values, setValues] = useState({ name: '', email: '', password: '' });
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<SignInFailure | null>(null);
+  const [retryIn, setRetryIn] = useState(0);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
@@ -144,46 +183,84 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
 
   const creating = face === 'signup' && signupOpen;
 
+  /* The caret goes to the e-mail on arrival — but only where there is a
+     pointer to have moved it elsewhere. On a phone, focusing a field opens
+     the keyboard over half the page before anyone has read the title. */
+  useEffect(() => {
+    if (window.matchMedia?.('(pointer: fine)').matches) emailRef.current?.focus();
+  }, []);
+
+  /* After a 429 the server says how long to wait; the button waits with the
+     person, counting down, and comes back on its own. */
+  useEffect(() => {
+    if (retryIn <= 0) return;
+    const timer = setTimeout(() => {
+      // The last second also clears the line: there is nothing left to wait for.
+      setRetryIn((s) => s - 1);
+      if (retryIn === 1) setFormError((error) => (error === 'rate_limited' ? null : error));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [retryIn]);
+
   const set = (field: FieldName) => (value: string) => {
     setValues((v) => ({ ...v, [field]: value }));
     // A field being corrected stops being wrong the moment it changes; the
-    // verdict comes back on the next submit, not on every keystroke.
+    // verdict comes back when it is left, or on the next submit.
     if (fieldErrors[field]) setFieldErrors((e) => ({ ...e, [field]: undefined }));
-    if (formError) setFormError(null);
+    if (formError && formError !== 'rate_limited') setFormError(null);
   };
 
-  const validate = (): Partial<Record<FieldName, MessageKey>> => {
-    const errors: Partial<Record<FieldName, MessageKey>> = {};
-    if (creating && !values.name.trim()) errors.name = 'signin.nameRequired';
-    if (!EMAIL.test(values.email.trim())) errors.email = 'signin.emailInvalid';
-    if (values.password.length < PASSWORD_MIN) errors.password = 'signin.passwordShort';
-    return errors;
+  const check = (field: FieldName, current = values): MessageKey | undefined => {
+    if (field === 'name')
+      return creating && !current.name.trim() ? 'signin.nameRequired' : undefined;
+    if (field === 'email')
+      return EMAIL.test(current.email.trim()) ? undefined : 'signin.emailInvalid';
+    return current.password.length < PASSWORD_MIN ? 'signin.passwordShort' : undefined;
+  };
+
+  /* On leaving a field that has something in it. An empty one is left alone:
+     tabbing through to read is not a mistake, and the submit will say so. */
+  const onBlur = (field: FieldName) => () => {
+    if (!values[field]) return;
+    const error = check(field);
+    if (error) setFieldErrors((e) => ({ ...e, [field]: error }));
   };
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
-    const errors = validate();
+    if (busy || retryIn > 0) return;
+    const errors: FieldErrors = {};
+    for (const field of ['name', 'email', 'password'] as const) {
+      const error = check(field);
+      if (error) errors[field] = error;
+    }
     if (Object.keys(errors).length) {
       setFieldErrors(errors);
       const first = (['name', 'email', 'password'] as const).find((f) => errors[f]);
       if (first) focusField(first);
       return;
     }
+    // The line above the button stays until there is a verdict to replace it
+    // with: folding it on every try, to unfold it again a moment later, is a
+    // twitch. Typing in any field has already cleared it.
     setBusy(true);
-    setFormError(null);
     const email = values.email.trim();
     const result = creating
       ? await register(values.name.trim(), email, values.password)
       : await signIn(email, values.password);
+    // On success the provider already holds the user and the card is leaving:
+    // the spinner stays for the exit rather than flashing the label back.
+    if (result.ok) return;
     setBusy(false);
-    if (result.ok) return; // the provider holds the user: the gate leaves on its own
     if (result.error === 'email_taken') {
+      setFormError(null);
       setFieldErrors({ email: 'signin.emailTaken' });
       focusField('email');
       return;
     }
     setFormError(result.error);
+    if (result.error === 'rate_limited')
+      setRetryIn(Math.max(1, Math.round(result.retryAfter ?? 30)));
     if (result.error === 'invalid_credentials') {
       // Which one was wrong is never said, so both are the place to look; the
       // password is the likelier slip and gets the caret.
@@ -203,7 +280,9 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
     setCapsLock(event.getModifierState('CapsLock'));
   }, []);
 
+  const waiting = retryIn > 0;
   const submitLabel = t(creating ? 'signin.create' : 'signin.enter');
+  const passwordMet = values.password.length >= PASSWORD_MIN;
   const describedBy = (field: FieldName, hintId?: string) =>
     [fieldErrors[field] ? `${ids[field]}-error` : null, hintId ?? null].filter(Boolean).join(' ') ||
     undefined;
@@ -223,30 +302,30 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
         {/* The name field unfolds when the card turns to creating an account:
             a grid row growing from nothing, so the fields below slide rather
             than jump. Out of the tab order and the tree while folded. */}
-        <div className="signin-reveal" data-open={creating ? '' : undefined}>
-          <div className="signin-reveal-inner" aria-hidden={!creating} inert={!creating}>
-            <div className="signin-field" data-invalid={fieldErrors.name ? '' : undefined}>
-              <label className="signin-label" htmlFor={ids.name}>
-                {t('signin.name')}
-              </label>
-              <input
-                ref={nameRef}
-                id={ids.name}
-                className="input signin-input"
-                type="text"
-                name="name"
-                autoComplete="name"
-                autoCapitalize="words"
-                maxLength={120}
-                value={values.name}
-                onChange={(e) => set('name')(e.target.value)}
-                aria-invalid={fieldErrors.name ? true : undefined}
-                aria-describedby={describedBy('name')}
-              />
-              <FieldError id={`${ids.name}-error`} messageKey={fieldErrors.name} />
-            </div>
+        <Reveal open={creating}>
+          <div className="signin-field" data-invalid={fieldErrors.name ? '' : undefined}>
+            <label className="signin-label" htmlFor={ids.name}>
+              {t('signin.name')}
+            </label>
+            <input
+              ref={nameRef}
+              id={ids.name}
+              className="input signin-input"
+              type="text"
+              name="name"
+              autoComplete="name"
+              autoCapitalize="words"
+              enterKeyHint="next"
+              maxLength={120}
+              value={values.name}
+              onChange={(e) => set('name')(e.target.value)}
+              onBlur={onBlur('name')}
+              aria-invalid={fieldErrors.name ? true : undefined}
+              aria-describedby={describedBy('name')}
+            />
+            <FieldError id={`${ids.name}-error`} messageKey={fieldErrors.name} />
           </div>
-        </div>
+        </Reveal>
 
         <div className="signin-field" data-invalid={fieldErrors.email ? '' : undefined}>
           <label className="signin-label" htmlFor={ids.email}>
@@ -261,10 +340,12 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
             autoComplete="email"
             inputMode="email"
             autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
-            autoFocus
+            enterKeyHint="next"
             value={values.email}
             onChange={(e) => set('email')(e.target.value)}
+            onBlur={onBlur('email')}
             aria-invalid={fieldErrors.email ? true : undefined}
             aria-describedby={describedBy('email')}
           />
@@ -283,13 +364,17 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
               type={showPassword ? 'text' : 'password'}
               name="password"
               autoComplete={creating ? 'new-password' : 'current-password'}
+              enterKeyHint="go"
               minLength={PASSWORD_MIN}
               maxLength={200}
               value={values.password}
               onChange={(e) => set('password')(e.target.value)}
               onKeyDown={onPasswordKey}
               onKeyUp={onPasswordKey}
-              onBlur={() => setCapsLock(false)}
+              onBlur={() => {
+                setCapsLock(false);
+                onBlur('password')();
+              }}
               aria-invalid={fieldErrors.password ? true : undefined}
               aria-describedby={describedBy(
                 'password',
@@ -318,27 +403,41 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
             <small
               id={`${ids.password}-hint`}
               className="signin-hint"
-              data-met={values.password.length >= PASSWORD_MIN ? '' : undefined}
+              data-met={passwordMet ? '' : undefined}
             >
+              {passwordMet && <CheckIcon size={12} />}
               {t('signin.passwordHint')}
             </small>
           )}
         </div>
 
-        {formError && (
-          <p className="signin-error" role="alert" id={ids.error}>
-            {t(FAILURE_KEYS[formError])}
-          </p>
-        )}
+        {/* What only the server could know, unfolding above the button so the
+            button slides rather than jumps. */}
+        <Reveal open={formError !== null}>
+          {formError && (
+            <div className="signin-error" role="alert" id={ids.error}>
+              <p>
+                {formError === 'rate_limited' && waiting
+                  ? t('signin.rateLimitedIn', { seconds: retryIn })
+                  : t(FAILURE_KEYS[formError])}
+              </p>
+              {formError === 'invalid_credentials' && (
+                <p className="signin-error-help">{t('signin.invalidHelp')}</p>
+              )}
+            </div>
+          )}
+        </Reveal>
 
         <button
           type="submit"
           className="button is-primary signin-submit"
-          disabled={busy}
+          disabled={busy || waiting}
           aria-busy={busy}
           aria-describedby={formError ? ids.error : undefined}
         >
-          <span className="signin-submit-label">{submitLabel}</span>
+          <span className="signin-submit-label">
+            {waiting ? t('signin.waitLabel', { seconds: retryIn }) : submitLabel}
+          </span>
           <span className="signin-spinner" aria-hidden="true" />
           {busy && (
             <span className="sr-only" role="status">
@@ -361,13 +460,31 @@ function PasswordForm({ signupOpen }: { signupOpen: boolean }) {
   );
 }
 
+/**
+ * A row that grows from nothing to its content's height and back, so what
+ * appears inside it slides the rest of the form rather than jumping it.
+ * Folded, it is out of the tree for assistive technology and the tab order.
+ */
+function Reveal({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <div className="signin-reveal" data-open={open ? '' : undefined}>
+      <div className="signin-reveal-inner" aria-hidden={!open} inert={!open}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** The line under a field that is wrong. Rendered only when there is one. */
 function FieldError({ id, messageKey }: { id: string; messageKey?: MessageKey }) {
   const { t } = useLocale();
-  if (!messageKey) return null;
   return (
-    <small id={id} className="signin-field-error" role="alert">
-      {t(messageKey)}
-    </small>
+    <Reveal open={messageKey !== undefined}>
+      {messageKey && (
+        <small id={id} className="signin-field-error" role="alert">
+          {t(messageKey)}
+        </small>
+      )}
+    </Reveal>
   );
 }
