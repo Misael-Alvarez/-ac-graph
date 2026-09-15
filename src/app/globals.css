@@ -6505,6 +6505,13 @@ select.input.is-choice {
   color: var(--text-secondary);
   text-wrap: pretty;
 }
+/* The build's time, the quietest line on the card. */
+.signin-build {
+  margin: calc(-1 * var(--space-3)) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
 
 /* The other language, by its own name, in the corner opposite the brand. */
 .signin-language {

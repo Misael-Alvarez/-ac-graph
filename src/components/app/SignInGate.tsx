@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { AcMark } from '@/components/brand/AcGraphLogo';
 import { CheckIcon, EyeIcon, EyeOffIcon } from '@/components/icons/ToolIcons';
+import { buildStamp } from '@/lib/appConfig';
 import { notifyStoreChanged } from '@/lib/browserStore';
 import { PREFERENCES_KEY, readPreferences } from '@/lib/editor/uiState';
 import { exitProps, usePresence } from '@/lib/editor/usePresence';
@@ -68,6 +69,7 @@ export function SignInGate({ children }: { children: ReactNode }) {
               <ProviderPrompt />
             )}
             <LanguageSwitch />
+            <BuildStamp />
           </div>
         </main>
       )}
@@ -128,6 +130,18 @@ function LanguageSwitch() {
       {t('signin.otherLanguage')}
     </button>
   );
+}
+
+/**
+ * When this build was made, in the card's last line, as the home page's
+ * footer says it: "is the new version in front of me?" has an answer here
+ * too, on the one page where there is no footer yet.
+ */
+function BuildStamp() {
+  const { locale, t } = useLocale();
+  const stamp = buildStamp(locale);
+  if (!stamp) return null;
+  return <p className="signin-build">{t('app.build', { when: stamp })}</p>;
 }
 
 const FAILURE_KEYS: Record<SignInFailure, MessageKey> = {
