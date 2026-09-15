@@ -3757,7 +3757,7 @@ body {
   font-weight: 600;
 }
 
-/* The product's word in the accent, the company's letters in ink. */
+/* The product's word in the accent; the mark itself is the company's letters. */
 .ac-wordmark-accent {
   color: var(--accent);
 }

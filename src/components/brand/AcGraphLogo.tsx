@@ -55,12 +55,12 @@ export function AcMark({ size = 32, animate = false, className, title }: LogoPro
 export function AcGraphLogo({ size = 26, animate = false, className }: LogoProps) {
   return (
     <span className={`ac-logo${className ? ` ${className}` : ''}`}>
-      {/* The name in two tones — the company's letters in ink, the product's
-          word in the accent — as the brand writes it. The mark carries the
+      {/* The mark already spells the company's letters, so the wordmark is
+          only the product's word, in the accent. The mark carries the
           accessible name; the wordmark is a picture of the same thing. */}
       <AcMark size={size} animate={animate} title="AC Graph" />
-      <span className="ac-wordmark" aria-hidden="true">
-        AC <span className="ac-wordmark-accent">Graph</span>
+      <span className="ac-wordmark ac-wordmark-accent" aria-hidden="true">
+        Graph
       </span>
     </span>
   );
