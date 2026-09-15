@@ -459,7 +459,7 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 
 ## Cierre: login con contraseña, base de despliegue en AWS y limpieza (cerrado, 2026-09-15)
 
-**Base:** `0ed5c61`. Petición del usuario: sin Authentik por ahora — un login normal —, depurar y debuggear, dejar la base para desplegar en AWS (otra persona lo montará), documentarlo con una guía rápida, probar todo y empujar a GitHub.
+**Base:** `0ed5c61`. Commits `a1b7df6`, `34ab664`, `d133470`; empujado a `origin/main`, CI verde. Petición del usuario: sin Authentik por ahora — un login normal —, depurar y debuggear, dejar la base para desplegar en AWS (otra persona lo montará), documentarlo con una guía rápida, probar todo y empujar a GitHub.
 
 ### Entregado
 
