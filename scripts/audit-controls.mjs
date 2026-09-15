@@ -10,7 +10,10 @@ const check = (name, ok, detail = '') => {
 };
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const ctx = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  colorScheme: 'dark',
+});
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => {

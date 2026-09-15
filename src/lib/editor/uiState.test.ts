@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PREFERENCES_KEY,
   initialUiState,
+  PREFERENCES_KEY,
   readPreferences,
+  resolveDark,
+  storedTheme,
   toPreferences,
-  uiReducer,
   type UiState,
+  uiReducer,
 } from './uiState';
 
 const ids = (s: UiState) => [...s.selectedIds].sort();
@@ -78,10 +80,47 @@ describe('tools', () => {
 
 describe('toggles', () => {
   it('flips the boolean preferences', () => {
-    const dark = uiReducer(initialUiState, { type: 'toggleDark' });
-    expect(dark.dark).toBe(!initialUiState.dark);
     expect(uiReducer(initialUiState, { type: 'toggleGridSnap' }).gridSnap).toBe(false);
     expect(uiReducer(initialUiState, { type: 'toggleMinimap' }).minimapOpen).toBe(false);
+  });
+
+  it("follows the system's theme until one is chosen by name", () => {
+    expect(initialUiState.theme).toBe('system');
+    // What the system says lands while the theme is the system's…
+    const light = uiReducer(initialUiState, { type: 'setSystemDark', dark: false });
+    expect(light.dark).toBe(false);
+    expect(uiReducer(light, { type: 'setSystemDark', dark: false })).toBe(light);
+    // …and is ignored once the reader has picked one.
+    const pinned = uiReducer(light, { type: 'setTheme', theme: 'dark' });
+    expect(pinned).toMatchObject({ theme: 'dark', dark: true });
+    expect(uiReducer(pinned, { type: 'setSystemDark', dark: false })).toBe(pinned);
+    // Back to the system's takes what the system says now, when told; without
+    // it, what is on screen stays until the system speaks again.
+    const system = uiReducer(pinned, { type: 'setTheme', theme: 'system', systemDark: false });
+    expect(system).toMatchObject({ theme: 'system', dark: false });
+    const quiet = uiReducer(pinned, { type: 'setTheme', theme: 'system' });
+    expect(quiet).toMatchObject({ theme: 'system', dark: true });
+    expect(uiReducer(quiet, { type: 'setSystemDark', dark: false }).dark).toBe(false);
+  });
+
+  it('the sun-and-moon button chooses by name, so the system no longer applies', () => {
+    const flipped = uiReducer(initialUiState, { type: 'toggleDark' });
+    expect(flipped).toMatchObject({ theme: 'light', dark: false });
+    expect(uiReducer(flipped, { type: 'toggleDark' })).toMatchObject({ theme: 'dark', dark: true });
+    expect(toPreferences(flipped).theme).toBe('light');
+    expect('dark' in toPreferences(flipped)).toBe(false);
+  });
+
+  it('reads what older builds stored: false was a choice for light, true was the default', () => {
+    expect(storedTheme({})).toBe('system');
+    expect(storedTheme({ dark: true })).toBe('system');
+    expect(storedTheme({ dark: false })).toBe('light');
+    expect(storedTheme({ theme: 'dark', dark: false })).toBe('dark');
+    expect(storedTheme({ theme: 'nonsense' as 'dark' })).toBe('system');
+    expect(resolveDark('system', true)).toBe(true);
+    expect(resolveDark('system', false)).toBe(false);
+    expect(resolveDark('light', true)).toBe(false);
+    expect(resolveDark('dark', false)).toBe(true);
   });
 
   it('presenting starts a clean room and is never remembered', () => {
@@ -153,9 +192,9 @@ describe('toggles', () => {
 
 describe('preferences', () => {
   it('extracts only the durable fields', () => {
-    const prefs = toPreferences({ ...initialUiState, dark: true, tool: 'connector' });
+    const prefs = toPreferences({ ...initialUiState, theme: 'dark', tool: 'connector' });
     expect(prefs).toEqual({
-      dark: true,
+      theme: 'dark',
       accent: 'violet',
       gridSnap: true,
       brand: 'aion',

@@ -185,6 +185,14 @@ export const SunIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** A screen on a stand: the theme that follows the system's. */
+export const MonitorIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="4.5" width="18" height="12" rx="2" />
+    <path d="M8 20h8M12 16.5V20" />
+  </Icon>
+);
+
 export const MoonIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z" />

@@ -39,6 +39,11 @@ export interface UiState {
   /** Whether the last viewport change should be animated on screen. */
   viewportSmooth: boolean;
   gridSnap: boolean;
+  /**
+   * The theme as chosen: the system's, or one of the two by name. `dark` is
+   * what that resolves to right now, and is what everything that draws reads.
+   */
+  theme: ThemeMode;
   dark: boolean;
   accent: Accent;
   brand: BrandMode;
@@ -99,7 +104,9 @@ export const initialUiState: UiState = {
   viewport: DEFAULT_VIEWPORT,
   viewportSmooth: false,
   gridSnap: true,
-  // Dark by default: the chrome is meant to sit back behind the drawing.
+  // The system's theme unless the reader picks one; dark until the system has
+  // been asked, which happens on mount — the markup ships dark for that reason.
+  theme: 'system',
   dark: true,
   accent: 'violet',
   brand: 'aion',
@@ -147,7 +154,12 @@ export type UiAction =
   | { type: 'drillInto'; id: string }
   | { type: 'drillUpTo'; depth: number }
   | { type: 'toggleGridSnap' }
+  /** Flips between light and dark by name — a choice, so the system's no longer applies. */
   | { type: 'toggleDark' }
+  /** `systemDark` is what the system says right now, for a return to `system` to take effect at once. */
+  | { type: 'setTheme'; theme: ThemeMode; systemDark?: boolean }
+  /** What the operating system prefers right now; honoured only while `theme` is `system`. */
+  | { type: 'setSystemDark'; dark: boolean }
   | { type: 'setAccent'; accent: Accent }
   | { type: 'setBrand'; brand: BrandMode }
   | { type: 'setExportTheme'; theme: ExportTheme }
@@ -251,7 +263,19 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       return { ...state, gridSnap: !state.gridSnap };
 
     case 'toggleDark':
-      return { ...state, dark: !state.dark };
+      return { ...state, theme: state.dark ? 'light' : 'dark', dark: !state.dark };
+
+    case 'setTheme':
+      return {
+        ...state,
+        theme: action.theme,
+        dark: resolveDark(action.theme, action.systemDark ?? state.dark),
+      };
+
+    case 'setSystemDark':
+      return state.theme === 'system' && state.dark !== action.dark
+        ? { ...state, dark: action.dark }
+        : state;
 
     case 'setAccent':
       return { ...state, accent: action.accent };
@@ -379,9 +403,18 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
   }
 }
 
+/** The theme as a choice. `system` follows the operating system, live. */
+export type ThemeMode = 'system' | 'light' | 'dark';
+export const THEME_MODES: readonly ThemeMode[] = ['system', 'light', 'dark'];
+
+/** What `theme` says on screen given what the system prefers. */
+export function resolveDark(theme: ThemeMode, systemDark: boolean): boolean {
+  return theme === 'system' ? systemDark : theme === 'dark';
+}
+
 /** Preferences worth remembering between sessions. */
 export interface StoredPreferences {
-  dark: boolean;
+  theme: ThemeMode;
   accent: Accent;
   gridSnap: boolean;
   brand: BrandMode;
@@ -395,19 +428,33 @@ export interface StoredPreferences {
 
 export const PREFERENCES_KEY = 'aion-studio-preferences';
 
-export function readPreferences(storage: Pick<Storage, 'getItem'>): Partial<StoredPreferences> {
+/** What older builds wrote: one boolean, dark being the default nobody chose. */
+export type StoredPreferencesOnDisk = Partial<StoredPreferences> & { dark?: boolean };
+
+export function readPreferences(storage: Pick<Storage, 'getItem'>): StoredPreferencesOnDisk {
   try {
     const raw = storage.getItem(PREFERENCES_KEY);
-    return raw ? (JSON.parse(raw) as Partial<StoredPreferences>) : {};
+    return raw ? (JSON.parse(raw) as StoredPreferencesOnDisk) : {};
   } catch {
     // Corrupt preferences must never stop the editor from opening.
     return {};
   }
 }
 
+/**
+ * The theme a stored preference means. A `theme` written by this build is
+ * taken as is. Before it, one boolean was written on every change, dark by
+ * default: `false` was a choice (light), `true` almost never was — so `true`
+ * and nothing at all both mean "the system's".
+ */
+export function storedTheme(prefs: StoredPreferencesOnDisk): ThemeMode {
+  if (prefs.theme && THEME_MODES.includes(prefs.theme)) return prefs.theme;
+  return prefs.dark === false ? 'light' : 'system';
+}
+
 export function toPreferences(state: UiState): StoredPreferences {
   return {
-    dark: state.dark,
+    theme: state.theme,
     accent: state.accent,
     gridSnap: state.gridSnap,
     brand: state.brand,

@@ -3,10 +3,19 @@
 import { useState } from 'react';
 import { useUser } from '@/components/app/AuthProvider';
 import { AcMark } from '@/components/brand/AcGraphLogo';
-import { ChevronDownIcon, DocumentIcon, LogOutIcon, UserIcon } from '@/components/icons/ToolIcons';
+import {
+  ChevronDownIcon,
+  DocumentIcon,
+  LogOutIcon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+  UserIcon,
+} from '@/components/icons/ToolIcons';
 import { buildStamp } from '@/lib/appConfig';
 import { LOCAL_USER } from '@/lib/auth/user';
-import { ACCENTS } from '@/lib/editor/uiState';
+import { systemPrefersDark } from '@/lib/editor/systemTheme';
+import { ACCENTS, THEME_MODES } from '@/lib/editor/uiState';
 import { LOCALES, LOCALE_LABELS, type MessageKey } from '@/lib/i18n/messages';
 import { useEditor } from '../EditorProvider';
 import type { MenuProps } from './menuProps';
@@ -86,6 +95,27 @@ export function AccountMenu({
               />
             ))}
           </div>
+          <MenuSeparator />
+          <MenuGroup label={t('account.theme')} />
+          {THEME_MODES.map((mode) => (
+            <MenuItem
+              key={mode}
+              icon={
+                mode === 'system' ? (
+                  <MonitorIcon size={15} />
+                ) : mode === 'light' ? (
+                  <SunIcon size={15} />
+                ) : (
+                  <MoonIcon size={15} />
+                )
+              }
+              label={t(`theme.${mode}` as MessageKey)}
+              active={ui.theme === mode}
+              onSelect={() =>
+                dispatchUi({ type: 'setTheme', theme: mode, systemDark: systemPrefersDark() })
+              }
+            />
+          ))}
           <MenuSeparator />
           <MenuGroup label={t('account.language')} />
           {LOCALES.map((locale) => (

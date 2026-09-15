@@ -14,6 +14,9 @@ export default defineConfig({
     baseURL,
     trace: 'retain-on-failure',
     ...devices['Desktop Chrome'],
+    // The theme follows the system unless chosen; the system, here, says dark —
+    // which is what every baseline and every dark-by-default expectation assumes.
+    colorScheme: 'dark',
   },
   // Screenshots are compared at a fixed size in a fixed browser; anything looser
   // is noise. Baselines live beside the spec and are platform-suffixed.

@@ -12,11 +12,15 @@ export async function tour(browser, base, visit) {
     const ctx = await browser.newContext({
       viewport: { width, height: 900 },
       reducedMotion: 'reduce',
+      colorScheme: dark ? 'dark' : 'light',
     });
     const page = await ctx.newPage();
     await page.addInitScript((d) => {
       localStorage.clear();
-      localStorage.setItem('aion-studio-preferences', JSON.stringify({ dark: d }));
+      localStorage.setItem(
+        'aion-studio-preferences',
+        JSON.stringify({ theme: d ? 'dark' : 'light' }),
+      );
     }, dark);
     await page.goto(base + '/');
     await page.evaluate(async () => {

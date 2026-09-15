@@ -65,6 +65,7 @@ const browser = await chromium.launch();
 async function signedIn(cookie) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
+    colorScheme: 'dark',
     locale: 'es',
   });
   await context.addCookies([
@@ -91,6 +92,7 @@ try {
   if (config.auth?.provider === 'local') {
     const fresh = await browser.newContext({
       viewport: { width: 1280, height: 800 },
+      colorScheme: 'dark',
       locale: 'es',
     });
     const carol = await fresh.newPage();

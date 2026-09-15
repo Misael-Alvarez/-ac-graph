@@ -55,11 +55,13 @@ export default function RootLayout({
         {/* The theme, before the first paint.
             The class is applied by React once it has hydrated, which is far too
             late: every load flashed white before turning dark. This reads the
-            same stored preference the app does and corrects the markup — which
-            ships dark, the default — while the parser is still in <head>. */}
+            same stored choice the app does — the system's unless one was made
+            by name; a `dark: false` from older builds was a choice for light —
+            and corrects the markup, which ships dark, while the parser is
+            still in <head>. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(PREFERENCES_KEY)})||'{}');if(p&&p.dark===false)document.documentElement.classList.remove('dark');if(p&&typeof p.accent==='string')document.documentElement.setAttribute('data-accent',p.accent)}catch(e){}`,
+            __html: `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(PREFERENCES_KEY)})||'{}');var t=p.theme==='light'||p.theme==='dark'?p.theme:(p.dark===false?'light':'system');var d=t==='system'?!(window.matchMedia&&!window.matchMedia('(prefers-color-scheme: dark)').matches):t==='dark';if(!d)document.documentElement.classList.remove('dark');if(p&&typeof p.accent==='string')document.documentElement.setAttribute('data-accent',p.accent)}catch(e){}`,
           }}
         />
       </head>

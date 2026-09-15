@@ -6,6 +6,7 @@ import { AuthProvider } from './AuthProvider';
 import { RepositoryProvider } from './RepositoryProvider';
 import { SignInGate } from './SignInGate';
 import { useGlobalRipple } from './useRipple';
+import { ThemeSync } from './useTheme';
 import { useTooltips } from './useTooltips';
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -16,6 +17,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <AppConfigProvider>
+      {/* The theme follows the stored choice — or the system, live — on every
+          screen, the sign-in page included, not only where the editor mounts. */}
+      <ThemeSync />
       <AuthProvider>
         <RepositoryProvider>
           <SignInGate>{children}</SignInGate>

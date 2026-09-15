@@ -22,7 +22,10 @@ const THEMES = [
 async function reset(page: Page, dark: boolean) {
   await page.addInitScript((isDark) => {
     localStorage.clear();
-    localStorage.setItem('aion-studio-preferences', JSON.stringify({ dark: isDark }));
+    localStorage.setItem(
+      'aion-studio-preferences',
+      JSON.stringify({ theme: isDark ? 'dark' : 'light' }),
+    );
   }, dark);
   await page.goto('/');
   await page.evaluate(async () => {

@@ -17,12 +17,14 @@ import {
   ACCENTS,
   initialUiState,
   readPreferences,
+  storedTheme,
   toPreferences,
   uiReducer,
   PREFERENCES_KEY,
   type UiAction,
   type UiState,
 } from '@/lib/editor/uiState';
+import { onSystemThemeChange, systemPrefersDark } from '@/lib/editor/systemTheme';
 import { guardDispatch } from '@/lib/editor/readOnly';
 import { translate, type MessageKey } from '@/lib/i18n/messages';
 
@@ -88,9 +90,7 @@ export function EditorProvider({
   // markup; reading localStorage during render would cause a hydration mismatch.
   useEffect(() => {
     const stored = readPreferences(window.localStorage);
-    if (stored.dark !== undefined && stored.dark !== initialUiState.dark) {
-      dispatchUi({ type: 'toggleDark' });
-    }
+    dispatchUi({ type: 'setTheme', theme: storedTheme(stored), systemDark: systemPrefersDark() });
     if (stored.gridSnap !== undefined && stored.gridSnap !== initialUiState.gridSnap) {
       dispatchUi({ type: 'toggleGridSnap' });
     }
@@ -118,6 +118,14 @@ export function EditorProvider({
       // Private browsing or a full quota must not break the editor.
     }
   }, [ui]);
+
+  // The system's preference, live: honoured by the reducer only while the
+  // theme is `system`, so a named choice is never overridden by it.
+  useEffect(
+    () =>
+      onSystemThemeChange(() => dispatchUi({ type: 'setSystemDark', dark: systemPrefersDark() })),
+    [],
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', ui.dark);
