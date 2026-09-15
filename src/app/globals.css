@@ -5513,6 +5513,10 @@ select.input.is-choice {
 }
 
 .button.is-primary:hover:not(:disabled) {
+  /* Said again here: the generic hover above turns text to --text-primary,
+     which on the accent is light-on-light in the dark theme and dark-on-violet
+     in the light one. The ink on a primary button never changes. */
+  color: var(--text-on-accent);
   filter: brightness(1.08);
   background: linear-gradient(
     135deg,
