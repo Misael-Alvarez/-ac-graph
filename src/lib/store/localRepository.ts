@@ -170,6 +170,9 @@ export class LocalDiagramRepository implements DiagramRepository {
       template: input.template ?? false,
       model: input.model,
     });
+    // Drawn now, not at the first save: a diagram started from a template, a
+    // showcase or a copy would otherwise sit in the library without a preview.
+    record.thumbnail = renderThumbnail(record.model);
     const db = await this.db();
     await db.put('diagrams', record);
     return record;
@@ -376,7 +379,12 @@ export class LocalDiagramRepository implements DiagramRepository {
    * Returns the diagram count.
    */
   async importWorkspace(data: WorkspaceExport): Promise<number> {
-    const diagrams = data.diagrams.map((raw) => DiagramRecordSchema.parse(raw));
+    // A dump written before previews were drawn at creation carries none for
+    // diagrams never saved; draw it now rather than leave the card blank.
+    const diagrams = data.diagrams.map((raw) => {
+      const parsed = DiagramRecordSchema.parse(raw);
+      return { ...parsed, thumbnail: parsed.thumbnail ?? renderThumbnail(parsed.model) };
+    });
     const versions = data.versions.map((raw) => DiagramVersionSchema.parse(raw));
 
     const db = await this.db();

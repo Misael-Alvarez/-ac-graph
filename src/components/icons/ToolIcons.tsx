@@ -302,11 +302,12 @@ export const DownloadIcon = (p: IconProps) => (
   </Icon>
 );
 
+/* An arrow up out of the tray: a file coming in. The mirror of DownloadIcon,
+   so import and export beside each other never read as the same button. */
 export const ImportIcon = (p: IconProps) => (
   <Icon {...p}>
-    <path d="M12 15V3.5M8.5 11.5L12 15l3.5-3.5" />
-    <path d="M3.5 15.5V19a2 2 0 002 2h13a2 2 0 002-2v-3.5" />
-    <path d="M3.5 8.5h4M16.5 8.5h4" />
+    <path d="M12 15V3.5M8.5 7L12 3.5 15.5 7" />
+    <path d="M4.5 15.5V19a2 2 0 002 2h11a2 2 0 002-2v-3.5" />
   </Icon>
 );
 
@@ -346,6 +347,12 @@ export const ListIcon = (p: IconProps) => (
 export const ArrowLeftIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M19 12H5M11 6l-6 6 6 6" />
+  </Icon>
+);
+
+export const ArrowRightIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
   </Icon>
 );
 

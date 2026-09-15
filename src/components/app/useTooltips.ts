@@ -124,10 +124,12 @@ export function useTooltips(): void {
      *
      * A list row whose label is fully visible needs no tooltip saying the same
      * label again — and in a vertical list a pane popping in and out under the
-     * pointer at every row boundary read as the interface shaking.
+     * pointer at every row boundary read as the interface shaking. `innerText`
+     * rather than `textContent`: a label the stylesheet has hidden at this
+     * width is not shown, and the tooltip is then the only place it is said.
      */
     const redundant = (element: HTMLElement, text: string): boolean => {
-      const visible = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+      const visible = element.innerText.replace(/\s+/g, ' ').trim();
       return visible.length > 0 && text.replace(/\s+/g, ' ').trim() === visible;
     };
 

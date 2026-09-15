@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { DiagramMeta, DiagramModel } from '@/lib/domain';
+import type { DiagramMeta } from '@/lib/domain';
 import { createEmptyModel } from '@/lib/engine';
 import { TEMPLATES } from '@/lib/editor/templates';
 import { thumbnailDataUrl } from '@/lib/store/thumbnail';
@@ -24,6 +24,14 @@ import { LibraryHero } from './LibraryHero';
 import { FAVOURITES, LibraryToolbar, NO_FOLDER } from './LibraryToolbar';
 import { TemplateGallery } from './TemplateGallery';
 import { NewDiagramDialog } from './NewDiagramDialog';
+import { useActiveSection } from './useActiveSection';
+import { useDiagramPreviews } from './useDiagramPreviews';
+
+/** The two sections the header's pills point at, in page order. */
+const SECTIONS = ['library-body', 'library-start'] as const;
+
+/** How long the first paint's cards take to rise into place, stagger included. */
+const ENTRANCE_MS = 700;
 
 /** The diagram library: everything stored, with a way into each one. */
 export function Library() {
@@ -39,7 +47,6 @@ export function Library() {
   // diagrams: they have their own place, below, beside the built-in ones.
   const items = useMemo(() => all.filter((item) => !item.template), [all]);
   const templates = useMemo(() => all.filter((item) => item.template), [all]);
-  const [templateModels, setTemplateModels] = useState<Record<string, DiagramModel>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [folder, setFolder] = useState<string | null>(null);
@@ -66,41 +73,24 @@ export function Library() {
     }
   }, [repository]);
 
-  // A starting point is shown as the drawing it produces, so its model is
-  // read — once per revision; the list carries only the metadata. There are
-  // few of them, and a page that read every diagram's model would be slow for
-  // pictures nobody asked for.
-  useEffect(() => {
-    let cancelled = false;
-    const missing = templates.filter((meta) => !templateModels[`${meta.id}@${meta.updatedAt}`]);
-    if (!missing.length) return;
-    void Promise.all(
-      missing.map(async (meta) => [meta, await repository.get(meta.id)] as const),
-    ).then((loaded) => {
-      if (cancelled) return;
-      setTemplateModels((current) => {
-        const next: Record<string, DiagramModel> = {};
-        // Keep only the revisions still listed, so a deleted or re-saved
-        // template does not leave its old drawing behind.
-        for (const meta of templates) {
-          const key = `${meta.id}@${meta.updatedAt}`;
-          if (current[key]) next[key] = current[key];
-        }
-        for (const [meta, record] of loaded) {
-          if (record) next[`${meta.id}@${meta.updatedAt}`] = record.model;
-        }
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [templates, templateModels, repository]);
-
   useEffect(() => {
     if (!ready) return;
     void refresh();
   }, [ready, refresh]);
+
+  // The cards rise into place once, on the first paint; after that a card
+  // that appears — a duplicate, a search cleared — is simply there.
+  const [entering, setEntering] = useState(true);
+  useEffect(() => {
+    if (loading) return;
+    const timer = setTimeout(() => setEntering(false), ENTRANCE_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  // Each card's drawing is read as it scrolls into view; the reader's own
+  // starting points — few, and shown whole — are read at once.
+  const diagramPreviews = useDiagramPreviews(repository, items, dark);
+  const templatePreviews = useDiagramPreviews(repository, templates, dark, { eager: true });
 
   /** Folders with how much is in each: a scope with no count is a guess. */
   const folders = useMemo(() => {
@@ -210,16 +200,25 @@ export function Library() {
   const yours = useMemo(
     () =>
       templates.flatMap((meta) => {
-        const model = templateModels[`${meta.id}@${meta.updatedAt}`];
-        return model ? [{ meta, model, src: thumbnailDataUrl(renderPreview(model, dark)) }] : [];
+        const preview = templatePreviews.previews.get(meta.id);
+        return preview ? [{ meta, model: preview.model, src: preview.src }] : [];
       }),
-    [templates, templateModels, dark],
+    [templates, templatePreviews.previews],
   );
 
   const showTemplates = () =>
     document
       .getElementById('library-start')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // The mark, pressed while already home: back to the whole list, at the top.
+  const goHome = () => {
+    setQuery('');
+    setFolder(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const section = useActiveSection(SECTIONS, !loading);
 
   return (
     <div
@@ -245,9 +244,11 @@ export function Library() {
       <LibraryHeader
         t={t}
         dark={dark}
+        section={section}
         authState={authState}
         user={user}
         displayName={displayName}
+        onHome={goHome}
         onRefresh={refresh}
         onToggleTheme={toggleTheme}
         onSignOut={signOut}
@@ -258,84 +259,98 @@ export function Library() {
           the left, and on the right the proof — a real template, really drawn. */}
       <LibraryHero
         t={t}
-        diagramCount={items.length}
-        ownTemplates={templates.length}
         showcase={showcase}
         onNew={() => setPicking(true)}
         onBrowseTemplates={showTemplates}
         onPick={(title, model) => void create(title, model)}
       />
 
-      <LibraryToolbar
-        t={t}
-        query={query}
-        onQuery={setQuery}
-        visibleCount={visible.length}
-        total={items.length}
-        sort={sort}
-        onSort={setSort}
-        folders={folders}
-        folder={folder}
-        onFolder={setFolder}
-        starredCount={starredCount}
-      />
+      <main className="library-main">
+        <section className="library-body" id="library-body">
+          <LibraryToolbar
+            t={t}
+            query={query}
+            onQuery={setQuery}
+            visibleCount={visible.length}
+            total={items.length}
+            sort={sort}
+            onSort={setSort}
+            folders={folders}
+            folder={folder}
+            onFolder={setFolder}
+            starredCount={starredCount}
+          />
 
-      <main className="library-body" id="library-body">
-        {/* Cards rather than a line of text: the page keeps its shape, so
-            nothing jumps when the real list arrives. */}
-        {loading && (
-          <ul className="library-grid" aria-busy="true" aria-label={t('library.loading')}>
-            {[0, 1, 2, 3].map((i) => (
-              <li key={i} className="library-card is-skeleton" aria-hidden="true">
-                <span className="library-thumb" />
-                <span className="library-card-body">
-                  <span className="skeleton-line" />
-                  <span className="skeleton-line is-short" />
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+          {/* Cards rather than a line of text: the page keeps its shape, so
+              nothing jumps when the real list arrives. */}
+          {loading && (
+            <ul className="library-grid" aria-busy="true" aria-label={t('library.loading')}>
+              {[0, 1, 2, 3].map((i) => (
+                <li key={i} className="library-card is-skeleton" aria-hidden="true">
+                  <span className="library-thumb" />
+                  <span className="library-card-body">
+                    <span className="skeleton-line" />
+                    <span className="skeleton-line is-short" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
-        {!loading && items.length === 0 && (
-          <section className="library-empty" aria-live="polite">
-            <h2>{t('library.emptyTitle')}</h2>
-            <p>{t('library.emptyInline')}</p>
-          </section>
-        )}
+          {!loading && items.length === 0 && (
+            <section className="library-empty" aria-live="polite">
+              <h2>{t('library.emptyTitle')}</h2>
+              <p>{t('library.emptyHint')}</p>
+              <div className="library-empty-actions">
+                <button
+                  type="button"
+                  className="button is-primary"
+                  onClick={() => setPicking(true)}
+                >
+                  {t('library.heroCta')}
+                </button>
+                <button type="button" className="button is-ghost" onClick={showTemplates}>
+                  {t('library.browseTemplates')}
+                </button>
+              </div>
+            </section>
+          )}
 
-        {!loading && items.length > 0 && visible.length === 0 && (
-          <div className="library-note">
-            <SearchIcon size={22} />
-            <p>{t('library.noMatches')}</p>
-            <small>{t('library.noMatchesHint')}</small>
-          </div>
-        )}
+          {!loading && items.length > 0 && visible.length === 0 && (
+            <div className="library-note">
+              <SearchIcon size={22} />
+              <p>{t('library.noMatches')}</p>
+              <small>{t('library.noMatchesHint')}</small>
+            </div>
+          )}
 
-        {visible.length > 0 && (
-          <ul className="library-grid">
-            {visible.map((item, index) => (
-              <DiagramCard
-                key={item.id}
-                t={t}
-                item={item}
-                index={index}
-                starred={starred.has(item.id)}
-                onOpen={() => router.push(`/d/${item.id}`)}
-                onToggleStar={() => {
-                  // Un-starring the last favourite while looking at favourites
-                  // would leave an empty page with no chip to leave it by.
-                  if (folder === FAVOURITES && starred.has(item.id) && starredCount === 1) {
-                    setFolder(null);
-                  }
-                  toggleFavourite(item.id);
-                }}
-                onDuplicate={() => void repository.duplicate(item.id).then(refresh)}
-                onRemove={() => setDeleting(item)}
-              />
-            ))}
-          </ul>
-        )}
+          {visible.length > 0 && (
+            <ul className={`library-grid${entering ? ' is-entering' : ''}`}>
+              {visible.map((item, index) => (
+                <DiagramCard
+                  key={item.id}
+                  t={t}
+                  item={item}
+                  index={index}
+                  starred={starred.has(item.id)}
+                  preview={diagramPreviews.previews.get(item.id)}
+                  observe={diagramPreviews.observe}
+                  onOpen={() => router.push(`/d/${item.id}`)}
+                  onToggleStar={() => {
+                    // Un-starring the last favourite while looking at favourites
+                    // would leave an empty page with no chip to leave it by.
+                    if (folder === FAVOURITES && starred.has(item.id) && starredCount === 1) {
+                      setFolder(null);
+                    }
+                    toggleFavourite(item.id);
+                  }}
+                  onDuplicate={() => void repository.duplicate(item.id).then(refresh)}
+                  onRemove={() => setDeleting(item)}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
 
         {/* Starting points, always: a real drawing of each, not an icon. */}
         {!loading && (
@@ -343,6 +358,7 @@ export function Library() {
             t={t}
             previews={previews}
             yours={yours}
+            entering={entering}
             onPick={(title, model) => void create(title, model)}
             onEdit={(meta) => router.push(`/d/${meta.id}`)}
             onRemove={(meta) => setDeleting(meta)}

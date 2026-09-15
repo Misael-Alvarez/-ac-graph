@@ -68,15 +68,30 @@ export function WorkspaceActions({ onChanged, t }: WorkspaceActionsProps) {
     }
   };
 
+  /* Named by `aria-label` and `title` as well as by their text: below 900px the
+     header keeps only the icons, and the name has to survive that — for the
+     screen reader, and for the tooltip the title becomes. */
   return (
     <>
-      <button type="button" className="button" onClick={() => void download()}>
-        <DownloadIcon size={15} />
-        {t('library.export')}
-      </button>
-      <button type="button" className="button" onClick={() => fileInput.current?.click()}>
+      <button
+        type="button"
+        className="button is-ghost"
+        title={t('library.import')}
+        aria-label={t('library.import')}
+        onClick={() => fileInput.current?.click()}
+      >
         <ImportIcon size={15} />
-        {t('library.import')}
+        <span className="button-label">{t('library.import')}</span>
+      </button>
+      <button
+        type="button"
+        className="button is-ghost"
+        title={t('library.export')}
+        aria-label={t('library.export')}
+        onClick={() => void download()}
+      >
+        <DownloadIcon size={15} />
+        <span className="button-label">{t('library.export')}</span>
       </button>
       <input
         ref={fileInput}
@@ -89,7 +104,11 @@ export function WorkspaceActions({ onChanged, t }: WorkspaceActionsProps) {
           e.target.value = '';
         }}
       />
-      {message && <span className="library-message">{message}</span>}
+      {message && (
+        <span className="library-message" role="status">
+          {message}
+        </span>
+      )}
     </>
   );
 }

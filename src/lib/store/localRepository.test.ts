@@ -38,6 +38,19 @@ describe('create / get / list', () => {
     expect(await repo.get('nope')).toBeNull();
   });
 
+  it('draws the thumbnail at creation, before any save', async () => {
+    // A diagram started from a template or a showcase used to have no preview
+    // in the library until its model changed for the first time.
+    const model = modelWithGroups(2);
+    const created = await repo.create({ title: 'A', model });
+    expect(created.thumbnail).toBe(renderThumbnail(model));
+    expect((await repo.get(created.id))?.thumbnail).toBe(renderThumbnail(model));
+    expect((await repo.list())[0].thumbnail).toBe(renderThumbnail(model));
+    // A blank one too: an empty sheet is still a preview.
+    const blank = await repo.create({ title: 'Blank', model: createEmptyModel() });
+    expect(blank.thumbnail).toBe(renderThumbnail(createEmptyModel()));
+  });
+
   it('lists metadata without the model payload', async () => {
     await repo.create({ title: 'A', model: modelWithGroups(1) });
     const [meta] = await repo.list();
@@ -341,6 +354,7 @@ describe('duplicate / delete / updateMeta', () => {
 
     expect(copy.id).not.toBe(created.id);
     expect(copy.title).toBe('Original copy');
+    expect(copy.thumbnail).toBe(renderThumbnail(created.model));
 
     await repo.save(copy.id, modelWithGroups(5));
     expect((await repo.get(created.id))!.model.shapes).toHaveLength(3);
@@ -406,6 +420,23 @@ describe('workspace export / import', () => {
     const versions = await target.listVersions(imported.id);
     expect(versions).toHaveLength(1);
     expect(versions[0].label).toBe('snap');
+  });
+
+  it('draws a thumbnail for an imported diagram that has none, and keeps one it has', async () => {
+    const bare = await repo.create({ title: 'Bare', model: modelWithGroups(2) });
+    await repo.create({ title: 'Drawn', model: modelWithGroups(1) });
+    const dump = await repo.exportWorkspace();
+    // A dump written before previews were drawn at creation.
+    dump.diagrams = dump.diagrams.map((d) =>
+      d.id === bare.id ? { ...d, thumbnail: null } : { ...d, thumbnail: '<svg/>' },
+    );
+
+    const target = freshRepo();
+    await target.importWorkspace(dump);
+
+    const list = await target.list();
+    expect(list.find((d) => d.title === 'Bare')?.thumbnail).toBe(renderThumbnail(bare.model));
+    expect(list.find((d) => d.title === 'Drawn')?.thumbnail).toBe('<svg/>');
   });
 
   it('merges into an existing store rather than replacing it', async () => {

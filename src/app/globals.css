@@ -1496,6 +1496,14 @@ textarea:focus-visible {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
+/* The new-diagram dialog's own grid of starting points. */
+.library-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+  max-width: 1020px;
+}
+
 .dialog.is-narrow {
   max-width: 420px;
 }
@@ -1678,28 +1686,6 @@ textarea:focus-visible {
     transform: translateX(-50%);
   }
 
-  .library-header {
-    gap: var(--space-1);
-    padding-inline: var(--space-3);
-  }
-
-  .library-header .topbar-divider {
-    display: none;
-  }
-
-  .library-hero-inner {
-    padding-block: var(--space-6) var(--space-5);
-  }
-
-  .library-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: var(--space-3);
-  }
-
-  .library-thumb {
-    height: 112px;
-  }
-
   /* Three cards side by side become a column that has to stay reachable. */
 
   .empty-state {
@@ -1750,21 +1736,6 @@ textarea:focus-visible {
   }
   .topbar [data-select='locale'] {
     display: none;
-  }
-}
-
-@media (max-width: 620px) {
-  .library-header .ac-wordmark,
-  .library-user {
-    display: none;
-  }
-  .library-header .button {
-    font-size: 0;
-    gap: 0;
-    padding: 0 var(--space-2);
-  }
-  .library-header .button svg {
-    opacity: 1;
   }
 }
 
@@ -1952,26 +1923,98 @@ body {
   font-size: var(--text-sm);
 }
 
-/* One inline gutter for the header, the hero, the toolbar and the grid, so
-   all four line up on the same column no matter how wide the window is. */
+/* ══════════════════════════════════════════════════════════════════════════
+   The home page (the library). One surface, in one place: header, hero, the
+   list of diagrams, the starting points, the empty state, the footer. It is
+   a product screen, not a landing page — one hierarchy, solid surfaces, one
+   hover per surface, motion only where it answers the hand, all of it on
+   transform and opacity and none of it longer than 200ms.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.library {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--surface);
+}
+
+/* One inline gutter for the header, the hero, the list and the starting
+   points, so all of them line up on the same column at any width. */
 
 .library-header,
 .library-hero-inner,
-.library-toolbar,
-.library-body {
+.library-body,
+.library-start {
   padding-inline: max(var(--space-6), calc((100% - var(--page-max)) / 2));
 }
 
-@supports (backdrop-filter: blur(1px)) {
-  .library-header {
-    background: var(--glass);
-    backdrop-filter: var(--glass-blur);
-  }
+/* ── Header ── */
+
+.library-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--header-h);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
+/* The mark is the way home. */
 .library-identity {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  height: 32px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.library-identity .ac-logo {
+  gap: 6px;
+}
+
+.library-identity .ac-wordmark {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Where you are, in two pills; the lit one follows the scroll. */
+.library-nav {
   display: flex;
   align-items: center;
+  gap: 2px;
+}
+
+.library-nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.library-nav-link.is-active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.library-header-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
   gap: var(--space-2);
 }
 
@@ -1979,92 +2022,263 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding-inline: var(--space-1);
   font-size: var(--text-sm);
   color: var(--text-secondary);
   white-space: nowrap;
 }
 
-.library-spacer {
-  flex: 1;
+.library-avatar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  color: #fff;
 }
 
-.library-message {
-  font-size: var(--text-xs);
+.library-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+/* Icon buttons on this page are a size a finger can find. The editor's bar
+   keeps its own 30px; this is the home's. */
+.library .icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+}
+
+/* A press is answered by the button itself; nothing leans or grows. */
+.library .icon-button:hover:not(:disabled),
+.library .icon-button:hover:not(:disabled) svg {
+  transform: none;
+}
+
+/* Every interactive thing on the page shows the same ring when reached by
+   keyboard: an outline, which no hover shadow can paint over. */
+.library
+  :is(
+    .button,
+    .icon-button,
+    .chip,
+    .library-nav-link,
+    .library-identity,
+    .library-showcase,
+    .library-search-clear,
+    select
+  ):focus-visible,
+.library .template-card:focus-visible,
+.library-card:has(> .library-card-open:focus-visible),
+.template-card:has(> .template-open:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* The face of a card is a button inside the card; the ring is the card's. */
+.library-card-open:focus-visible,
+.template-open:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ── Hero ── */
+
+.library-hero {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.library-hero-inner.is-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-12);
+  padding-block: var(--space-10) var(--space-8);
+}
+
+.library-hero-copy {
+  min-width: 0;
+}
+
+.library-hero-title {
+  margin: 0;
+  max-width: 20ch;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.library-hero-lede {
+  margin: var(--space-3) 0 0;
+  max-width: 52ch;
+  font-size: var(--text-md);
+  line-height: 1.55;
   color: var(--text-secondary);
 }
 
-/* ── Toolbar ── */
+.library-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.library-hero-actions .button {
+  height: 36px;
+  padding: 0 14px;
+  font-size: var(--text-base);
+}
+
+/* The proof: a real starting point, really drawn, that opens when pressed. */
+.library-showcase {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.library-showcase:active {
+  transform: scale(0.995);
+}
+
+.library-showcase-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  padding: var(--space-2);
+  object-fit: contain;
+  background: var(--canvas-sheet);
+}
+
+.library-showcase-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-base);
+}
+
+.library-showcase-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-showcase-hint {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* ── The list ── */
+
+.library-main {
+  flex: 1;
+}
+
+/* Both anchors land under the sticky header, with a breath of room. */
+.library-body,
+.library-start {
+  scroll-margin-top: calc(var(--header-h) + var(--space-4));
+}
+
+.library-body {
+  padding-block: var(--space-8) var(--space-10);
+}
+
+.library-start {
+  padding-block: 0 var(--space-12);
+}
 
 .library-toolbar {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding-block: var(--space-6) 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.library-toolbar-row {
+  display: flex;
   flex-wrap: wrap;
-}
-
-/* The order is a small choice next to the search, not a field of its own. */
-.library-sort .input {
-  width: auto;
-  min-width: 11rem;
-}
-
-/* A file held over the page: the whole page says where it can go. */
-.library.is-dropping {
-  outline: 2px dashed var(--accent);
-  outline-offset: -8px;
-}
-.library-drop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  pointer-events: none;
-}
-.library-drop-card {
-  display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  max-width: 32rem;
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--elevation-3);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-weight: 500;
 }
-.library-notice {
-  position: fixed;
-  left: 50%;
-  bottom: var(--space-6);
-  z-index: 41;
-  transform: translateX(-50%);
+
+.library-toolbar-title,
+.library-section-head h2 {
   margin: 0;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-full);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--elevation-1);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-/*
-  Cascade-pinned: must stay before .filter-field and .palette-search, .browser-search, .icon-picker-search, .library-search and .template-card, .cloud-card, .empty-state-action, .icon-picker-trigger, .library-search, .browser-search, .icon-picker-search; the rest of this selector is further down.
-*/
+.library-toolbar-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-right: auto;
+}
 
+.library-count {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.library-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+
+.library-section-head p {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+/* The search sits on the page, not in a panel: a field at reading size. */
 .library-search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0 var(--space-3);
+  width: min(320px, 100%);
   height: 36px;
+  padding: 0 var(--space-2) 0 var(--space-3);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-field);
   background: var(--surface-raised);
   color: var(--text-tertiary);
   transition:
@@ -2077,162 +2291,223 @@ body {
   box-shadow: 0 0 0 3px var(--accent-ghost);
 }
 
-/* The library's field is the page's own, so it is set at reading size. */
-
 .library-search-input {
+  height: 100%;
   font-size: var(--text-base);
 }
 
+/* A 24px mark with a 32px reach: the padding is the part you cannot see. */
 .library-search-clear {
-  display: flex;
-  padding: 3px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--surface-hover);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.library-search-clear:hover {
-  color: var(--text-primary);
-}
-
-.library-folders {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-}
-
-.library-folder {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-full);
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--text-sm);
   cursor: pointer;
   transition:
     background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
 
-.library-folder:hover {
+.library-search-clear::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.library-search-clear:hover {
   background: var(--surface-hover);
   color: var(--text-primary);
 }
 
-.library-folder.is-active {
-  background: var(--accent-subtle);
-  color: var(--accent);
+/* The order is a small choice next to the search, not a field of its own. */
+.library-sort .input {
+  width: auto;
+  min-width: 11rem;
+  height: 36px;
+  border-radius: var(--r-field);
+  background: var(--surface-raised);
 }
 
-/* ── Body ── */
-
-.library-body {
-  flex: 1;
-  padding-block: var(--space-6) var(--space-12);
+/* Scopes, when there are any: quiet pills, the active one lit like the nav. */
+.library-toolbar .library-folders {
+  gap: var(--space-1);
 }
 
-/* An empty search is a dead end unless it says what to do next. */
-
-.library-note {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-12) 0;
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-.library-note p {
-  margin: 0;
-  font-size: var(--text-md);
+.library-folder.chip {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--text-secondary);
-}
-
-.library-note small {
   font-size: var(--text-sm);
+  font-weight: 500;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.library-start p {
-  margin: 0 0 var(--space-5);
-  color: var(--text-secondary);
+.library-folder.chip:hover {
+  border-color: transparent;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
-.library-templates {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-3);
-  max-width: 1020px;
+.library-folder.chip.is-active {
+  border-color: transparent;
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.library-card:focus-within {
-  border-color: var(--accent);
+/* ── Cards: one anatomy for a diagram and for a starting point ── */
+
+.library-card,
+.template-card.is-rich {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: inherit;
+  text-align: left;
+  overflow: hidden;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
-.library-card-open {
-  display: block;
+.template-card.is-rich::before {
+  content: none;
+}
+
+/* The face of a card is the button that opens it, and fills it. */
+.library-card-open,
+.template-open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   width: 100%;
   padding: 0;
   border: none;
+  border-radius: inherit;
   background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.library-card-open:focus-visible {
-  box-shadow: none;
-}
-
-.library-thumb {
+/* The drawing, on the sheet colour of the theme, in the frame of the card. */
+.library-thumb,
+.template-thumb {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 144px;
-  padding: var(--space-3);
-  background:
-    radial-gradient(circle at center, var(--canvas-grid) 1px, transparent 1px) 0 0 / 12px 12px,
-    var(--canvas-sheet);
+  aspect-ratio: 16 / 10;
+  padding: var(--space-2);
+  overflow: hidden;
+  background: var(--canvas-sheet);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
 }
 
-.library-thumb img {
+.library-thumb img,
+.template-thumb img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-.library-card-title {
+/* Not drawn yet and nothing stored: a quiet sheet, not a picture of nothing. */
+.library-thumb.is-empty {
+  background: var(--surface);
+}
+
+/* Starting from nothing is the odd one out, so it reads as an outline. */
+.template-thumb.is-blank {
+  color: var(--text-secondary);
+  background: var(--surface);
+}
+
+.template-thumb.is-blank::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+}
+
+.library-card-body,
+.template-text {
   display: block;
-  font-size: var(--text-base);
+  padding: 10px 12px 12px;
+}
+
+.library-card-title,
+.template-card.is-rich b {
+  display: block;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.library-card-meta,
+.template-card.is-rich small,
+.template-meta {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 .library-card-meta {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: 3px;
-  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.library-card-meta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-meta {
+  margin-top: 6px;
   color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 .library-card-folder {
@@ -2261,51 +2536,210 @@ body {
   white-space: nowrap;
 }
 
-.library-card-actions {
+/* The actions in the corner appear with the hand, or with the keyboard — with
+   the keyboard, not with any focus, so a star pressed by mouse does not leave
+   its neighbours standing once the pointer has gone. A star that is on stays,
+   so a favourite says so at a glance. What is not shown cannot be pressed: an
+   invisible button is a trap, not a shortcut. */
+.library-card-actions,
+.template-actions {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
   display: flex;
   gap: 2px;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
 }
 
-.library-card:hover .library-card-actions,
-.library-card:focus-within .library-card-actions {
-  opacity: 1;
-  transform: none;
-}
-
-.library-card-actions .icon-button {
-  background: var(--surface-raised);
+.library-card-actions .icon-button,
+.template-actions .icon-button {
+  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--elevation-1);
+  color: var(--text-secondary);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-/* A starred card shows its star without waiting for the hover. */
-.library-card:has(.library-star.is-on) .library-card-actions {
+.library-card-actions .library-star.is-on,
+.library-card:has(:focus-visible) .library-card-actions .icon-button,
+.template-card:has(:focus-visible) .template-actions .icon-button {
   opacity: 1;
-  transform: none;
+  pointer-events: auto;
 }
-.library-card:has(.library-star.is-on) .library-card-actions .icon-button:not(.library-star) {
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--ease-out);
-}
-.library-card:hover .library-card-actions .icon-button:not(.library-star),
-.library-card:focus-within .library-card-actions .icon-button:not(.library-star) {
-  opacity: 1;
-}
+
 .library-star.is-on {
   color: var(--accent);
+}
+
+.library-card-actions .icon-button:hover:not(:disabled),
+.template-actions .icon-button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .icon-button.is-danger:hover {
   color: var(--danger);
   background: var(--danger-subtle);
+}
+
+/* One hover per surface: the edge firms up and the card lifts a hair of
+   shadow; nothing moves. Only where there is a pointer to hover with. */
+@media (hover: hover) and (pointer: fine) {
+  .library-card:hover,
+  .library-showcase:hover {
+    border-color: var(--border-strong);
+  }
+
+  .library-card:hover {
+    box-shadow: var(--elevation-1);
+  }
+
+  .library-showcase:hover {
+    box-shadow: var(--elevation-2);
+  }
+
+  .library-nav-link:hover,
+  .library-identity:hover {
+    color: var(--text-primary);
+  }
+
+  .library-card:hover .library-card-actions .icon-button,
+  .template-card:hover .template-actions .icon-button {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* No pointer to hover with: the actions are simply there. */
+@media (hover: none) {
+  .library-card-actions .icon-button,
+  .template-actions .icon-button {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Pressing the face of a card presses the card. */
+.library-card:has(> .library-card-open:active),
+.template-card.is-rich:active {
+  transform: scale(0.995);
+}
+
+.library-templates.is-rich {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+  max-width: none;
+}
+
+/* On the home a starting point arrives with the list below, not with the
+   dialog's stagger. */
+.library-templates.is-rich .template-card {
+  animation: none;
+}
+
+/* ── Entrance: once, on the first paint ── */
+
+/* The cards rise six pixels into place, thirty milliseconds apart, and only
+   the first time the list is drawn: a card that appears later — a duplicate,
+   a search cleared — is simply there. The class comes off once the last one
+   has landed, so nothing replays. */
+@keyframes library-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes library-card-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.library-grid.is-entering .library-card,
+.library-templates.is-entering .template-card {
+  animation: library-card-in 200ms var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-grid.is-entering .library-card,
+  .library-templates.is-entering .template-card {
+    animation-name: library-card-fade;
+  }
+
+  .library-card:has(> .library-card-open:active),
+  .template-card.is-rich:active,
+  .library-showcase:active {
+    transform: none;
+  }
+}
+
+/* ── Empty, and nothing found ── */
+
+.library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+.library-empty h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.library-empty p {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+.library-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* An empty search is a dead end unless it says what to do next. The editor's
+   panels borrow this voice for their own empty lines. */
+
+.library-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-12) 0;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.library-note p {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+
+.library-note small {
+  font-size: var(--text-sm);
 }
 
 /* Placeholders while the store is read, so the grid keeps its height and
@@ -2315,14 +2749,11 @@ body {
     background-position: 200% 0;
   }
 }
+
 .library-card.is-skeleton {
   pointer-events: none;
 }
-.library-card.is-skeleton:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: var(--border-subtle);
-}
+
 .skeleton-line,
 .library-card.is-skeleton .library-thumb {
   background: linear-gradient(
@@ -2334,17 +2765,144 @@ body {
     0 0 / 200% 100%;
   animation: skeleton-sweep 1.4s linear infinite;
 }
+
 .skeleton-line {
   display: block;
   height: 11px;
   border-radius: var(--radius-full);
 }
+
 .skeleton-line + .skeleton-line {
   margin-top: var(--space-2);
 }
+
 .skeleton-line.is-short {
   width: 45%;
 }
+
+/* ── Files dropped on the page, and what the page says back ── */
+
+.library.is-dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+}
+
+.library-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
+.library-drop-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 32rem;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--elevation-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* One voice for what the page reports — a drop, an import — wherever it came from. */
+.library-notice,
+.library-message {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  z-index: 41;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--elevation-1);
+  max-width: min(32rem, calc(100vw - var(--space-8)));
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+/* ── Narrower windows ── */
+
+@media (max-width: 960px) {
+  .library-hero-inner.is-split {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+    padding-block: var(--space-8) var(--space-6);
+  }
+}
+
+@media (max-width: 900px) {
+  .library-nav {
+    display: none;
+  }
+
+  /* The workspace actions keep their icons; their names live on in the
+     `aria-label`, and in the tooltip the `title` becomes. */
+  .library-header .button:not(.is-primary) .button-label {
+    display: none;
+  }
+
+  .library-header .button:not(.is-primary) {
+    width: 32px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .library-header {
+    gap: var(--space-2);
+  }
+
+  .library-header,
+  .library-hero-inner,
+  .library-body,
+  .library-start {
+    padding-inline: var(--space-4);
+  }
+
+  .library-grid,
+  .library-templates.is-rich {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 620px) {
+  .library-header .ac-wordmark,
+  .library-user {
+    display: none;
+  }
+
+  .library-header .button.is-primary .button-label {
+    display: none;
+  }
+
+  .library-header .button.is-primary {
+    width: 32px;
+    padding: 0;
+  }
+
+  .library-hero-title {
+    font-size: 28px;
+  }
+
+  .library-search {
+    width: auto;
+    flex: 1 1 160px;
+  }
+}
+
 /* Present for assistive technology, absent for the eye. */
 .sr-only {
   position: absolute;
@@ -2986,7 +3544,6 @@ body {
 .browser-tile,
 .context-menu-item,
 .template-card,
-.library-card,
 .empty-state-action,
 .ai-chip {
   transition:
@@ -2995,43 +3552,6 @@ body {
     color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
     transform var(--duration-instant) var(--ease-out);
-}
-
-.template-card:hover,
-.library-card:hover {
-  transform: translateY(-2px);
-}
-
-/*
-  Cascade-pinned: must stay before .palette-row, .context-menu-item, .library-card, .template-card; the rest of this selector is further down.
-*/
-
-.library-card {
-  animation: rise-in var(--duration-base) var(--ease-out) both;
-}
-
-.library-card:nth-child(1) {
-  animation-delay: 0ms;
-}
-
-.library-card:nth-child(2) {
-  animation-delay: 40ms;
-}
-
-.library-card:nth-child(3) {
-  animation-delay: 80ms;
-}
-
-.library-card:nth-child(4) {
-  animation-delay: 120ms;
-}
-
-.library-card:nth-child(5) {
-  animation-delay: 160ms;
-}
-
-.library-card:nth-child(n + 6) {
-  animation-delay: 200ms;
 }
 
 .empty-state-title,
@@ -3493,7 +4013,6 @@ body {
 }
 .palette-row,
 .context-menu-item,
-.library-card,
 .template-card {
   animation: row-in var(--duration-slow) var(--ease-liquid) both;
   animation-delay: calc(min(var(--i, 0), 8) * 12ms);
@@ -3550,7 +4069,6 @@ body {
 .cloud-chip,
 .cloud-card,
 .segmented-option,
-.library-folder,
 .context-menu-item,
 .palette-row,
 .ai-chip {
@@ -3563,7 +4081,6 @@ body {
 }
 
 .button:hover:not(:disabled),
-.template-card:hover,
 .cloud-card:hover {
   transform: translateY(-1.5px);
   box-shadow: var(--elevation-2);
@@ -3582,7 +4099,6 @@ body {
 .tool-button:active,
 .browser-tile:active,
 .icon-picker-tile:active,
-.template-card:active,
 .cloud-chip:active,
 .cloud-card:active,
 .context-menu-item:active,
@@ -3641,16 +4157,6 @@ body {
   transform: none;
 }
 
-/* Library cards: the thumbnail breathes inside a frame that does not move. */
-
-.library-card-open .library-thumb img {
-  transition: transform calc(var(--morph-duration) * 0.8) var(--ease-liquid);
-}
-
-.library-card:hover .library-card-open .library-thumb img {
-  transform: scale(1.05);
-}
-
 /* The primary action carries a slow sheen, so the eye finds it without the
    button having to shout. */
 @keyframes primary-sheen {
@@ -3681,7 +4187,6 @@ body {
 .input,
 .palette-input,
 .browser-search-input,
-.library-search-input,
 .icon-picker-search-input,
 .dialog-textarea {
   transition:
@@ -3740,11 +4245,9 @@ body {
 .cloud-chip,
 .cloud-card,
 .segmented-option,
-.library-folder,
 .context-menu-item,
 .palette-row,
-.ai-chip,
-.library-card-open {
+.ai-chip {
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -3917,15 +4420,6 @@ body {
   color: var(--text-tertiary);
 }
 
-/* A library card is a sheet with a label under it: the join is a hairline, not
-   a change of colour that leaves the two halves floating apart. */
-
-.library-card-body {
-  display: block;
-  padding: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-}
-
 /* Panel headers are labels, not titles: small, quiet, and letter-spaced, so the
    content underneath is what the eye lands on. */
 
@@ -4012,7 +4506,7 @@ textarea,
 /* Titles break where a person would break them, not where the box runs out. */
 
 .library-hero-title,
-.library-hero-subtitle,
+.library-hero-lede,
 .dialog-header h2,
 .dialog-subtitle,
 .empty-state-title,
@@ -4156,7 +4650,6 @@ button.group-header:hover {
   padding-top: var(--space-3);
 }
 
-.library-search:hover,
 .browser-search:hover,
 .icon-picker-search:hover,
 .icon-picker-trigger:hover,
@@ -4164,7 +4657,6 @@ button.group-header:hover {
 .dialog-textarea:hover,
 .empty-state-action:hover,
 .cloud-option:hover:not(:disabled),
-.template-card:hover,
 .cloud-card:hover,
 .version-thumb:hover {
   border-color: var(--accent);
@@ -4174,7 +4666,6 @@ button.group-header:hover {
 /* A field that is being typed in wears the same ring, a shade stronger — the
    hover promised it and the focus keeps the promise. */
 
-.library-search:focus-within,
 .browser-search:focus-within,
 .icon-picker-search:focus-within,
 .input:focus,
@@ -4191,7 +4682,6 @@ button.group-header:hover {
 .cloud-card,
 .empty-state-action,
 .icon-picker-trigger,
-.library-search,
 .browser-search,
 .icon-picker-search {
   transition:
@@ -4478,7 +4968,6 @@ select.input.is-choice {
 .context-menu-item,
 .topbar-menu-item,
 .template-card,
-.library-folder,
 .cloud-card {
   position: relative;
   isolation: isolate;
@@ -4504,8 +4993,6 @@ select.input.is-choice {
 .topbar-menu-item:hover,
 .topbar-menu-item:focus-visible,
 .topbar-menu-item.is-active,
-.template-card:hover,
-.library-folder:hover,
 .cloud-card:hover {
   background: var(--accent-subtle);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -4697,7 +5184,6 @@ select.input.is-choice {
 .input:focus,
 .palette-input:focus,
 .browser-search-input:focus,
-.library-search-input:focus,
 .icon-picker-search-input:focus,
 .dialog-textarea:focus {
   border-color: var(--accent);
@@ -5324,14 +5810,6 @@ select.input.is-choice {
   color: var(--text-tertiary);
 }
 
-.library-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
-  box-shadow:
-    var(--elevation-3),
-    0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .save-status.is-pending .save-dot,
   .save-status.is-saving .save-dot,
@@ -5357,26 +5835,6 @@ select.input.is-choice {
   .live-pill {
     padding-right: 8px;
   }
-}
-
-.library-avatar img {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  object-fit: cover;
-}
-
-.library-avatar {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-full);
-  font-size: 10px;
-  font-weight: 700;
-  overflow: hidden;
-  background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
-  color: #fff;
 }
 
 /* A newly drawn shape grows into place, so it is obvious where it landed. */
@@ -5567,149 +6025,6 @@ select.input.is-choice {
   pointer-events: none;
 }
 
-/* ── Hero ── */
-
-.library-hero {
-  position: relative;
-  overflow: hidden;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border-subtle);
-  isolation: isolate;
-}
-
-.library-hero::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 1px;
-  background: var(--edge-gradient);
-  pointer-events: none;
-}
-
-/* Two slow blobs of colour, drifting. Transform only, and they live on their
-   own layer so the text above never repaints with them. */
-@keyframes aurora-drift {
-  0% {
-    transform: translate3d(-6%, -10%, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(4%, 6%, 0) scale(1.08);
-  }
-  100% {
-    transform: translate3d(-6%, -10%, 0) scale(1);
-  }
-}
-.library-hero-aurora {
-  position: absolute;
-  inset: -30% -10%;
-  z-index: -1;
-  background:
-    radial-gradient(38% 55% at 18% 30%, var(--aurora-a), transparent 70%),
-    radial-gradient(30% 50% at 78% 20%, var(--aurora-b), transparent 70%),
-    radial-gradient(26% 40% at 60% 90%, var(--aurora-c), transparent 70%);
-  filter: blur(24px);
-  animation: aurora-drift 28s var(--ease-liquid) infinite;
-  will-change: transform;
-}
-.library-hero-grid {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(70% 100% at 40% 0%, #000 30%, transparent 85%);
-  opacity: 0.55;
-}
-.dark .library-hero-grid {
-  opacity: 0.35;
-}
-.library-hero-inner {
-  padding-block: var(--space-12) var(--space-10);
-}
-.library-hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 var(--space-4);
-  padding: 4px 12px 4px 8px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-subtle);
-  background: var(--glass);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary);
-}
-.library-hero-pulse {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full);
-  background: var(--signal);
-  box-shadow: 0 0 0 3px var(--signal-subtle);
-  animation: presence-blink 2.4s var(--ease-out) infinite;
-}
-
-/* The numbers. Each one is a small monument: big tabular digit, quiet label. */
-
-.library-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-8) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.library-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  background: var(--glass);
-  animation: row-in var(--duration-slow) var(--ease-liquid) both;
-}
-
-.library-stat:nth-child(2) {
-  animation-delay: 60ms;
-}
-
-.library-stat:nth-child(3) {
-  animation-delay: 120ms;
-}
-
-.library-stat:nth-child(4) {
-  animation-delay: 180ms;
-}
-
-.library-stat b {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-}
-
-.library-stat span {
-  font-size: var(--text-xs);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-tertiary);
-}
-
-/* Template cards: glass, an icon that glows, and a gradient edge on hover. */
-
-.library-start h2 {
-  margin: var(--space-2) 0 var(--space-1);
-  font-weight: 600;
-  font-size: var(--text-lg);
-  letter-spacing: -0.02em;
-}
-
 .template-card {
   display: flex;
   align-items: flex-start;
@@ -5724,33 +6039,13 @@ select.input.is-choice {
   overflow: hidden;
 }
 
-.template-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--accent), var(--signal));
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
-  pointer-events: none;
-}
-
-.template-card:hover::before {
-  opacity: 0.9;
-}
-
-.template-card:hover {
-  border-color: transparent;
-  transform: translateY(-3px);
-  box-shadow:
-    var(--elevation-3),
-    0 12px 32px -12px var(--accent-glow);
+/* One hover for a template card, in the dialog and on the home alike: the
+   edge firms up under a hair of shadow, and nothing moves. */
+@media (hover: hover) and (pointer: fine) {
+  .template-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--elevation-1);
+  }
 }
 
 /* The icon sits in its own tile so cards of different text lengths still
@@ -5791,50 +6086,6 @@ select.input.is-choice {
   line-height: 1.45;
 }
 
-.library-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--accent), var(--signal));
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
-  pointer-events: none;
-}
-
-.library-card:hover::after {
-  opacity: 0.7;
-}
-
-/* Library cards arrive in sequence rather than all at once. */
-
-/* Diagram cards in the grid: a thumbnail on its own sheet, a gradient edge. */
-
-.library-card {
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-raised);
-  transition:
-    transform var(--duration-base) var(--ease-rubber),
-    box-shadow var(--duration-slow) var(--ease-out);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-  position: relative;
-}
-
-/* The primary button glows at rest, a little more when approached. */
-
-.library-header .button.is-primary {
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.18) inset,
-    0 8px 24px -8px var(--accent-glow);
-}
-
 .empty-state-action {
   display: flex;
   gap: var(--space-2);
@@ -5872,8 +6123,6 @@ select.input.is-choice {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .library-hero-aurora,
-  .library-hero-pulse,
   .connector-flow,
   .selection-outline {
     animation: none;
@@ -5927,7 +6176,6 @@ select.input.is-choice {
 .input:focus-visible,
 .palette-input:focus-visible,
 .browser-search-input:focus-visible,
-.library-search-input:focus-visible,
 .icon-picker-search-input:focus-visible,
 .topbar-name:focus-visible,
 .dialog-textarea:focus-visible,
@@ -6272,47 +6520,6 @@ select.input.is-choice {
   background: color-mix(in srgb, var(--cloud-color, var(--surface)) 34%, var(--surface));
 }
 
-/*
-  Cascade-pinned: must stay before @media (max-width: 960px) :: .library-hero-inner.is-split; the rest of this selector is further down.
-*/
-
-.library-hero-inner.is-split {
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-}
-
-.library-hero-inner:not(.is-split) {
-  padding-block: 0 var(--space-8);
-}
-
-.library-hero-copy {
-  min-width: 0;
-}
-
-/*
-  Cascade-pinned: must stay before @media (max-width: 960px) :: .library-hero-title; the rest of this selector is further down.
-*/
-
-.library-hero-title {
-  max-width: 15ch;
-}
-
-.library-hero-subtitle {
-  margin: var(--space-2) 0 0;
-  color: var(--text-secondary);
-  max-width: 50ch;
-  margin-top: var(--space-4);
-  font-size: clamp(15px, 1.15vw, 17px);
-  line-height: 1.6;
-}
-
-.library-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-6);
-}
-
 .button.is-large {
   height: 44px;
   padding: 0 18px;
@@ -6333,341 +6540,9 @@ select.input.is-choice {
   border-color: var(--accent);
 }
 
-/*
-  Cascade-pinned: must stay before @media (prefers-reduced-motion: reduce) :: .library-showcase, .library-showcase:hover; the rest of this selector is further down.
-*/
-
-.library-showcase {
-  animation: room-in var(--duration-slow) var(--ease-out) both;
-}
-
-.library-showcase::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, #ffffff 10%, transparent),
-    transparent 40%
-  );
-}
-
-/*
-  Cascade-pinned: must stay before .library-showcase:focus-visible; the rest of this selector is further down.
-*/
-
-.library-showcase:hover {
-  box-shadow:
-    var(--elevation-4),
-    0 48px 96px -40px var(--accent-glow);
-}
-
-.library-showcase:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 3px var(--accent-ghost),
-    var(--elevation-4);
-}
-
-.library-showcase-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.library-showcase-bar i {
-  width: 9px;
-  height: 9px;
-  border-radius: var(--radius-full);
-  background: var(--border-strong);
-}
-
-.library-showcase-bar i:nth-child(1) {
-  background: #ff5f57;
-}
-
-.library-showcase-bar i:nth-child(2) {
-  background: #febc2e;
-}
-
-.library-showcase-bar i:nth-child(3) {
-  background: #28c840;
-}
-
-.library-showcase-bar span {
-  margin-left: var(--space-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.library-showcase-image {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9.5;
-  object-fit: contain;
-  background: var(--canvas-sheet);
-}
-
-.library-showcase-caption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 10px var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
-
-.library-showcase-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--signal) 14%, transparent);
-  color: var(--signal);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.library-showcase-label::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: currentColor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
-}
-
-/* Sections below the hero. */
-
-.library-section-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-  margin: var(--space-8) 0 var(--space-4);
-}
-
-.library-section-head h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.library-section-head p {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.library-start {
-  padding-bottom: var(--space-10);
-}
-
-.library-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: var(--space-5) var(--space-6);
-  border: 1px dashed var(--border-strong);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface-raised) 60%, transparent);
-}
-
-.library-empty h2 {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-}
-
-.library-empty p {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-/* Starting points as drawings. */
-
-.library-templates.is-rich {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  gap: var(--space-4);
-}
-
-.template-card.is-rich {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-  border-radius: 16px;
-}
-
-.template-thumb {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: var(--canvas-sheet);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.template-thumb img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition: transform var(--duration-slow) var(--ease-liquid);
-}
-
-.template-card.is-rich:hover .template-thumb img {
-  transform: scale(1.04);
-}
-
-.template-glyph {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
-  border: 1px solid var(--border-subtle);
-  color: var(--accent);
-  box-shadow: var(--elevation-1);
-}
-
-.template-thumb.is-blank {
-  color: var(--text-secondary);
-  background:
-    radial-gradient(circle at 50% 50%, var(--accent-ghost), transparent 60%), var(--surface);
-}
-
-.template-thumb.is-blank::after {
-  content: '';
-  position: absolute;
-  inset: 12px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 10px;
-}
-
-.template-text {
-  display: block;
-  padding: 12px 14px 14px;
-}
-
-.template-card.is-rich b {
-  font-size: var(--text-base);
-  letter-spacing: -0.01em;
-}
-
-.template-card.is-rich small {
-  margin-top: 3px;
-  line-height: 1.45;
-}
-
-/* One of the reader's own: the card is a box, the face inside it is the
-   button, and the actions sit in the corner as they do on a diagram card. */
-.template-card.is-yours {
-  position: relative;
-}
-
-.template-card.is-yours:focus-within {
-  border-color: var(--accent);
-}
-
-.template-open {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.template-open:focus-visible {
-  box-shadow: none;
-}
-
-.template-open .template-text {
-  display: block;
-}
-
-.template-actions {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
-}
-
-.template-card.is-yours:hover .template-actions,
-.template-card.is-yours:focus-within .template-actions {
-  opacity: 1;
-  transform: none;
-}
-
-.template-actions .icon-button {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--elevation-1);
-}
-
 /* The dialog's two groups, when the reader has templates of their own. */
 .template-group-title {
   margin: var(--space-3) 0 var(--space-2);
-}
-
-@media (max-width: 960px) {
-  .library-hero-inner.is-split {
-    grid-template-columns: 1fr;
-  }
-  .library-showcase {
-    transform: none;
-  }
-  .library-hero-title {
-    max-width: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .library-showcase,
-  .library-showcase:hover {
-    transform: none;
-    animation: none;
-  }
-  .template-card.is-rich:hover .template-thumb img {
-    transform: none;
-  }
 }
 
 /*
@@ -6812,7 +6687,7 @@ p,
 small,
 .dialog-subtitle,
 .inspector-note,
-.library-hero-subtitle,
+.library-hero-lede,
 .library-section-head p,
 .template-card small,
 .empty-state-subtitle,
@@ -6826,7 +6701,6 @@ small,
 .inspector-section-header,
 .topbar-menu-group,
 .palette-group-title,
-.library-hero-eyebrow,
 .minimap-title,
 .side-panel-title,
 .browser-title {
@@ -6954,9 +6828,8 @@ kbd {
   transition-duration: var(--duration-instant);
 }
 
-.template-card:active,
-.library-showcase:active {
-  transform: scale(0.99);
+.template-card:active {
+  transform: scale(0.995);
   transition-duration: var(--duration-instant);
 }
 
@@ -7053,37 +6926,6 @@ kbd {
   }
 }
 
-/* A diagram card says where it goes: an arrow slides in at the edge on hover. */
-
-.library-card-open::after {
-  content: '→';
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-  opacity: 0;
-  transform: translateX(-6px) scale(0.9);
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-base) var(--ease-rubber);
-  pointer-events: none;
-}
-
-.library-card:hover .library-card-open::after,
-.library-card-open:focus-visible::after {
-  opacity: 1;
-  transform: none;
-}
-
 /* ── The theme changes like a light being turned, not a page reloading ──── */
 
 body,
@@ -7108,16 +6950,14 @@ body,
     animation: none;
     stroke-dashoffset: 0;
   }
-  .save-status.is-saved,
-  .library-card-open::after {
+  .save-status.is-saved {
     animation: none;
     transition: none;
   }
   .icon-button:active:not(:disabled),
   .button:active:not(:disabled),
   .chip:active,
-  .template-card:active,
-  .library-showcase:active {
+  .template-card:active {
     transform: none;
   }
 }
@@ -7201,81 +7041,18 @@ body,
   animation: chip-pop 260ms var(--ease-out);
 }
 
-/*
-  Cascade-pinned: must stay before @media (prefers-reduced-motion: reduce) :: .library-showcase, .library-showcase:hover, .library-showcase:active; the rest of this selector is further down.
-*/
-
-.library-showcase {
-  transform: perspective(1400px) rotateY(calc(-7deg + var(--tilt-x, 0deg)))
-    rotateX(calc(2deg + var(--tilt-y, 0deg)));
-}
-
-.library-showcase:hover {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
-  transform: perspective(1400px) rotateY(calc(-4deg + var(--tilt-x, 0deg)))
-    rotateX(calc(1deg + var(--tilt-y, 0deg))) translateY(-4px);
-}
-
-.library-showcase:active {
-  transform: perspective(1400px) rotateY(calc(-4deg + var(--tilt-x, 0deg)))
-    rotateX(calc(1deg + var(--tilt-y, 0deg))) scale(0.99);
-}
-
-/* The hero lands in order: eyebrow, title, lede, actions, then the proof. */
-
-.library-hero-copy > * {
-  animation: row-in var(--duration-slow) var(--ease-liquid) both;
-}
-
-.library-hero-copy > :nth-child(2) {
-  animation-delay: 60ms;
-}
-
-.library-hero-copy > :nth-child(3) {
-  animation-delay: 120ms;
-}
-
-.library-hero-copy > :nth-child(4) {
-  animation-delay: 180ms;
-}
-
-.library-hero-inner.is-split .library-showcase {
-  animation-delay: 160ms;
-}
-
-@supports (animation-timeline: scroll()) {
-  /* The header gains its shadow only once something is scrolling under it. */
-  .library-header {
-    animation: header-condense linear both;
-    animation-timeline: scroll(root);
-    animation-range: 0 96px;
+/* On `translate`/`scale`, not `transform`, so a hover lift — which is a
+   transform — still composes on top once the element has arrived. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+    scale: 0.985;
   }
-  @keyframes header-condense {
-    to {
-      box-shadow:
-        0 1px 0 var(--border-strong),
-        0 12px 32px -20px rgb(0 0 0 / 0.55);
-    }
-  }
-  /* Starting points rise into place as they enter the viewport. */
-  .template-card.is-rich {
-    animation: rise-in linear both;
-    animation-timeline: view();
-    animation-range: entry 0% entry 45%;
-  }
-  /* On `translate`/`scale`, not `transform`, so the card's hover lift — which
-     is a transform — still composes on top once the card has arrived. */
-  @keyframes rise-in {
-    from {
-      opacity: 0;
-      translate: 0 18px;
-      scale: 0.985;
-    }
-    to {
-      opacity: 1;
-      translate: 0 0;
-      scale: 1;
-    }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
   }
 }
 
@@ -7288,16 +7065,8 @@ body,
     transition: none;
   }
   .chip-choice.is-active,
-  .fill-swatch.is-active,
-  .library-hero-copy > *,
-  .library-header,
-  .template-card.is-rich {
+  .fill-swatch.is-active {
     animation: none;
-  }
-  .library-showcase,
-  .library-showcase:hover,
-  .library-showcase:active {
-    transform: none;
   }
 }
 
@@ -7360,65 +7129,6 @@ body,
     inset 0 -1px 0 color-mix(in srgb, var(--border-strong) 80%, transparent),
     0 1px 1px rgb(0 0 0 / 0.08);
   color: var(--text-secondary);
-}
-.library {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-  background: var(--surface);
-  position: relative;
-  isolation: isolate;
-}
-.library::before {
-  content: '';
-  position: fixed;
-  inset: -20% -10%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      38% 42% at 12% 18%,
-      color-mix(in srgb, var(--accent) 22%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      34% 40% at 88% 22%,
-      color-mix(in srgb, var(--signal) 14%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      40% 46% at 70% 90%,
-      color-mix(in srgb, var(--brand-to) 12%, transparent),
-      transparent 72%
-    );
-  filter: blur(40px);
-  animation: ambient-drift 28s ease-in-out infinite alternate;
-}
-.dark .library::before {
-  background:
-    radial-gradient(
-      38% 42% at 12% 18%,
-      color-mix(in srgb, var(--accent) 26%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      34% 40% at 88% 22%,
-      color-mix(in srgb, var(--signal) 16%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      40% 46% at 70% 90%,
-      color-mix(in srgb, var(--brand-to) 14%, transparent),
-      transparent 72%
-    );
-}
-@keyframes ambient-drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(3%, -2%, 0) scale(1.06);
-  }
 }
 .editor-stage::before {
   content: '';
@@ -7485,19 +7195,6 @@ body,
   backdrop-filter: saturate(160%) blur(18px);
 }
 
-.library-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--header-h);
-  border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--surface-raised) 66%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  backdrop-filter: saturate(180%) blur(24px);
-}
 /* The inspector may be glass now that its icon picker lives outside it. */
 .inspector,
 .side-panel,
@@ -7525,49 +7222,15 @@ body,
 .icon-picker-section-header {
   background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
 }
-.library-card,
-.template-card,
-.library-stat,
-.library-empty {
+.template-card {
   background: color-mix(in srgb, var(--surface-raised) 66%, transparent);
   -webkit-backdrop-filter: saturate(160%) blur(20px);
   backdrop-filter: saturate(160%) blur(20px);
-}
-
-/* The showcase: a window onto the editor, leaning slightly into the page. */
-
-.library-showcase {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: 20px;
-  text-align: left;
-  cursor: pointer;
-  box-shadow:
-    var(--elevation-4),
-    0 40px 80px -40px var(--accent-glow);
-  transform-origin: 60% 50%;
-  transition:
-    transform 180ms var(--ease-out),
-    box-shadow var(--duration-slow) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-  background: color-mix(in srgb, var(--surface-raised) 80%, transparent);
-  -webkit-backdrop-filter: saturate(160%) blur(24px);
-  backdrop-filter: saturate(160%) blur(24px);
-}
-
-.library-showcase-bar,
-.library-showcase-caption {
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
 }
 /* A light along the top edge is what makes frost read as glass, not fog. */
 .inspector::before,
 .side-panel::before,
 .code-panel::before,
-.library-card::before,
 .template-card::before {
   content: '';
   position: absolute;
@@ -7583,7 +7246,6 @@ body,
   );
   opacity: 0.8;
 }
-.library-card,
 .template-card {
   position: relative;
 }
@@ -7841,9 +7503,6 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .library::before {
-    animation: none;
-  }
   .icon-upload {
     animation: none;
   }
@@ -8009,24 +7668,21 @@ body,
 
 .palette-search,
 .browser-search,
-.icon-picker-search,
-.library-search {
+.icon-picker-search {
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-field);
 }
 
 .palette-search:focus-within,
 .browser-search:focus-within,
-.icon-picker-search:focus-within,
-.library-search:focus-within {
+.icon-picker-search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ghost);
 }
 
 .palette-input,
 .browser-search-input,
-.icon-picker-search-input,
-.library-search-input {
+.icon-picker-search-input {
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -8039,11 +7695,9 @@ body,
 .palette-input:focus,
 .browser-search-input:focus,
 .icon-picker-search-input:focus,
-.library-search-input:focus,
 .palette-input:focus-visible,
 .browser-search-input:focus-visible,
-.icon-picker-search-input:focus-visible,
-.library-search-input:focus-visible {
+.icon-picker-search-input:focus-visible {
   outline: none;
   box-shadow: none;
   border-color: transparent;
@@ -8436,9 +8090,6 @@ body,
   animation-duration: 220ms;
 }
 @media (hover: none) {
-  .template-card:hover,
-  .library-showcase:hover,
-  .library-card:hover,
   .fill-swatch:hover,
   .icon-picker-tile:hover .icon-picker-tile-icon,
   .tool-button:hover svg,
@@ -8449,14 +8100,10 @@ body,
 @media (prefers-reduced-transparency: reduce) {
   .topbar,
   .statusbar,
-  .library-header,
   .inspector,
   .side-panel,
   .code-panel,
-  .library-card,
   .template-card,
-  .library-stat,
-  .library-showcase,
   .tooltip,
   .tool-tooltip,
   .tool-dock,
@@ -8474,7 +8121,6 @@ body,
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .library::before,
   .editor-stage::before {
     display: none;
   }
@@ -8551,27 +8197,6 @@ small,
   letter-spacing: 0.01em;
 }
 
-/* ── Type: the new face needs slightly tighter tracking on the large sizes ── */
-
-.library-hero-title {
-  margin: 0;
-  font-weight: 700;
-  background: linear-gradient(
-    100deg,
-    var(--text-primary) 0%,
-    var(--text-primary) 55%,
-    var(--accent) 85%,
-    var(--signal) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  font-size: clamp(34px, 4.1vw, 56px);
-  letter-spacing: -0.04em;
-  line-height: 1.02;
-}
-
-.library-hero-subtitle,
 .dialog-subtitle,
 .inspector-note {
   line-height: 1.6;
@@ -8725,8 +8350,7 @@ small,
 
 .palette-search,
 .browser-search,
-.icon-picker-search,
-.library-search {
+.icon-picker-search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -8824,7 +8448,6 @@ small,
 
 .browser-cloud.chip,
 .icon-picker-cloud.chip,
-.library-folder.chip,
 .view-bar .chip {
   height: 30px;
   padding: 0 11px 0 9px;
@@ -8845,7 +8468,6 @@ small,
 
 .browser-cloud.chip:hover,
 .icon-picker-cloud.chip:hover,
-.library-folder.chip:hover,
 .view-bar .chip:hover {
   border-color: color-mix(in srgb, var(--cloud-color, var(--accent)) 45%, var(--border-subtle));
   color: var(--text-primary);
@@ -8853,7 +8475,6 @@ small,
 
 .browser-cloud.chip.is-active,
 .icon-picker-cloud.chip.is-active,
-.library-folder.chip.is-active,
 .view-bar .chip.is-active {
   background: color-mix(in srgb, var(--cloud-color, var(--accent)) 18%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--cloud-color, var(--accent)) 55%, transparent);
@@ -8939,100 +8560,6 @@ small,
   margin: 0 4px;
   background: color-mix(in srgb, var(--border-strong) 80%, transparent);
 }
-.library-nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: var(--space-4);
-  padding: 3px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 90%, transparent);
-}
-.library-nav-link {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: var(--radius-full);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  text-decoration: none;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-.library-nav-link:hover {
-  color: var(--text-primary);
-}
-.library-nav-link.is-active {
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  font-weight: 600;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.16),
-    0 0 0 1px color-mix(in srgb, var(--border-strong) 70%, transparent);
-}
-.library-hero-points {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: var(--space-6) 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-.library-hero-points li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.library-point-mark {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 5px;
-  border: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--text-secondary);
-}
-.template-meta {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.02em;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-.library-hero-inner.is-split {
-  display: grid;
-  align-items: center;
-  gap: clamp(32px, 5vw, 72px);
-  padding-block: clamp(36px, 5.5vw, 76px) var(--space-6);
-}
-@media (max-width: 900px) {
-  .library-nav {
-    display: none;
-  }
-}
-
-/* The home search sits on the page grid, not inside a panel. */
-
-.library-search {
-  width: min(360px, 100%);
-  margin-left: 0;
-  margin-right: 0;
-}
-
 .page-state {
   display: grid;
   place-items: center;

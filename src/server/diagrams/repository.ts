@@ -217,6 +217,9 @@ export class PgDiagramRepository implements DiagramRepository {
       model: input.model,
       role: 'owner',
     });
+    // Drawn now, not at the first save, so a copy or a diagram started from a
+    // template has a preview in the library — the same as the browser's store.
+    record.thumbnail = renderThumbnail(record.model);
     await withTransaction(async (client) => {
       await insertDiagram(client, record);
       await insertMember(client, record.id, this.actor.id, 'owner', this.actor.id);
@@ -612,7 +615,12 @@ export class PgDiagramRepository implements DiagramRepository {
    * transaction, so a dump that fails halfway leaves nothing behind.
    */
   async importWorkspace(data: WorkspaceExport): Promise<number> {
-    const diagrams = data.diagrams.map((raw) => DiagramRecordSchema.parse(raw));
+    // A dump written before previews were drawn at creation carries none for
+    // diagrams never saved; draw it now rather than leave the card blank.
+    const diagrams = data.diagrams.map((raw) => {
+      const parsed = DiagramRecordSchema.parse(raw);
+      return { ...parsed, thumbnail: parsed.thumbnail ?? renderThumbnail(parsed.model) };
+    });
     const versions = data.versions.map((raw) => DiagramVersionSchema.parse(raw));
 
     const idMap = new Map<string, string>();

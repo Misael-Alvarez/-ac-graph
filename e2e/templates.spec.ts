@@ -42,7 +42,7 @@ test('a diagram saved as a template joins the starting points, drawn, and stays 
   await expect(card.locator('.template-thumb img')).toHaveAttribute('src', /^data:image\/svg/);
   // The diagram it was saved from is the only diagram; the template is not one.
   await expect(page.locator('.library-grid .library-card')).toHaveCount(1);
-  await expect(page.locator('.library-stat').first()).toContainText('1');
+  await expect(page.locator('.library-count')).toHaveText('1');
 
   // Starting from it makes a new diagram with the template's content and name.
   await card.locator('.template-open').click();

@@ -23,12 +23,17 @@ const TAKES_INK = [
   '.cloud-chip',
   '.cloud-card',
   '.segmented-option',
-  '.library-folder',
   '.context-menu-item',
   '.palette-row',
   '.ai-chip',
-  '.library-card-open',
 ].join(',');
+
+/**
+ * The home page answers a press with a scale, in a frame or two, and nothing
+ * else: a spreading stain that outlasts the tap by half a second is the
+ * opposite of the crispness that page is built on.
+ */
+const KEEPS_DRY = '.library';
 
 export function useGlobalRipple(): void {
   useEffect(() => {
@@ -40,7 +45,7 @@ export function useGlobalRipple(): void {
 
       const target = event.target as Element | null;
       const host = target?.closest<HTMLElement>(TAKES_INK);
-      if (!host || host.hasAttribute('disabled')) return;
+      if (!host || host.hasAttribute('disabled') || host.closest(KEEPS_DRY)) return;
 
       const rect = host.getBoundingClientRect();
       // Reach for the farthest corner, so the ink always covers the control.

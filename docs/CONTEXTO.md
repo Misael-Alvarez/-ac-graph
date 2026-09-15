@@ -10,7 +10,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
 - **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `db431ad` (H2 #16 importadores) sobre `7c72a21` (H2 #11 conectores editables). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
+- **Estado del árbol:** rediseño de la portada verificado (pendiente de commit al escribir esto), sobre `9df7462` (registro de H2 #16). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -39,6 +39,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `7c72a21` — Draw the line yourself: routes, ports, labels, elbows, weight and colour per connector, kept through views and code
   - `86ac20f` — Record the connectors commit in the context and the checkpoint log
   - `db431ad` — Read what the infrastructure says: CloudFormation, Docker Compose and Pulumi become diagrams like Terraform does
+  - `9df7462` — Record the importers commit in the context and the checkpoint log
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel
@@ -116,6 +117,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 ## 5. Decisiones que no hay que rediscutir
 
 - **Barra de herramientas a la izquierda, vertical.** Se probó abajo al centro y el usuario la rechazó. No moverla.
+- **Portada sobria (2026-09-14, pedido del usuario):** sin métricas ni contadores, sin cejilla ni puntos de marketing, sin aurora, deriva ambiental, pulso, inclinación 3D ni revelado por scroll; el logo es el enlace a `/` (limpia búsqueda y filtros); las tarjetas dibujan la **vista previa real en el tema** (`useDiagramPreviews` → `renderPreview(model, dark)`), nunca `renderThumbnail` a la vista; **una** regla de hover por superficie (borde + sombra, sin `translateY`, solo con `(hover: hover) and (pointer: fine)`), `scale(0.995)` al pulsar, anillo de foco `outline` en todo lo interactivo, objetivos ≥32 px, texto de botones ocultable solo con `aria-label` + `title`. Movimiento ≤200 ms con `--ease-out`; nada en acciones de teclado. No reintroducir adornos: si algo no cambia lo que el lector entiende o hace, no va.
 - **Todo control cambia algo observable.** Nada de adorno; cada control nuevo entra en `scripts/audit-controls.mjs`.
 - **Metadatos visibles en el lienzo:** cada campo del inspector tiene su marca (chips en servicios, etiquetas y trazo en conectores). Si se añade un campo, se añade su marca.
 - **Deshacer:** ráfagas coalescidas (`coalesceKey`), Cmd+Z desde campos cae al dibujo, historial vacío avisa. No romperlo.
@@ -149,6 +151,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Conectores: la etiqueta no evita sola un borde de grupo (se recoloca a mano: arrastre, teclado o %); las rutas manuales no se guardan por vista (los codos interiores se comparten y solo los extremos se re-anclan); un codo arrastrado en diagonal deja un segmento inclinado; no hay «mover segmento» desde el lienzo (`moveSegment` solo en el motor); la IA y el CLI no generan rutas ni estilos por conector.
 - Comentarios: sin menciones `@nombre` ni bandeja (→ Notificaciones); sin editar un comentario ni borrar una respuesta suelta; un hilo se desancla si el panel de código recompila (ids nuevos); no entran en versiones, duplicados, volcado, enlaces ni exportaciones.
 - Plantillas propias: sin nombre/descripción al guardar (toma el título); editar una plantilla es editar un diagrama sin insignia en la barra; no aparecen en el diálogo «Nuevo diagrama».
+- Portada: el duplicado se titula «X copy» (el repositorio no conoce el idioma); nadie asigna carpetas desde la interfaz; la vista previa por tarjeta pide el modelo (en servidor, un GET por tarjeta visible, 4 en vuelo); la miniatura guardada sigue siendo `renderThumbnail` en claro, solo como relleno.
 - Decoración: mover una región no arrastra lo que hay encima; sin edición de texto sobre el lienzo; anchos de glifo estimados (±3 %); la IA conserva notas pero no las genera; Mermaid las omite; el dock de diez herramientas desborda en la disposición móvil (ya lo hacía con siete).
 - Métricas por proceso (Prometheus agrega por `instance`); sin alertas ni envío a colector (decisión del operador). Las rutas de IA no llevan `code` en la línea de acceso (responden con `NextResponse.json` propio).
 - La paleta ⌘K conserva su búsqueda propia (`palette-search`) y el menú contextual su fila (`context-menu-item`): unificarlos con `SearchField`/`MenuItem` cambiaría el DOM. `useCommands.ts` (~300 líneas) sigue siendo un solo hook.
@@ -167,7 +170,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 - Presentación: `src/components/editor/chrome/Presentation.tsx` (capa: título, vista, paginador, leyenda, teclas), `presenting`/`setPresenting` en `uiState.ts`, atajo `present` (F5) en `shortcuts.ts`, comandos `present`/`exportPdfViews` en `useCommands.ts`, Esc en `useKeyboard.ts`, PDF multipágina `rastersToPdf` en `pdf.ts` + `downloadPdfPages` en `export.ts`.
 - Chrome: `src/components/editor/chrome/` (`TopBar` + `ExportMenu`/`MoreMenu`/`AccountMenu`/`menuProps.ts`, `ToolDock`, `InspectorPanel` + `inspector/`, `ServiceBrowser`, `IconPicker`, `CustomIcons`, `CommandPalette`, `FindBar`, `VersionPanel`, `InsightsPanel`, `Minimap`, `Modals`); componentes de sistema en `src/components/ui/`.
 - Iconos propios: `src/lib/icons/{customIcons,iconLibrary}.ts`; hook y copy en `src/components/editor/chrome/CustomIcons.tsx`; servidor `src/server/icons/{repository,schemas,errors}.ts`, rutas `src/app/api/icons/**`, cliente `IconLibraryApi` en `httpRepository.ts`.
-- Portada: `src/components/library/Library.tsx` (estado y composición) + `LibraryHeader`, `LibraryHero`, `LibraryToolbar` (exporta `FAVOURITES`/`NO_FOLDER`), `DiagramCard`, `TemplateGallery` (exporta `TemplatePreview`), `WorkspaceActions`, `CountUp`; vista previa real `src/lib/store/preview.ts`.
+- Portada: `src/components/library/Library.tsx` (estado y composición) + `LibraryHeader` (logo-enlace, pestañas con `useActiveSection`), `LibraryHero` (hero compacto + escaparate plano), `LibraryToolbar` (exporta `FAVOURITES`/`NO_FOLDER`), `DiagramCard` (vista previa por tema con `useDiagramPreviews`), `TemplateGallery` (exporta `TemplatePreview`), `WorkspaceActions`; vista previa real `src/lib/store/preview.ts`; miniatura de relleno `thumbnail.ts` (dibujada en `create()`).
 - App: `src/components/app/` (providers, tooltips, ripple, tema, `PageState` para 404/error).
 - Victorias rápidas: `src/lib/editor/describe.ts` (descripción accesible), `src/lib/editor/usePresence.ts` (salidas), `src/lib/library/{prefs,dropImport}.ts` (orden/favoritos, soltar archivo), `repositoryUrl`/`stripMetadata` en `src/lib/editor/meta.ts`, `exportTheme`/`exportMeta` en `uiState.ts`.
 - Importación: `src/lib/import/{shared,index,terraform,kubernetes,openapi,cloudformation,compose,pulumi}.ts` (contrato `ImportResult`, `detectFormat` en orden terraform → cloudformation → openapi → pulumi → kubernetes → compose), tablas tipo → servicio en `src/data/resourceServices.ts`, diálogo `MarkdownDialog` en `Modals.tsx`, soltar archivo `src/lib/library/dropImport.ts`.
@@ -180,7 +183,7 @@ ANTHROPIC_API_KEY= docker compose -p acgraph-foundation up -d --no-build --wait 
 
 Orden sugerido (del `PLAN_MEJORAS.md`):
 
-1. **Portada:** el usuario pidió (2026-09-14) mejorar el front de la biblioteca: botones con fallos, el logo de AION como vuelta al inicio, miniaturas que muestren la vista previa real (algunas salen rotas), quitar las métricas del hero y rediseñar con la sobriedad de Emil Kowalski («startup profesional»). Reconstruir la imagen de 3080 con lo que se entregue.
+1. **Portada entregada** (ver `CHECKPOINTS.md` «Portada: arreglos y rediseño sobrio»). Pendiente: reconstruir la imagen de 3080 con el commit final y pedir al usuario que la vea en su Firefox; si quiere seguir con el front, lo siguiente por el mismo criterio es el diálogo «Nuevo diagrama» (plantillas propias y la misma anatomía de tarjeta) y el título de los duplicados.
 2. **H2: #10, #12, #20, #14, #9, #11 y #16 hechos; #13 (⌘F) ya existe** (`FindBar`, E2E «⌘F finds a shape…», auditoría). Quedan sin marcar #15 iconos oficiales Azure/OCI (M; exige descargar los packs oficiales y revisar licencias), #17 exportación draw.io/PPTX (M/L), #18 IA que edita (L) y #19 revisión asistida (M). Por valor visible con menos riesgo: #17 → #15; #18/#19 requieren `ANTHROPIC_API_KEY` para verificarse de verdad.
 
 Antes de cualquier entrega: verificación completa (sección 3), capturas antes/después en ambos temas, entrada en `CHECKPOINTS.md`.

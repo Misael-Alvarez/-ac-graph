@@ -145,6 +145,84 @@ test('offers a way back when the diagram does not exist', async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
+test('draws a diagram started from a template on its card, before it is ever edited', async ({
+  page,
+}) => {
+  await page
+    .locator('.library-templates .template-card')
+    .filter({ hasText: 'API serverless' })
+    .first()
+    .click();
+  await page.waitForSelector('.canvas-surface');
+  await page.getByRole('button', { name: 'Todos los diagramas' }).click();
+
+  // The real drawing, in the current theme, not a placeholder.
+  const thumb = page.locator('.library-card .library-thumb img');
+  await expect(thumb).toHaveCount(1);
+  await expect(thumb).toHaveAttribute('src', /^data:image\/svg/);
+});
+
+test('shows duplicate and delete on hover of a starred card too', async ({ page }) => {
+  await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
+  await page.locator('.dialog .template-card').filter({ hasText: 'Lienzo en blanco' }).click();
+  await page.waitForSelector('.canvas-surface');
+  await page.getByRole('button', { name: 'Todos los diagramas' }).click();
+
+  const card = page.locator('.library-card').first();
+  await card.hover();
+  await card.locator('.library-star').click();
+  await expect(card.locator('.library-star')).toHaveClass(/is-on/);
+
+  // Away, and back: the star stays; the rest returns with the pointer.
+  await page.mouse.click(5, 5);
+  await expect(card.locator('.library-star')).toHaveCSS('opacity', '1');
+  await expect(card.getByRole('button', { name: /Duplicar:/ })).toHaveCSS('opacity', '0');
+  await card.hover();
+  await expect(card.getByRole('button', { name: /Duplicar:/ })).toHaveCSS('opacity', '1');
+  await expect(card.getByRole('button', { name: /Eliminar:/ })).toHaveCSS('opacity', '1');
+});
+
+test('the mark clears the search and returns to the top when already home', async ({ page }) => {
+  await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
+  await page.locator('.dialog .template-card').filter({ hasText: 'Lienzo en blanco' }).click();
+  await page.waitForSelector('.canvas-surface');
+  await page.getByRole('button', { name: 'Todos los diagramas' }).click();
+
+  await page.locator('.library-search-input').fill('nada de esto existe');
+  await expect(page.getByText('Ningún diagrama coincide')).toBeVisible();
+  await page.locator('#library-start').scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+  await page.locator('.library-identity').click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator('.library-search-input')).toHaveValue('');
+  await expect(page.locator('.library-card')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test('the nav pill lights up for the section it scrolled to, clear of the header', async ({
+  page,
+}) => {
+  await expect(page.locator('.library-nav-link.is-active')).toHaveText('Tus diagramas');
+  await page.getByRole('link', { name: 'Puntos de partida' }).click();
+  await expect(page.locator('.library-nav-link.is-active')).toHaveText('Puntos de partida');
+  const top = await page.locator('#library-start').evaluate((el) => el.getBoundingClientRect().top);
+  expect(top).toBeGreaterThanOrEqual(56);
+});
+
+test('keeps its header named and its page unscrolled on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.waitForSelector('.library-start');
+
+  const header = page.locator('.library-header');
+  for (const name of ['Importar', 'Exportar todo', 'Nuevo diagrama', 'Modo oscuro']) {
+    await expect(header.getByRole('button', { name })).toBeVisible();
+  }
+  await expect(header.getByRole('link', { name: 'Inicio' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
 test('offers templates even once the library has diagrams', async ({ page }) => {
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
   await page.locator('.dialog .template-card').filter({ hasText: 'Lienzo en blanco' }).click();

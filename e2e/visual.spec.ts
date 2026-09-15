@@ -46,6 +46,9 @@ async function reset(page: Page, dark: boolean) {
 async function openShowcase(page: Page) {
   await page.locator('.library-showcase').click();
   await page.waitForSelector('.canvas-surface');
+  // The pointer stays where the showcase was, which in the editor is a panel
+  // row or a card: park it on the status bar so no hover state is in frame.
+  await page.mouse.move(1439, 899);
   // Framing and the entrance stagger have settled.
   await page.waitForTimeout(700);
 }

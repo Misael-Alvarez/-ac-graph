@@ -14,8 +14,9 @@ export const NO_FOLDER = '__none__';
 export const FAVOURITES = '__favourites__';
 
 /**
- * How the list is narrowed and ordered: the search, the count while searching,
- * the sort, and the chips — all, favourites, then one per folder.
+ * The head of the list of diagrams: its title with the count, the search and
+ * the sort beside it, and — when there is something to narrow by — the chips:
+ * all, favourites, then one per folder.
  */
 export function LibraryToolbar({
   t,
@@ -44,45 +45,51 @@ export function LibraryToolbar({
   onFolder: (folder: string | null) => void;
   starredCount: number;
 }) {
+  const narrowed = query.trim() !== '' || folder !== null;
   return (
     <div className="library-toolbar">
-      <SearchField
-        className="library-search"
-        inputClassName="library-search-input"
-        iconSize={15}
-        placeholder={t('library.search')}
-        value={query}
-        onChange={onQuery}
-        trailing={
-          query && (
-            <button
-              type="button"
-              className="library-search-clear"
-              aria-label={t('library.clearSearch')}
-              onClick={() => onQuery('')}
+      <div className="library-toolbar-row">
+        <h2 className="library-toolbar-title">
+          {t('library.recent')}
+          <span className="library-count tabular">
+            {narrowed ? t('browser.showing', { count: visibleCount, total }) : total}
+          </span>
+        </h2>
+        <SearchField
+          className="library-search"
+          inputClassName="library-search-input"
+          iconSize={15}
+          placeholder={t('library.search')}
+          value={query}
+          onChange={onQuery}
+          trailing={
+            query && (
+              <button
+                type="button"
+                className="library-search-clear"
+                aria-label={t('library.clearSearch')}
+                onClick={() => onQuery('')}
+              >
+                <CloseIcon size={13} />
+              </button>
+            )
+          }
+        />
+        {total > 1 && (
+          <label className="library-sort">
+            <span className="sr-only">{t('library.sort')}</span>
+            <select
+              className="input is-choice"
+              value={sort}
+              onChange={(e) => onSort(e.target.value as LibrarySort)}
             >
-              <CloseIcon size={13} />
-            </button>
-          )
-        }
-      />
-      {query.trim() !== '' && (
-        <span className="result-count">{t('browser.showing', { count: visibleCount, total })}</span>
-      )}
-      {total > 1 && (
-        <label className="library-sort">
-          <span className="sr-only">{t('library.sort')}</span>
-          <select
-            className="input is-choice"
-            value={sort}
-            onChange={(e) => onSort(e.target.value as LibrarySort)}
-          >
-            <option value="recent">{t('library.sortRecent')}</option>
-            <option value="name">{t('library.sortName')}</option>
-            <option value="created">{t('library.sortCreated')}</option>
-          </select>
-        </label>
-      )}
+              <option value="recent">{t('library.sortRecent')}</option>
+              <option value="name">{t('library.sortName')}</option>
+              <option value="created">{t('library.sortCreated')}</option>
+            </select>
+          </label>
+        )}
+      </div>
 
       {(folders.length > 0 || starredCount > 0) && (
         <ChipRow className="library-folders">

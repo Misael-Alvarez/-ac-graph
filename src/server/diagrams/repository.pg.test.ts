@@ -63,6 +63,19 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       expect(await repo.get('nope')).toBeNull();
     });
 
+    it('draws the thumbnail at creation, before any save', async () => {
+      // A diagram started from a template or a showcase used to have no preview
+      // in the library until its model changed for the first time.
+      const model = modelWithGroups(2);
+      const created = await repo.create({ title: 'A', model });
+      expect(created.thumbnail).toBe(renderThumbnail(model));
+      expect((await repo.get(created.id))?.thumbnail).toBe(renderThumbnail(model));
+      expect((await repo.list())[0].thumbnail).toBe(renderThumbnail(model));
+      // A blank one too: an empty sheet is still a preview.
+      const blank = await repo.create({ title: 'Blank', model: createEmptyModel() });
+      expect(blank.thumbnail).toBe(renderThumbnail(createEmptyModel()));
+    });
+
     it('lists metadata without the model, newest update first', async () => {
       const a = await repo.create({ title: 'A', model: createEmptyModel() });
       await repo.create({ title: 'B', model: createEmptyModel() });
@@ -394,6 +407,7 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       expect(copy.folder).toBe('f');
       expect(copy.ownerId).toBe(bob.id);
       expect(copy.model).toEqual(created.model);
+      expect(copy.thumbnail).toBe(renderThumbnail(created.model));
       await expect(repo.duplicate('ghost')).rejects.toBeInstanceOf(DiagramNotFoundError);
     });
 
@@ -488,6 +502,23 @@ describe.skipIf(!pgAvailable())('PgDiagramRepository (PostgreSQL)', () => {
       expect(versions).toHaveLength(1);
       expect(versions[0].label).toBe('kept');
       expect(versions[0].id).not.toBe(dump.versions[0].id);
+    });
+
+    it('draws a thumbnail for an imported diagram that has none, and keeps one it has', async () => {
+      const bare = await repo.create({ title: 'Bare', model: modelWithGroups(2) });
+      await repo.create({ title: 'Drawn', model: modelWithGroups(1) });
+      const dump = await repo.exportWorkspace();
+      // A dump written before previews were drawn at creation.
+      dump.diagrams = dump.diagrams.map((d) =>
+        d.id === bare.id ? { ...d, thumbnail: null } : { ...d, thumbnail: '<svg/>' },
+      );
+
+      await pool.query('delete from diagrams');
+      await asBob.importWorkspace(dump);
+
+      const list = await asBob.list();
+      expect(list.find((d) => d.title === 'Bare')?.thumbnail).toBe(renderThumbnail(bare.model));
+      expect(list.find((d) => d.title === 'Drawn')?.thumbnail).toBe('<svg/>');
     });
 
     it('writes nothing when any record is invalid', async () => {
