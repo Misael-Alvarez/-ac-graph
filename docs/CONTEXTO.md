@@ -9,8 +9,8 @@ Este documento existe para que una sesión nueva — una persona o un agente —
 ## 1. Qué es y dónde está
 
 - **Producto:** AC Graph, editor de arquitecturas cloud para AION Cloud. Next 16.3.3 · React 19.2.8 · TypeScript · Zod · Immer · PostgreSQL opcional · OIDC (Authentik) opcional.
-- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-10). GitHub avisa de que el repositorio **se movió** a `https://github.com/Misael-Alvarez/-ac-graph.git`; el remoto local sigue apuntando a `Digraph.git` y funciona por redirección; actualizarlo con `git remote set-url origin` cuando el usuario lo pida.
-- **Estado del árbol:** limpio en `6e932fa` (#15 iconos oficiales Azure/OCI) sobre `5205a9d` (PPTX) y `b6cbbf9` (draw.io, diálogo «Nuevo diagrama», duplicados) sobre la portada (`506c8f0`, `be799e6`, `4993bc7`). **Sin push** todavía: `origin/main` sigue en `3026f05`. Commits de esta etapa, por tema:
+- **Repositorio:** `/Users/misaelalvarezcamarillo/Desktop/diagram-editor`, rama `main`, sincronizada con `origin/main` (push del 2026-09-14). El remoto apunta ya a la ubicación nueva, `https://github.com/Misael-Alvarez/-ac-graph.git` (`git remote set-url origin` hecho a petición del usuario).
+- **Estado del árbol:** limpio en `f118553` y **empujado** (`origin/main` = `f118553`, 2026-09-14): H2 #11, #16, #17, #15, la portada y sus registros. Commits de esta etapa, por tema:
   - `d3e1e40` — Make the build reproducible and the image safe to ship
   - `af03dd8` — Never lose a change, and make undo mean what it says
   - `c056a10` — Run it for a team: PostgreSQL, single sign-on and a live room
@@ -49,6 +49,7 @@ Este documento existe para que una sesión nueva — una persona o un agente —
   - `5205a9d` — Take the diagram to the meeting: a PowerPoint deck, one slide per view, written without a dependency
   - `0ba7386` — Record the PowerPoint commit in the context and the checkpoint log
   - `6e932fa` — Draw Azure and OCI with their own artwork: the official icon packs, vendored, mapped and sanitised into the sprite
+  - `f118553` — Record the icons commit in the context and the checkpoint log
 - **Idioma de trabajo con el usuario:** español. Código y comentarios en inglés.
 
 ## 2. Documentos y su papel

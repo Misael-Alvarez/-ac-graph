@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) #11 conectores editables (`7c72a21`) #16 importadores CloudFormation/Compose/Pulumi (`db431ad`) la portada rediseñada (`506c8f0`, `be799e6`, `4993bc7`) y #17 draw.io + PPTX + dialogo «Nuevo diagrama» + duplicados (`b6cbbf9`, `5205a9d`)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `5205a9d`. Para retomar: `docs/CONTEXTO.md`. Siguiente: #18/#19 IA (lo unico de H2 sin marcar; necesitan `ANTHROPIC_API_KEY`); H3 despues.
+> **Checkpoint vigente (2026-09-14, empujado a `origin/main` = `f118553` + este registro):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) #11 conectores editables (`7c72a21`) #16 importadores CloudFormation/Compose/Pulumi (`db431ad`) la portada rediseñada (`506c8f0`, `be799e6`, `4993bc7`) y #17 draw.io + PPTX + dialogo «Nuevo diagrama» + duplicados (`b6cbbf9`, `5205a9d`)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `5205a9d`. Para retomar: `docs/CONTEXTO.md`. Siguiente: #18/#19 IA (lo unico de H2 sin marcar; necesitan `ANTHROPIC_API_KEY`); H3 despues.
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
