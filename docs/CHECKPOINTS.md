@@ -4,7 +4,7 @@ Registro de avance por fase del `PLAN_MAESTRO.md`. Cada entrada indica el commit
 
 Convencion de estado: **cerrado**, **parcial** (indica que falta) o **pendiente**.
 
-> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) #11 conectores editables (`7c72a21`) y #16 importadores CloudFormation/Compose/Pulumi (`db431ad`)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 todavia con la imagen de `0bb02b1` (pendiente reconstruir con `db431ad`). Para retomar: `docs/CONTEXTO.md`. Siguiente: la portada (rediseño pedido por el usuario) y lo que queda de H2 sin marcar (#15 iconos Azure/OCI, #17 exportaciones, #18/#19 IA).
+> **Checkpoint vigente (2026-09-14):** H1 cerrado del todo. **H2: #10 presentacion (`91435f5`), #12 notas, texto y regiones (`4b1882f`), #20 plantillas propias (`265dd46`), #14 iconos en servidor (`0285974`), #9 comentarios anclados (`0bb02b1`) #11 conectores editables (`7c72a21`) #16 importadores CloudFormation/Compose/Pulumi (`db431ad`) y la portada rediseñada (`506c8f0`)** en `main`; arbol limpio. Contenedor local en http://127.0.0.1:3080 reconstruido con `506c8f0` (ver el registro de este commit). Para retomar: `docs/CONTEXTO.md`. Siguiente: lo que queda de H2 sin marcar (#15 iconos Azure/OCI, #17 exportaciones, #18/#19 IA) o seguir con el front (dialogo «Nuevo diagrama»).
 
 ## CP0: Confianza (cerrado, 2026-09-09)
 
@@ -459,7 +459,7 @@ Scripts: `styles:snapshot`, `styles:compare`, `styles:match-map`, `styles:consol
 
 ## Portada: arreglos y rediseño sobrio (cerrado, 2026-09-14)
 
-**Base:** `9df7462` (`main`). Pedido del usuario: botones con fallos, el logo de AION como vuelta al inicio, miniaturas que muestren la vista previa real (algunas rotas), quitar las metricas y rediseñar con la sobriedad de Emil Kowalski («startup profesional»).
+**Base:** `9df7462` (`main`). Commit `506c8f0`. Pedido del usuario: botones con fallos, el logo de AION como vuelta al inicio, miniaturas que muestren la vista previa real (algunas rotas), quitar las metricas y rediseñar con la sobriedad de Emil Kowalski («startup profesional»).
 
 ### Diagnosticado (102 capturas, sin errores de consola)
 
