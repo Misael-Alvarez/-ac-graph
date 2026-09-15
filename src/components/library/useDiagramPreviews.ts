@@ -9,7 +9,7 @@ import { thumbnailDataUrl } from '@/lib/store/thumbnail';
 /** A diagram drawn small, in the current theme, with the model it came from. */
 export interface DiagramPreview {
   model: DiagramModel;
-  /** `renderPreview(model, dark)` as a data URL, ready for an `<img src>`. */
+  /** `renderPreview(model, dark, { sheet: false })` as a data URL, ready for an `<img src>` over the cards' dotted grid. */
   src: string;
 }
 
@@ -19,6 +19,9 @@ const CONCURRENCY = 4;
 const CACHE_LIMIT = 96;
 
 const revisionOf = (meta: DiagramMeta) => `${meta.id}@${meta.updatedAt}`;
+
+/** One empty list for every render, so an omitted option never re-runs an effect. */
+const NONE: readonly string[] = [];
 
 /** Keeps a map bounded by dropping what went in first. */
 function remember<K, V>(cache: Map<K, V>, key: K, value: V) {
@@ -129,13 +132,15 @@ class PreviewLoader {
  * comes into view — `observe(meta)` is the ref a card attaches — a few at a
  * time, and the drawings are kept per revision and theme so a theme switch or
  * a return to the page redraws nothing that was already drawn. `eager` reads
- * everything at once, for the handful of starting points of the reader's own.
+ * everything at once, for the handful of starting points of the reader's own;
+ * `upfront` names the few that are read at once whatever the scroll — the one
+ * the hero shows large.
  */
 export function useDiagramPreviews(
   repository: DiagramRepository,
   items: readonly DiagramMeta[],
   dark: boolean,
-  { eager = false }: { eager?: boolean } = {},
+  { eager = false, upfront = NONE }: { eager?: boolean; upfront?: readonly string[] } = {},
 ): {
   /** By diagram id, for the revision currently listed; absent while loading. */
   previews: ReadonlyMap<string, DiagramPreview>;
@@ -152,8 +157,10 @@ export function useDiagramPreviews(
 
   useEffect(() => {
     loader.index(items);
-    if (eager) for (const meta of items) loader.want(revisionOf(meta));
-  }, [loader, items, eager]);
+    for (const meta of items) {
+      if (eager || upfront.includes(meta.id)) loader.want(revisionOf(meta));
+    }
+  }, [loader, items, eager, upfront]);
 
   const observe = useCallback(
     (meta: DiagramMeta) => (element: Element | null) => {
@@ -172,7 +179,7 @@ export function useDiagramPreviews(
       const key = `${revision}@${dark}`;
       let src = loader.drawings.get(key);
       if (!src) {
-        src = thumbnailDataUrl(renderPreview(model, dark));
+        src = thumbnailDataUrl(renderPreview(model, dark, { sheet: false }));
         remember(loader.drawings, key, src);
       }
       out.set(meta.id, { model, src });

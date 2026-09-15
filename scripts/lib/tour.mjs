@@ -38,8 +38,15 @@ export async function tour(browser, base, visit) {
     return { ctx, page };
   }
 
-  async function openShowcase(page) {
-    await page.locator('.library-showcase').click();
+  // A fresh Microservices diagram, from its template card. Not the hero's
+  // showcase: once the library holds a diagram, that is what the showcase
+  // opens, and the editor states below are recorded on the template as shipped.
+  async function openTemplate(page) {
+    await page.waitForSelector('.library-start');
+    await page
+      .locator('.library-templates .template-card:not(.is-yours)')
+      .filter({ hasText: 'Microservicios' })
+      .click();
     await page.waitForSelector('.canvas-surface');
     await settle(page, 700);
   }
@@ -69,7 +76,7 @@ export async function tour(browser, base, visit) {
     await hovered(`${t}/home:hover-showcase`, page, '.library-showcase');
     await hovered(`${t}/home:hover-nav`, page, '.library-nav-link:not(.is-active)');
 
-    await openShowcase(page);
+    await openTemplate(page);
     await record(`${t}/editor`, page);
     await hovered(`${t}/editor:hover-tool`, page, '[data-tool="group"]');
     await hovered(
@@ -334,7 +341,7 @@ export async function tour(browser, base, visit) {
     // An icon of the author's own, in the browser's tab and the picker's.
     await page.goto(base + '/');
     await page.waitForSelector('.library');
-    await openShowcase(page);
+    await openTemplate(page);
     await page.keyboard.press('ControlOrMeta+b');
     await settle(page, 400);
     await page.getByRole('tab', { name: /Propios/ }).click();
@@ -413,7 +420,7 @@ export async function tour(browser, base, visit) {
     });
     await page.goto(base + '/');
     await page.waitForSelector('.library');
-    await openShowcase(page);
+    await openTemplate(page);
     await page
       .locator('.canvas-surface rect[data-shape-id^="itm_"]')
       .nth(2)
@@ -436,7 +443,7 @@ export async function tour(browser, base, visit) {
       const narrow = await context(dark, width);
       await settle(narrow.page, 600);
       await record(`${t}/home@${width}`, narrow.page);
-      await openShowcase(narrow.page);
+      await openTemplate(narrow.page);
       await record(`${t}/editor@${width}`, narrow.page);
       await narrow.ctx.close();
     }

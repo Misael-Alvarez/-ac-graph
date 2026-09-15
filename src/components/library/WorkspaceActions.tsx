@@ -70,19 +70,11 @@ export function WorkspaceActions({ onChanged, t }: WorkspaceActionsProps) {
 
   /* Named by `aria-label` and `title` as well as by their text: below 900px the
      header keeps only the icons, and the name has to survive that — for the
-     screen reader, and for the tooltip the title becomes. */
+     screen reader, and for the tooltip the title becomes. Export wears the
+     download arrow the editor's Export menu already uses; import the upload
+     arrow, so the two never read as one button and never contradict the editor. */
   return (
     <>
-      <button
-        type="button"
-        className="button is-ghost"
-        title={t('library.import')}
-        aria-label={t('library.import')}
-        onClick={() => fileInput.current?.click()}
-      >
-        <ImportIcon size={15} />
-        <span className="button-label">{t('library.import')}</span>
-      </button>
       <button
         type="button"
         className="button is-ghost"
@@ -92,6 +84,16 @@ export function WorkspaceActions({ onChanged, t }: WorkspaceActionsProps) {
       >
         <DownloadIcon size={15} />
         <span className="button-label">{t('library.export')}</span>
+      </button>
+      <button
+        type="button"
+        className="button is-ghost"
+        title={t('library.import')}
+        aria-label={t('library.import')}
+        onClick={() => fileInput.current?.click()}
+      >
+        <ImportIcon size={15} />
+        <span className="button-label">{t('library.import')}</span>
       </button>
       <input
         ref={fileInput}

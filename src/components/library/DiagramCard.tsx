@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import type { DiagramMeta } from '@/lib/domain';
 import type { MessageKey } from '@/lib/i18n/messages';
-import { relativeDay } from '@/lib/i18n/relativeDay';
+import { relativeDay, withinADay } from '@/lib/i18n/relativeDay';
 import { thumbnailDataUrl } from '@/lib/store/thumbnail';
 import {
   CopyIcon,
@@ -18,10 +18,11 @@ import type { DiagramPreview } from './useDiagramPreviews';
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
 /**
- * One diagram in the grid: its drawing, its name, when it changed and how much
- * is in it, where it lives and what one may do with it. The star, duplicate
- * and delete — or, for someone else's diagram, leave — appear on hover; a
- * star that is on stays.
+ * One diagram in the grid: its drawing, its name — with a green dot while the
+ * day it was last touched is today — when it changed, where it lives and what
+ * one may do with it; how much is in it waits in the tooltip. The star,
+ * duplicate and delete — or, for someone else's diagram, leave — appear on
+ * hover; a star that is on stays.
  */
 export function DiagramCard({
   t,
@@ -57,8 +58,11 @@ export function DiagramCard({
     [observe, item],
   );
   const src = preview?.src ?? (item.thumbnail ? thumbnailDataUrl(item.thumbnail) : null);
-  const shapes = preview?.model.shapes.filter((s) => s.type === 'item').length;
   const shared = item.role !== undefined && item.role !== 'owner';
+  // A diagram never named is said to be unnamed, quietly, rather than shown
+  // with the default the store gave it as if someone had chosen it.
+  const untitled = item.title.trim() === '' || item.title === t('app.untitled');
+  const shapes = preview?.model.shapes.filter((s) => s.type === 'item').length;
 
   return (
     <li ref={ref} className="library-card" style={{ '--i': index } as React.CSSProperties}>
@@ -70,12 +74,17 @@ export function DiagramCard({
           )}
         </span>
         <span className="library-card-body">
-          <span className="library-card-title">{item.title}</span>
-          <span className="library-card-meta">
-            <span>
-              {relativeDay(item.updatedAt, t)}
-              {shapes !== undefined && ` · ${t('status.shapes', { count: shapes })}`}
+          <span className={`library-card-title${untitled ? ' is-untitled' : ''}`}>
+            <span className="library-card-title-text">
+              {untitled ? t('app.untitled') : item.title}
             </span>
+            {withinADay(item.updatedAt) && <i className="library-card-live" aria-hidden="true" />}
+          </span>
+          <span
+            className="library-card-meta"
+            title={shapes === undefined ? undefined : t('status.shapes', { count: shapes })}
+          >
+            <span>{t('library.editedWhen', { when: relativeDay(item.updatedAt, t) })}</span>
             {item.folder && (
               <span className="library-card-folder">
                 <FolderIcon size={11} />

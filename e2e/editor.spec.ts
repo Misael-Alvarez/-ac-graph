@@ -264,8 +264,13 @@ test('a resting pointer cannot steal the palette selection', async ({ page }) =>
 });
 
 test('⌘F finds a shape by name and glides the camera to it', async ({ page }) => {
+  // The Microservices template, from its card: with a diagram already in the
+  // library, the hero's showcase would open that diagram instead.
   await page.goto('/');
-  await page.locator('.library-showcase').click();
+  await page
+    .locator('.library-templates .template-card')
+    .filter({ hasText: 'Microservicios' })
+    .click();
   await page.waitForSelector('.canvas-surface');
   const before = await page.locator('.canvas-surface > g[transform]').getAttribute('transform');
 

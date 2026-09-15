@@ -55,13 +55,12 @@ export function AcMark({ size = 32, animate = false, className, title }: LogoPro
 export function AcGraphLogo({ size = 26, animate = false, className }: LogoProps) {
   return (
     <span className={`ac-logo${className ? ` ${className}` : ''}`}>
-      {/* The isotype already reads "AC", so the wordmark only carries what it
-          does not: repeating the letters beside their own monogram is the kind
-          of thing you stop seeing after a week and everyone else notices. The
-          accessible name still says the whole thing. */}
+      {/* The name in two tones — the company's letters in ink, the product's
+          word in the accent — as the brand writes it. The mark carries the
+          accessible name; the wordmark is a picture of the same thing. */}
       <AcMark size={size} animate={animate} title="AC Graph" />
       <span className="ac-wordmark" aria-hidden="true">
-        Graph
+        AC <span className="ac-wordmark-accent">Graph</span>
       </span>
     </span>
   );

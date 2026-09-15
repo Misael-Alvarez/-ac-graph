@@ -18,3 +18,9 @@ export function relativeDay(isoTimestamp: string, t: Translate, now = Date.now()
   if (days < 7) return t('library.daysAgo', { count: days });
   return new Date(at).toLocaleDateString();
 }
+
+/** Whether a moment is "today" in the sense above: less than a day old. */
+export function withinADay(isoTimestamp: string, now = Date.now()): boolean {
+  const at = new Date(isoTimestamp).getTime();
+  return !Number.isNaN(at) && Math.floor((now - at) / 86_400_000) <= 0;
+}

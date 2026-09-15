@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DiagramMeta } from '@/lib/domain';
 import { createEmptyModel } from '@/lib/engine';
@@ -87,9 +87,22 @@ export function Library() {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // Each card's drawing is read as it scrolls into view; the reader's own
-  // starting points — few, and shown whole — are read at once.
-  const diagramPreviews = useDiagramPreviews(repository, items, dark);
+  // The diagram touched last is the one the hero shows large and offers to
+  // pick up again. By `updatedAt`, whatever the list is sorted by.
+  const latest = useMemo(
+    () =>
+      items.reduce<DiagramMeta | undefined>(
+        (best, item) => (!best || item.updatedAt > best.updatedAt ? item : best),
+        undefined,
+      ),
+    [items],
+  );
+  const upfront = useMemo(() => (latest ? [latest.id] : []), [latest]);
+
+  // Each card's drawing is read as it scrolls into view — the hero's at once,
+  // in view or not; the reader's own starting points — few, and shown whole —
+  // are read at once too.
+  const diagramPreviews = useDiagramPreviews(repository, items, dark, { upfront });
   const templatePreviews = useDiagramPreviews(repository, templates, dark, { eager: true });
 
   /** Folders with how much is in each: a scope with no count is a guess. */
@@ -110,7 +123,9 @@ export function Library() {
       }
       if (!needle) return true;
       return (
-        item.title.toLowerCase().includes(needle) || item.description.toLowerCase().includes(needle)
+        item.title.toLowerCase().includes(needle) ||
+        item.description.toLowerCase().includes(needle) ||
+        (item.folder?.toLowerCase().includes(needle) ?? false)
       );
     });
     return sortDiagrams(filtered, sort, favourites);
@@ -191,7 +206,7 @@ export function Library() {
         return {
           template,
           model,
-          src: thumbnailDataUrl(renderPreview(model, dark)),
+          src: thumbnailDataUrl(renderPreview(model, dark, { sheet: false })),
         };
       }),
     [locale, dark],
@@ -219,6 +234,21 @@ export function Library() {
   };
 
   const section = useActiveSection(SECTIONS, !loading);
+
+  // The key the field advertises. A dialog on top keeps it: the picker and the
+  // confirmation have the keyboard, and a search behind them is not the point.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      if (picking || deleting || document.querySelector('.dialog')) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picking, deleting]);
 
   return (
     <div
@@ -256,13 +286,19 @@ export function Library() {
       />
 
       {/* The one place in the app with room to say what it is: the words on
-          the left, and on the right the proof — a real template, really drawn. */}
+          the left, and on the right a window onto a real drawing — a template
+          on a first visit; once there is work here, the diagram touched last. */}
       <LibraryHero
         t={t}
+        loading={loading}
         showcase={showcase}
+        recent={
+          latest ? { meta: latest, preview: diagramPreviews.previews.get(latest.id) } : undefined
+        }
         onNew={() => setPicking(true)}
         onBrowseTemplates={showTemplates}
         onPick={(title, model) => void create(title, model)}
+        onOpen={(meta) => router.push(`/d/${meta.id}`)}
       />
 
       <main className="library-main">
@@ -271,6 +307,7 @@ export function Library() {
             t={t}
             query={query}
             onQuery={setQuery}
+            searchRef={searchRef}
             visibleCount={visible.length}
             total={items.length}
             sort={sort}

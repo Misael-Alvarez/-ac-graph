@@ -1942,7 +1942,7 @@ body {
    points, so all of them line up on the same column at any width. */
 
 .library-header,
-.library-hero-inner,
+.library-hero,
 .library-body,
 .library-start {
   padding-inline: max(var(--space-6), calc((100% - var(--page-max)) / 2));
@@ -1980,35 +1980,42 @@ body {
 }
 
 .library-identity .ac-wordmark {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
-/* Where you are, in two pills; the lit one follows the scroll. */
+/* Where you are, as one segmented control: a sunken track, and the lit pill
+   raised on it; the lit one follows the scroll. */
 .library-nav {
   display: flex;
   align-items: center;
   gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface);
 }
 
 .library-nav-link {
   display: inline-flex;
   align-items: center;
   height: 32px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
+  padding: 0 14px;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
   font-size: var(--text-base);
   font-weight: 500;
   text-decoration: none;
   transition:
     background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .library-nav-link.is-active {
-  background: var(--surface-hover);
+  background: var(--surface-raised);
   color: var(--text-primary);
+  box-shadow: var(--elevation-1);
 }
 
 .library-header-actions {
@@ -2056,6 +2063,36 @@ body {
   border-radius: var(--radius-md);
 }
 
+/* The header's controls stand a little taller than the cards' corner buttons. */
+.library-header .button,
+.library-header .icon-button {
+  height: 36px;
+  border-radius: 10px;
+}
+
+.library-header .icon-button {
+  width: 36px;
+}
+
+/* The one filled button on the page is the accent itself, flat: the home's
+   primary does not glow or shimmer. */
+.library .button.is-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: none;
+}
+
+.library .button.is-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: none;
+  filter: none;
+}
+
+.library .button.is-primary::after {
+  content: none;
+}
+
 /* A press is answered by the button itself; nothing leans or grows. */
 .library .icon-button:hover:not(:disabled),
 .library .icon-button:hover:not(:disabled) svg {
@@ -2092,38 +2129,95 @@ body {
 
 /* ── Hero ── */
 
+/* One card on the page: the words on the left, a window onto a drawing on
+   the right. The gutter is the section's; the card has its own padding. */
 .library-hero {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border-subtle);
+  padding-block: var(--space-6) 0;
+}
+
+/* What the window shows is known only once the list has been read; until then
+   it is held, in place, so no template flashes before the reader's own work. */
+.library-hero.is-loading .library-showcase {
+  visibility: hidden;
 }
 
 .library-hero-inner.is-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
   align-items: center;
   gap: var(--space-12);
-  padding-block: var(--space-10) var(--space-8);
+  padding: 56px 64px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  background: var(--surface-raised);
 }
 
 .library-hero-copy {
   min-width: 0;
 }
 
+/* A small pill that says whose workspace this is. */
+.library-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  margin: 0 0 var(--space-5);
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.library-hero-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
 .library-hero-title {
   margin: 0;
-  max-width: 20ch;
-  font-size: 32px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  font-size: clamp(40px, 4.2vw, 60px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
   color: var(--text-primary);
 }
 
+/* The second half of the title in the accent — as a wash of the two live
+   colours where text can be painted, the accent alone where it cannot. */
+.library-hero-title-accent {
+  color: var(--accent);
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .library-hero-title-accent {
+    background: linear-gradient(
+      90deg,
+      var(--accent),
+      color-mix(in srgb, var(--accent) 60%, var(--signal))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
 .library-hero-lede {
-  margin: var(--space-3) 0 0;
-  max-width: 52ch;
-  font-size: var(--text-md);
-  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  margin: var(--space-5) 0 0;
+  max-width: 54ch;
+  overflow: hidden;
+  font-size: var(--text-lg);
+  line-height: 1.5;
   color: var(--text-secondary);
 }
 
@@ -2131,17 +2225,63 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-3);
+  margin-top: 28px;
+}
+
+/* Three things worth knowing, each with the mark it goes by. */
+.library-hero-points {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-5);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.library-hero-actions .button {
-  height: 36px;
-  padding: 0 14px;
+.library-point {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 12px 0 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface);
   font-size: var(--text-base);
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-/* The proof: a real starting point, really drawn, that opens when pressed. */
+.library-point-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.library-point-tag.is-neutral {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.library-point-tag.is-accent {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.library-point-tag.is-warning {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+}
+
+/* The window: a title bar, the drawing on a dotted sheet, and a caption that
+   says it is real. It opens what it shows. */
 .library-showcase {
   display: flex;
   flex-direction: column;
@@ -2149,7 +2289,8 @@ body {
   padding: 0;
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
-  background: var(--surface-raised);
+  background: var(--surface);
+  box-shadow: var(--elevation-2);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -2164,30 +2305,124 @@ body {
   transform: scale(0.995);
 }
 
+.library-showcase-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  font-family: var(--font-code);
+  font-size: var(--text-base);
+}
+
+.library-showcase-dots {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.library-showcase-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  opacity: 0.8;
+}
+
+.library-showcase-dots i:nth-child(1) {
+  background: #f87171;
+}
+
+.library-showcase-dots i:nth-child(2) {
+  background: #fbbf24;
+}
+
+.library-showcase-dots i:nth-child(3) {
+  background: #34d399;
+}
+
+.library-showcase-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-showcase-live {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.library-showcase-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+/* The drawing has no sheet of its own here: the dots show through it. */
+.library-showcase-image,
+.library-thumb,
+.template-thumb {
+  background:
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1.5px) 0 0 / 20px 20px,
+    var(--surface);
+}
+
 .library-showcase-image {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 10;
-  padding: var(--space-2);
+  padding: var(--space-4);
   object-fit: contain;
-  background: var(--canvas-sheet);
 }
 
 .library-showcase-caption {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   padding: 10px 14px;
   border-top: 1px solid var(--border-subtle);
-  font-size: var(--text-base);
+  background: var(--surface-raised);
+  font-size: var(--text-sm);
 }
 
-.library-showcase-name {
+/* "Real preview": the one claim the window makes, in the colour of a fact. */
+.library-showcase-label {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  height: 24px;
+  margin-right: auto;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
   font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.library-showcase-label::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+/* How much is in it, in the two numbers that say it. */
+.library-showcase-meta {
+  flex-shrink: 0;
+  font-family: var(--font-code);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
@@ -2196,7 +2431,6 @@ body {
   align-items: center;
   flex-shrink: 0;
   gap: 4px;
-  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
@@ -2223,10 +2457,11 @@ body {
 .library-toolbar {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  gap: var(--space-5);
+  margin-bottom: var(--space-3);
 }
 
+/* The search on the left, the scopes and the order on the right. */
 .library-toolbar-row {
   display: flex;
   flex-wrap: wrap;
@@ -2234,24 +2469,32 @@ body {
   gap: var(--space-3);
 }
 
-.library-toolbar-title,
-.library-section-head h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+.library-toolbar-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
 }
 
+/* The section's name is a label over the grid, not a second heading. */
 .library-toolbar-title {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  margin-right: auto;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .library-count {
   font-size: var(--text-base);
   font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-tertiary);
 }
 
@@ -2263,22 +2506,31 @@ body {
   margin: 0 0 var(--space-4);
 }
 
+.library-section-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .library-section-head p {
   margin: 0;
   font-size: var(--text-base);
   color: var(--text-secondary);
 }
 
-/* The search sits on the page, not in a panel: a field at reading size. */
+/* The search sits on the page, not in a panel: a field at reading size, with
+   the key that reaches it shown until there is something typed. */
 .library-search {
   display: flex;
   align-items: center;
+  flex: 1 1 320px;
   gap: var(--space-2);
-  width: min(320px, 100%);
-  height: 36px;
-  padding: 0 var(--space-2) 0 var(--space-3);
+  max-width: 520px;
+  height: 44px;
+  padding: 0 var(--space-3) 0 var(--space-4);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-field);
+  border-radius: 12px;
   background: var(--surface-raised);
   color: var(--text-tertiary);
   transition:
@@ -2294,6 +2546,10 @@ body {
 .library-search-input {
   height: 100%;
   font-size: var(--text-base);
+}
+
+.library-search-kbd {
+  flex-shrink: 0;
 }
 
 /* A 24px mark with a 32px reach: the padding is the part you cannot see. */
@@ -2330,28 +2586,34 @@ body {
 .library-sort .input {
   width: auto;
   min-width: 11rem;
-  height: 36px;
-  border-radius: var(--r-field);
+  height: 44px;
+  border-radius: 12px;
   background: var(--surface-raised);
 }
 
-/* Scopes, when there are any: quiet pills, the active one lit like the nav. */
+/* Scopes, when there are any: the same segmented control as the header's nav,
+   at the height of the fields beside it. */
 .library-toolbar .library-folders {
-  gap: var(--space-1);
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface);
 }
 
 .library-folder.chip {
-  height: 32px;
-  padding: 0 var(--space-3);
+  height: 34px;
+  padding: 0 14px;
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 500;
   transition:
     background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .library-folder.chip:hover {
@@ -2362,15 +2624,15 @@ body {
 
 .library-folder.chip.is-active {
   border-color: transparent;
-  background: var(--surface-hover);
+  background: var(--surface-raised);
   color: var(--text-primary);
   font-weight: 600;
-  box-shadow: none;
+  box-shadow: var(--elevation-1);
 }
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-4);
   margin: 0;
   padding: 0;
@@ -2388,7 +2650,7 @@ body {
   gap: 0;
   padding: 0;
   border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface-raised);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -2422,17 +2684,17 @@ body {
   cursor: pointer;
 }
 
-/* The drawing, on the sheet colour of the theme, in the frame of the card. */
+/* The drawing, on the dotted sheet the window above uses, in the frame of the
+   card; the background itself is set with the window's, above. */
 .library-thumb,
 .template-thumb {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 16 / 10;
-  padding: var(--space-2);
+  aspect-ratio: 4 / 3;
+  padding: var(--space-3);
   overflow: hidden;
-  background: var(--canvas-sheet);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
 }
@@ -2445,15 +2707,9 @@ body {
   object-fit: contain;
 }
 
-/* Not drawn yet and nothing stored: a quiet sheet, not a picture of nothing. */
-.library-thumb.is-empty {
-  background: var(--surface);
-}
-
 /* Starting from nothing is the odd one out, so it reads as an outline. */
 .template-thumb.is-blank {
   color: var(--text-secondary);
-  background: var(--surface);
 }
 
 .template-thumb.is-blank::after {
@@ -2473,13 +2729,41 @@ body {
 .library-card-title,
 .template-card.is-rich b {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The name, and after it a dot while the day it was last touched is today. */
+.library-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.library-card-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-card-title.is-untitled .library-card-title-text {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.library-card-live {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--success);
 }
 
 .library-card-meta,
@@ -2599,7 +2883,7 @@ body {
   }
 
   .library-showcase:hover {
-    box-shadow: var(--elevation-2);
+    box-shadow: var(--elevation-3);
   }
 
   .library-nav-link:hover,
@@ -2631,7 +2915,7 @@ body {
 
 .library-templates.is-rich {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-4);
   max-width: none;
 }
@@ -2834,11 +3118,11 @@ body {
 
 /* ── Narrower windows ── */
 
-@media (max-width: 960px) {
+@media (max-width: 1023px) {
   .library-hero-inner.is-split {
     grid-template-columns: 1fr;
-    gap: var(--space-6);
-    padding-block: var(--space-8) var(--space-6);
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-6);
   }
 }
 
@@ -2854,7 +3138,7 @@ body {
   }
 
   .library-header .button:not(.is-primary) {
-    width: 32px;
+    width: 36px;
     padding: 0;
   }
 }
@@ -2865,10 +3149,14 @@ body {
   }
 
   .library-header,
-  .library-hero-inner,
+  .library-hero,
   .library-body,
   .library-start {
     padding-inline: var(--space-4);
+  }
+
+  .library-hero-inner.is-split {
+    padding: var(--space-8) var(--space-6);
   }
 
   .library-grid,
@@ -2889,17 +3177,39 @@ body {
   }
 
   .library-header .button.is-primary {
-    width: 32px;
+    width: 36px;
     padding: 0;
   }
 
   .library-hero-title {
-    font-size: 28px;
+    font-size: 36px;
+  }
+
+  .library-hero-lede {
+    font-size: var(--text-md);
+  }
+
+  /* A pill that may need two lines, and a window bar and caption that keep
+     only what fits: the title, the label, the way in. */
+  .library-hero-eyebrow {
+    height: auto;
+    min-height: 28px;
+    padding-block: 4px;
+    line-height: 1.3;
+  }
+
+  .library-showcase-live,
+  .library-showcase-meta {
+    display: none;
   }
 
   .library-search {
-    width: auto;
-    flex: 1 1 160px;
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .library-toolbar-side {
+    margin-left: 0;
   }
 }
 
@@ -3445,6 +3755,11 @@ body {
   letter-spacing: -0.02em;
   color: var(--text-primary);
   font-weight: 600;
+}
+
+/* The product's word in the accent, the company's letters in ink. */
+.ac-wordmark-accent {
+  color: var(--accent);
 }
 
 /* Each half of the mark keeps its own origin, so the two can move apart. */

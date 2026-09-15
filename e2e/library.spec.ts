@@ -223,6 +223,43 @@ test('keeps its header named and its page unscrolled on a phone', async ({ page 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
+test('shows the diagram last worked on in the hero window, and opens it from there', async ({
+  page,
+}) => {
+  // A fresh workspace shows a template in the window; the words are the same.
+  await expect(page.locator('.library-showcase[data-kind="template"]')).toBeVisible();
+  await expect(page.locator('.library-hero-title')).toContainText('Arquitecturas');
+
+  await page
+    .locator('.library-templates .template-card')
+    .filter({ hasText: 'API serverless' })
+    .first()
+    .click();
+  await page.waitForSelector('.canvas-surface');
+  await page.locator('.topbar-name').fill('Pagos');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.topbar .save-status')).toHaveText('Guardado');
+  const url = page.url();
+  expect(url).toMatch(/\/d\//);
+
+  await page.getByRole('button', { name: 'Todos los diagramas' }).click();
+  const showcase = page.locator('.library-showcase[data-kind="recent"]');
+  await expect(showcase.locator('.library-showcase-bar')).toContainText('Pagos');
+  await expect(showcase.locator('img')).toHaveAttribute('src', /^data:image\/svg/);
+  await expect(page.locator('.library-hero-title')).toContainText('Arquitecturas');
+  await expect(page.locator('.library-card')).toHaveCount(1);
+
+  // Pressing it opens that diagram; nothing new is made.
+  await showcase.click();
+  await expect(page).toHaveURL(url);
+  await page.waitForSelector('.canvas-surface');
+  await page.getByRole('button', { name: 'Todos los diagramas' }).click();
+  await expect(page.locator('.library-card')).toHaveCount(1);
+  await expect(
+    page.locator('.library-showcase[data-kind="recent"] .library-showcase-bar'),
+  ).toContainText('Pagos');
+});
+
 test('offers templates even once the library has diagrams', async ({ page }) => {
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click();
   await page.locator('.dialog .template-card').filter({ hasText: 'Lienzo en blanco' }).click();

@@ -33,13 +33,24 @@ const transform = () =>
 const zoom = () => page.locator('.zoom-value').innerText();
 const settle = (ms = 350) => page.waitForTimeout(ms);
 
+/**
+ * A fresh Microservices diagram, every time. From the template card, not the
+ * hero's showcase: once the library holds a diagram the showcase is that
+ * diagram — the one this audit has just been changing — and the counts below
+ * are of the template as shipped.
+ */
 async function openTemplate() {
   await page.goto(base + '/');
-  await page.waitForSelector('.library');
+  await page.waitForSelector('.library-start');
   await page.evaluate(async () => {
     localStorage.removeItem('aion-studio-custom-icons');
   });
-  await page.locator('.library-showcase').click();
+  // The built-in card: a template of the reader's own saved under the same
+  // name — this audit saves one — sits in the same grid.
+  await page
+    .locator('.library-templates .template-card:not(.is-yours)')
+    .filter({ hasText: 'Microservicios' })
+    .click();
   await page.waitForSelector('.canvas-surface');
   await settle(900);
 }

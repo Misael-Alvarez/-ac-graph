@@ -23,21 +23,30 @@ import {
  * subtitle, the group's tinted sheet, the chips and the tags — with text in
  * the system typeface and no icon sprite, which keeps each one under 20KB and
  * makes it an honest preview: what you will get is what you see.
+ *
+ * `sheet: false` leaves the background out, for a drawing that sits on a
+ * surface of its own — the dotted grid behind the home page's cards.
  */
-export function renderPreview(model: DiagramModel, dark = false): string {
+export function renderPreview(
+  model: DiagramModel,
+  dark = false,
+  { sheet = true }: { sheet?: boolean } = {},
+): string {
   const theme = canvasTheme(dark);
   const isDark = isDarkCanvas(theme);
   if (!model.shapes.length) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90"><rect width="160" height="90" fill="${theme.sheet}"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90">${sheet ? `<rect width="160" height="90" fill="${theme.sheet}"/>` : ''}</svg>`;
   }
 
   const box = contentBBox(model);
   const pad = 48;
   const vb = { x: box.x - pad, y: box.y - pad, w: box.w + pad * 2, h: box.h + pad * 2 };
   const byId = new Map(model.shapes.map((s) => [s.id, s]));
-  const parts: string[] = [
-    `<rect x="${r(vb.x)}" y="${r(vb.y)}" width="${r(vb.w)}" height="${r(vb.h)}" fill="${theme.sheet}"/>`,
-  ];
+  const parts: string[] = sheet
+    ? [
+        `<rect x="${r(vb.x)}" y="${r(vb.y)}" width="${r(vb.w)}" height="${r(vb.h)}" fill="${theme.sheet}"/>`,
+      ]
+    : [];
 
   // Same order the canvas paints: regions, boundaries, groups, containers,
   // items, then the notes and texts written over them.

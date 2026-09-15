@@ -1,9 +1,12 @@
 'use client';
 
+import type { Ref } from 'react';
 import type { MessageKey } from '@/lib/i18n/messages';
 import type { LibrarySort } from '@/lib/library/prefs';
+import { shortcut } from '@/lib/editor/platform';
 import { CloseIcon, FolderIcon, StarIcon } from '@/components/icons/ToolIcons';
 import { Chip, ChipRow } from '@/components/ui/Chip';
+import { Kbd } from '@/components/ui/Kbd';
 import { SearchField } from '@/components/ui/SearchField';
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
@@ -14,14 +17,16 @@ export const NO_FOLDER = '__none__';
 export const FAVOURITES = '__favourites__';
 
 /**
- * The head of the list of diagrams: its title with the count, the search and
- * the sort beside it, and — when there is something to narrow by — the chips:
- * all, favourites, then one per folder.
+ * The head of the list of diagrams: the search, with the key that reaches it;
+ * beside it — when there is something to narrow by — the scopes as one
+ * segmented control (all, favourites, then one per folder) and the sort; and,
+ * as a small label over the grid, the section's name with the count.
  */
 export function LibraryToolbar({
   t,
   query,
   onQuery,
+  searchRef,
   visibleCount,
   total,
   sort,
@@ -34,6 +39,8 @@ export function LibraryToolbar({
   t: Translate;
   query: string;
   onQuery: (query: string) => void;
+  /** The search field, so the page's ⌘K can land in it. */
+  searchRef?: Ref<HTMLInputElement>;
   visibleCount: number;
   total: number;
   sort: LibrarySort;
@@ -49,21 +56,16 @@ export function LibraryToolbar({
   return (
     <div className="library-toolbar">
       <div className="library-toolbar-row">
-        <h2 className="library-toolbar-title">
-          {t('library.recent')}
-          <span className="library-count tabular">
-            {narrowed ? t('browser.showing', { count: visibleCount, total }) : total}
-          </span>
-        </h2>
         <SearchField
           className="library-search"
           inputClassName="library-search-input"
-          iconSize={15}
-          placeholder={t('library.search')}
+          iconSize={16}
+          placeholder={t('library.searchPlaceholder')}
           value={query}
           onChange={onQuery}
+          inputRef={searchRef}
           trailing={
-            query && (
+            query ? (
               <button
                 type="button"
                 className="library-search-clear"
@@ -72,60 +74,70 @@ export function LibraryToolbar({
               >
                 <CloseIcon size={13} />
               </button>
+            ) : (
+              <Kbd className="library-search-kbd">{shortcut('K')}</Kbd>
             )
           }
         />
-        {total > 1 && (
-          <label className="library-sort">
-            <span className="sr-only">{t('library.sort')}</span>
-            <select
-              className="input is-choice"
-              value={sort}
-              onChange={(e) => onSort(e.target.value as LibrarySort)}
-            >
-              <option value="recent">{t('library.sortRecent')}</option>
-              <option value="name">{t('library.sortName')}</option>
-              <option value="created">{t('library.sortCreated')}</option>
-            </select>
-          </label>
-        )}
+        <div className="library-toolbar-side">
+          {(folders.length > 0 || starredCount > 0) && (
+            <ChipRow className="library-folders">
+              <Chip
+                className="library-folder"
+                active={folder === null}
+                count={total}
+                onClick={() => onFolder(null)}
+              >
+                {t('library.all')}
+              </Chip>
+              {starredCount > 0 && (
+                <Chip
+                  className="library-folder"
+                  active={folder === FAVOURITES}
+                  count={starredCount}
+                  onClick={() => onFolder(folder === FAVOURITES ? null : FAVOURITES)}
+                >
+                  <StarIcon size={13} filled />
+                  {t('library.favourites')}
+                </Chip>
+              )}
+              {folders.map(([name, count]) => (
+                <Chip
+                  key={name}
+                  className="library-folder"
+                  active={folder === name}
+                  count={count}
+                  onClick={() => onFolder(name)}
+                >
+                  <FolderIcon size={13} />
+                  {name}
+                </Chip>
+              ))}
+            </ChipRow>
+          )}
+          {total > 1 && (
+            <label className="library-sort">
+              <span className="sr-only">{t('library.sort')}</span>
+              <select
+                className="input is-choice"
+                value={sort}
+                onChange={(e) => onSort(e.target.value as LibrarySort)}
+              >
+                <option value="recent">{t('library.sortRecent')}</option>
+                <option value="name">{t('library.sortName')}</option>
+                <option value="created">{t('library.sortCreated')}</option>
+              </select>
+            </label>
+          )}
+        </div>
       </div>
 
-      {(folders.length > 0 || starredCount > 0) && (
-        <ChipRow className="library-folders">
-          <Chip
-            className="library-folder"
-            active={folder === null}
-            count={total}
-            onClick={() => onFolder(null)}
-          >
-            {t('library.all')}
-          </Chip>
-          {starredCount > 0 && (
-            <Chip
-              className="library-folder"
-              active={folder === FAVOURITES}
-              count={starredCount}
-              onClick={() => onFolder(folder === FAVOURITES ? null : FAVOURITES)}
-            >
-              <StarIcon size={13} filled />
-              {t('library.favourites')}
-            </Chip>
-          )}
-          {folders.map(([name, count]) => (
-            <Chip
-              key={name}
-              className="library-folder"
-              active={folder === name}
-              count={count}
-              onClick={() => onFolder(name)}
-            >
-              <FolderIcon size={13} />
-              {name}
-            </Chip>
-          ))}
-        </ChipRow>
-      )}
+      <h2 className="library-toolbar-title">
+        {t('library.recent')}
+        <span className="library-count tabular">
+          {narrowed ? t('browser.showing', { count: visibleCount, total }) : total}
+        </span>
+      </h2>
     </div>
   );
 }
