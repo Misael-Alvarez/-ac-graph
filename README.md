@@ -350,6 +350,17 @@ is async today over IndexedDB and will be the same interface over an API.
 an image with the same code the canvas draws with — no headless browser, and no
 way for an embed to drift from what the author saw.
 
+The frontend itself — the component tree, the five React contexts, the two
+reducers, and every prop that is passed down rather than read from context, with
+the reason for each — is documented in [docs/FRONTEND.md](docs/FRONTEND.md)
+(Spanish).
+
+The server side is documented for hand-over in three files (Spanish):
+[`docs/BACKEND.md`](docs/BACKEND.md) — how it is built, configured, operated and
+extended, with a runbook; [`docs/API.md`](docs/API.md) — every route, body,
+status code and SSE event; [`docs/DATABASE.md`](docs/DATABASE.md) — schema,
+migrations, data lifecycle and operational queries.
+
 ## Commands
 
 ```bash
