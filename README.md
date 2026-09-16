@@ -307,6 +307,16 @@ whatever a document declares for itself.
 
 ## Architecture
 
+![AC Graph architecture: browser and shared library on the left, the AWS VPC with ALB, ECS Fargate, RDS PostgreSQL, Secrets Manager, ECR and CloudWatch in the middle, Anthropic API and an optional OIDC provider on the right](docs/arquitectura-ac-graph.png)
+
+The interactive version — pan, zoom, relationship tracing, three guided views
+and links from every node to its source files — is
+[`docs/arquitectura-ac-graph.html`](docs/arquitectura-ac-graph.html). GitHub
+shows that file as source; open it locally or through
+[raw.githack](https://raw.githack.com/Misael-Alvarez/-ac-graph/main/docs/arquitectura-ac-graph.html)
+to see it rendered. It is generated from
+[`docs/arquitectura-ac-graph.architecture.json`](docs/arquitectura-ac-graph.architecture.json).
+
 ```
 src/lib/domain/   Zod schemas — the single source of truth for every type
 src/lib/engine/   Pure geometry, routing, layout. No browser APIs, so it can

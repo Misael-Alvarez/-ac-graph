@@ -1,0 +1,524 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AC Graph · Arquitectura",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      680
+    ],
+    "views": [
+      {
+        "id": "peticion",
+        "label": "Petición del navegador",
+        "focus": [
+          "browser",
+          "dns",
+          "alb",
+          "app",
+          "rds"
+        ],
+        "note": "HTTPS termina en el ALB; la app en Fargate responde con SSR, API y SSE."
+      },
+      {
+        "id": "estado",
+        "label": "Estado, secretos e IA",
+        "focus": [
+          "app",
+          "rds",
+          "secrets",
+          "anthropic",
+          "oidc"
+        ],
+        "note": "PostgreSQL guarda todo y sirve de bus; los secretos entran por el rol de ejecución."
+      },
+      {
+        "id": "entrega",
+        "label": "Entrega continua y desarrollador",
+        "focus": [
+          "github",
+          "ecr",
+          "app",
+          "logs",
+          "cli",
+          "lib"
+        ],
+        "note": "GitHub asume un rol por OIDC, publica la imagen y rueda el servicio ECS."
+      }
+    ],
+    "repository": {
+      "url": "https://github.com/Misael-Alvarez/-ac-graph",
+      "provider": "github",
+      "revision": "0caf2489eec867c7882a79b5ba088180d5d7fe3e"
+    }
+  },
+  "components": [
+    {
+      "id": "local_store",
+      "type": "database",
+      "label": "Almacén local",
+      "sublabel": "IndexedDB",
+      "tag": "modo local",
+      "pos": [
+        40,
+        140
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/lib/store/localRepository.ts"
+        }
+      ]
+    },
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "Navegador · Next.js 16",
+      "sublabel": "React 19 · lienzo SVG",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/app/layout.tsx"
+        },
+        {
+          "path": "src/components/editor/DiagramEditor.tsx"
+        }
+      ]
+    },
+    {
+      "id": "lib",
+      "type": "backend",
+      "label": "Librería compartida",
+      "sublabel": "motor · DSL · reglas",
+      "tag": "src/lib",
+      "pos": [
+        40,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/lib/engine/index.ts"
+        },
+        {
+          "path": "src/lib/dsl/index.ts"
+        },
+        {
+          "path": "src/lib/rules/index.ts"
+        }
+      ]
+    },
+    {
+      "id": "cli",
+      "type": "external",
+      "label": "CLI + servidor MCP",
+      "sublabel": "check · import · diff",
+      "tag": "bin/",
+      "pos": [
+        325,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "bin/cli.ts"
+        },
+        {
+          "path": "bin/mcp.ts"
+        },
+        {
+          "path": "bin/hooks.mjs"
+        }
+      ]
+    },
+    {
+      "id": "dns",
+      "type": "cloud",
+      "label": "Route 53 + ACM",
+      "sublabel": "DNS + TLS",
+      "pos": [
+        325,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "deploy/aws/terraform/load_balancer.tf"
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub Actions",
+      "sublabel": "deploy-aws.yml",
+      "tag": "OIDC, sin claves",
+      "pos": [
+        325,
+        140
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": ".github/workflows/deploy-aws.yml"
+        },
+        {
+          "path": "deploy/aws/terraform/github.tf"
+        }
+      ]
+    },
+    {
+      "id": "ecr",
+      "type": "cloud",
+      "label": "Amazon ECR",
+      "sublabel": "imagen por commit",
+      "pos": [
+        610,
+        140
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "Dockerfile"
+        },
+        {
+          "path": "deploy/aws/terraform/registry.tf"
+        }
+      ]
+    },
+    {
+      "id": "alb",
+      "type": "security",
+      "label": "ALB",
+      "sublabel": ":443 · pública",
+      "pos": [
+        610,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "deploy/aws/terraform/load_balancer.tf"
+        },
+        {
+          "path": "deploy/aws/terraform/network.tf"
+        }
+      ]
+    },
+    {
+      "id": "secrets",
+      "type": "security",
+      "label": "Secrets Manager",
+      "sublabel": "DATABASE_URL · claves",
+      "pos": [
+        610,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "deploy/aws/terraform/database.tf"
+        },
+        {
+          "path": "deploy/aws/terraform/service.tf"
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "ECS Fargate · app",
+      "sublabel": "Next.js standalone",
+      "tag": "subred privada",
+      "pos": [
+        895,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/app/api/diagrams/route.ts"
+        },
+        {
+          "path": "src/server/handler.ts"
+        },
+        {
+          "path": "deploy/aws/terraform/service.tf"
+        }
+      ]
+    },
+    {
+      "id": "rds",
+      "type": "database",
+      "label": "RDS PostgreSQL 17",
+      "sublabel": "diagramas · sesiones",
+      "tag": "LISTEN/NOTIFY",
+      "pos": [
+        895,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/server/schema.ts"
+        },
+        {
+          "path": "src/server/collab/bus.ts"
+        },
+        {
+          "path": "deploy/aws/terraform/database.tf"
+        }
+      ]
+    },
+    {
+      "id": "logs",
+      "type": "cloud",
+      "label": "CloudWatch Logs",
+      "sublabel": "logs JSON · métricas",
+      "pos": [
+        895,
+        140
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/server/observability/log.ts"
+        },
+        {
+          "path": "src/server/observability/metrics.ts"
+        }
+      ]
+    },
+    {
+      "id": "anthropic",
+      "type": "external",
+      "label": "Anthropic API",
+      "sublabel": "claude-opus-5",
+      "pos": [
+        1180,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/lib/ai/client.ts"
+        },
+        {
+          "path": "src/app/api/ai/generate/route.ts"
+        }
+      ]
+    },
+    {
+      "id": "oidc",
+      "type": "external",
+      "label": "Proveedor OIDC",
+      "sublabel": "opcional · PKCE",
+      "pos": [
+        1180,
+        520
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/server/auth/oidc.ts"
+        },
+        {
+          "path": "docs/AUTHENTIK.md"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "AWS · VPC ac-graph (Terraform)",
+      "wraps": [
+        "ecr",
+        "alb",
+        "secrets",
+        "app",
+        "rds",
+        "logs"
+      ],
+      "pad": 28
+    },
+    {
+      "kind": "security-group",
+      "label": "subred pública",
+      "wraps": [
+        "alb"
+      ],
+      "pad": 12
+    },
+    {
+      "kind": "security-group",
+      "label": "subredes privadas",
+      "wraps": [
+        "app",
+        "rds"
+      ],
+      "pad": 12
+    }
+  ],
+  "connections": [
+    {
+      "from": "browser",
+      "to": "local_store",
+      "label": "guarda sin cuenta",
+      "variant": "dashed"
+    },
+    {
+      "from": "browser",
+      "to": "lib",
+      "label": "empaquetada por Next",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 70
+    },
+    {
+      "from": "cli",
+      "to": "lib",
+      "label": "Node strip-types"
+    },
+    {
+      "from": "browser",
+      "to": "dns",
+      "label": "HTTPS + SSE",
+      "variant": "emphasis"
+    },
+    {
+      "from": "dns",
+      "to": "alb",
+      "label": "TLS 443",
+      "variant": "security"
+    },
+    {
+      "from": "alb",
+      "to": "app",
+      "label": "HTTP :3000",
+      "variant": "emphasis"
+    },
+    {
+      "from": "app",
+      "to": "rds",
+      "label": "SQL · TLS verify-full",
+      "variant": "security",
+      "labelDy": 96
+    },
+    {
+      "from": "secrets",
+      "to": "app",
+      "label": "inyecta env al arrancar",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "app",
+      "to": "anthropic",
+      "label": "Messages API",
+      "variant": "dashed"
+    },
+    {
+      "from": "app",
+      "to": "oidc",
+      "label": "login SSO",
+      "variant": "dashed"
+    },
+    {
+      "from": "app",
+      "to": "logs",
+      "label": "awslogs",
+      "variant": "dashed",
+      "labelDy": -75
+    },
+    {
+      "from": "github",
+      "to": "ecr",
+      "label": "push imagen"
+    },
+    {
+      "from": "ecr",
+      "to": "app",
+      "label": "pull · rueda el servicio",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Dos modos, un mismo código",
+      "items": [
+        "Modo local: sin backend, todo vive en IndexedDB y localStorage del navegador",
+        "Modo servidor: DATABASE_URL + APP_URL activan cuentas, colaboración y biblioteca compartida",
+        "La librería de src/lib corre en el navegador, en las API routes y en la CLI/MCP bajo Node"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Seguridad y red",
+      "items": [
+        "Solo el ALB es público; la app y RDS viven en subredes privadas con security groups propios",
+        "La conexión a PostgreSQL verifica el certificado de RDS (sslmode=verify-full)",
+        "Secretos en Secrets Manager; GitHub despliega asumiendo un rol por OIDC, sin claves de acceso"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Operación y colaboración",
+      "items": [
+        "Presencia y cambios en vivo por SSE; PostgreSQL LISTEN/NOTIFY los propaga entre réplicas",
+        "Logs JSON en CloudWatch, métricas Prometheus en /api/metrics y trazas OTLP opcionales",
+        "Cada push a main construye la imagen, la sube a ECR y rueda el servicio ECS hasta que /api/health responde"
+      ]
+    }
+  ]
+}
